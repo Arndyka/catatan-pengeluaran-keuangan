@@ -76,3 +76,12 @@ Chart yang ditambahkan:
 2. Chart Pemasukan vs Pengeluaran
 
 Jika chart belum muncul, tekan Ctrl + F5 setelah GitHub Pages selesai deploy.
+
+
+## Revisi Final No Empty Space
+
+Perubahan:
+- Firebase config sudah dimasukkan langsung.
+- Chart Saldo per Bank diubah menjadi horizontal bar chart.
+- Saldo negatif tetap tampil di chart, jadi tidak kosong.
+- Layout Saldo per Bank dibuat lebih padat.

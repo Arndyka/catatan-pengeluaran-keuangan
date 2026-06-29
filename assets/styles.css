@@ -1143,3 +1143,50 @@ tr:last-child td {
     height: 240px;
   }
 }
+
+/* FINAL LAYOUT PATCH - NO EMPTY SPACE */
+.bank-dashboard {
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
+  align-items: stretch;
+}
+
+.bank-dashboard .bank-grid {
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
+.bank-card {
+  min-height: auto;
+}
+
+.chart-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-wrap {
+  flex: 1;
+  min-height: 250px;
+  height: 250px;
+}
+
+.short-chart {
+  height: 250px;
+}
+
+.chart-empty {
+  min-height: 250px;
+}
+
+@media (max-width: 1180px) {
+  .bank-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-wrap,
+  .short-chart,
+  .chart-empty {
+    height: 240px;
+    min-height: 240px;
+  }
+}

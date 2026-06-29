@@ -759,8 +759,8 @@ function renderBankBalanceChart() {
   }
 
   const banks = getBankBalances()
-    .filter((bank) => bank.balance > 0)
-    .sort((a, b) => b.balance - a.balance);
+    .filter((bank) => bank.balance !== 0 || bank.income !== 0 || bank.expense !== 0 || bank.transferIn !== 0 || bank.transferOut !== 0)
+    .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
 
   if (bankBalanceChartInstance) {
     bankBalanceChartInstance.destroy();
@@ -780,57 +780,69 @@ function renderBankBalanceChart() {
     bankBalanceChartCanvas.classList.add("hidden");
     const empty = document.createElement("div");
     empty.className = "chart-empty";
-    empty.innerHTML = "Belum ada saldo positif.<br>Input pemasukan untuk menampilkan chart saldo per bank.";
+    empty.innerHTML = "Belum ada data bank.<br>Input pemasukan atau pengeluaran untuk menampilkan chart.";
     container.appendChild(empty);
     return;
   }
 
   bankBalanceChartInstance = new Chart(bankBalanceChartCanvas, {
-    type: "doughnut",
+    type: "bar",
     data: {
       labels: banks.map((bank) => bank.name),
       datasets: [
         {
+          label: "Saldo",
           data: banks.map((bank) => bank.balance),
-          borderWidth: 3,
-          borderColor: "#ffffff",
-          hoverOffset: 8
+          borderRadius: 10,
+          borderSkipped: false
         }
       ]
     },
     options: {
+      indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
-      cutout: "68%",
       plugins: {
         legend: {
-          position: "bottom",
-          labels: {
-            color: getChartTextColor(),
-            usePointStyle: true,
-            pointStyle: "circle",
-            boxWidth: 8,
-            padding: 16,
-            font: {
-              size: 12,
-              weight: "700"
-            }
-          }
+          display: false
         },
         tooltip: {
           callbacks: {
             label: function(context) {
-              const value = context.raw || 0;
-              const total = context.dataset.data.reduce((sum, current) => sum + current, 0);
-              const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-              return `${context.label}: ${formatRupiah(value)} (${percentage}%)`;
+              return `Saldo: ${formatRupiah(context.raw || 0)}`;
             }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: getChartTextColor(),
+            callback: function(value) {
+              return formatRupiah(value);
+            }
+          },
+          grid: {
+            color: getChartGridColor()
+          }
+        },
+        y: {
+          ticks: {
+            color: getChartTextColor(),
+            font: {
+              size: 12,
+              weight: "800"
+            }
+          },
+          grid: {
+            display: false
           }
         }
       }
     }
   });
 }
+
 
 function renderCashflowChart() {
   if (!cashflowChartCanvas || typeof Chart === "undefined") {
