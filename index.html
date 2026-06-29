@@ -3,122 +3,452 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <title>Spendly | Budget Tracker</title>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="assets/styles.css">
+
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
 </head>
+
 <body>
   <main id="authScreen" class="auth-screen">
     <section class="auth-card">
       <div class="auth-visual">
-        <div class="brand"><div class="logo">S</div><div><b>Spendly</b><span>Budget Tracker</span></div></div>
-        <div class="auth-copy">
-          <p>Cloud budget management</p>
-          <h1>Kelola pemasukan, pengeluaran, transfer, dan saldo bank.</h1>
-          <small>Data tersimpan online per akun Firebase dan sinkron di laptop maupun HP.</small>
+        <div class="brand-row">
+          <div class="brand-mark">S</div>
+          <div>
+            <div class="brand-name">Spendly</div>
+            <div class="brand-subtitle">Budget Tracker</div>
+          </div>
         </div>
-        <div class="feature-list">
-          <div><b>Multi-bank balance</b><span>Lihat saldo tiap bank secara otomatis.</span></div>
-          <div><b>Smart bank matching</b><span>Mandiri, Bank Mandiri, ManDiri dianggap sama.</span></div>
-          <div><b>Private per user</b><span>Setiap akun hanya melihat data miliknya.</span></div>
+
+        <div class="auth-copy">
+          <p class="eyebrow">Cloud budget management</p>
+          <h1>Kelola pemasukan, pengeluaran, dan saldo bank.</h1>
+          <p>
+            Catat uang masuk, uang keluar, dan transfer antar bank. Data tersimpan online per akun dan sinkron di laptop maupun HP.
+          </p>
+        </div>
+
+        <div class="feature-stack">
+          <div class="feature-item">
+            <span>01</span>
+            <div>
+              <strong>Multi-account balance</strong>
+              <p>Lihat sisa uang di setiap bank secara otomatis.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <span>02</span>
+            <div>
+              <strong>Edit transaksi</strong>
+              <p>Perbaiki bank, nominal, kategori, atau keterangan tanpa hapus data.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <span>03</span>
+            <div>
+              <strong>Smart bank matching</strong>
+              <p>Mandiri, Bank Mandiri, dan ManDiri dibaca sebagai bank yang sama.</p>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="auth-form">
-        <div class="mobile-brand brand"><div class="logo">S</div><div><b>Spendly</b><span>Budget Tracker</span></div></div>
-        <h2 id="authTitle">Masuk ke akun</h2>
-        <p id="authSubtitle">Gunakan email dan password untuk mengakses budget tracker.</p>
-        <div class="tabs"><button id="loginTab" class="active" type="button">Login</button><button id="registerTab" type="button">Register</button></div>
-        <form id="authForm" class="form">
-          <label>Email<input id="authEmail" type="email" placeholder="nama@email.com"></label>
-          <label>Password<input id="authPassword" type="password" placeholder="Minimal 6 karakter"></label>
-          <button id="authButton" class="btn primary" type="submit">Login</button>
-          <div id="authMessage" class="notice info">Masukkan email dan password untuk login.</div>
+
+      <div class="auth-form-panel">
+        <div class="mobile-brand">
+          <div class="brand-mark">S</div>
+          <div>
+            <div class="brand-name">Spendly</div>
+            <div class="brand-subtitle">Budget Tracker</div>
+          </div>
+        </div>
+
+        <div class="auth-heading">
+          <h2 id="authTitle">Masuk ke akun</h2>
+          <p id="authSubtitle">Gunakan email dan password untuk mengakses budget tracker.</p>
+        </div>
+
+        <div class="auth-tabs">
+          <button id="loginTab" class="tab-btn active" type="button">Login</button>
+          <button id="registerTab" class="tab-btn" type="button">Register</button>
+        </div>
+
+        <form id="authForm" class="form-stack">
+          <div class="field">
+            <label for="authEmail">Email</label>
+            <input id="authEmail" type="email" placeholder="nama@email.com" autocomplete="email">
+          </div>
+
+          <div class="field">
+            <label for="authPassword">Password</label>
+            <input id="authPassword" type="password" placeholder="Minimal 6 karakter" autocomplete="current-password">
+          </div>
+
+          <button id="authButton" class="btn btn-primary" type="submit">
+            Login
+          </button>
+
+          <div id="authMessage" class="notice info">
+            Masukkan email dan password untuk login. Jika belum punya akun, pilih Register.
+          </div>
         </form>
       </div>
     </section>
   </main>
 
-  <main id="appScreen" class="app hidden">
+  <main id="appScreen" class="app-shell hidden">
     <aside class="sidebar">
-      <div class="brand"><div class="logo">S</div><div><b>Spendly</b><span>Budget Tracker</span></div></div>
-      <nav>
-        <a href="#dashboard" class="active">Dashboard</a>
-        <a href="#input">Input Transaksi</a>
-        <a href="#bank">Saldo Bank</a>
-        <a href="#data">Riwayat</a>
+      <div class="sidebar-brand">
+        <div class="brand-mark">S</div>
+        <div>
+          <div class="brand-name">Spendly</div>
+          <div class="brand-subtitle">Budget Tracker</div>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <a class="nav-item active" href="#dashboard">
+          <span class="nav-icon">⌘</span>
+          Dashboard
+        </a>
+        <a class="nav-item" href="#input">
+          <span class="nav-icon">＋</span>
+          Input
+        </a>
+        <a class="nav-item" href="#bank">
+          <span class="nav-icon">▣</span>
+          Saldo Bank
+        </a>
+        <a class="nav-item" href="#data">
+          <span class="nav-icon">▦</span>
+          Riwayat
+        </a>
       </nav>
-      <div class="side-note"><small>Database</small><b>Firebase Firestore</b><span>Data tersimpan online sesuai akun user.</span></div>
+
+      <div class="sidebar-note">
+        <span class="note-label">Sync</span>
+        <strong>Firebase Firestore</strong>
+        <p>Saldo dan transaksi tersimpan online sesuai akun user.</p>
+      </div>
     </aside>
 
-    <section class="content">
+    <section class="content-area">
       <header class="topbar">
-        <div><span class="kicker">Overview</span><h1>Budget Tracker</h1></div>
-        <div class="account"><div id="userInitial" class="avatar">U</div><div><small>Login sebagai</small><b id="userEmail">-</b></div><button id="logoutButton" class="btn ghost" type="button">Logout</button></div>
+        <div>
+          <p class="page-kicker">Overview</p>
+          <h1>Budget Tracker</h1>
+        </div>
+
+        <div class="account-card">
+          <div class="avatar" id="userInitial">U</div>
+          <div class="account-info">
+            <span>Login sebagai</span>
+            <strong id="userEmail">-</strong>
+          </div>
+          <button id="logoutButton" class="btn btn-ghost" type="button">Logout</button>
+        </div>
       </header>
 
-      <section id="dashboard" class="stats">
-        <div class="stat main"><span>Sisa Uang</span><b id="sisaUang">Rp 0</b><small>Total pemasukan - total pengeluaran</small></div>
-        <div class="stat"><span>Total Pemasukan</span><b id="totalPemasukan">Rp 0</b><small>Semua uang masuk</small></div>
-        <div class="stat"><span>Total Pengeluaran</span><b id="totalPengeluaran">Rp 0</b><small>Semua uang keluar</small></div>
-        <div class="stat"><span>Jumlah Bank</span><b id="jumlahBank">0</b><small>Bank/dompet aktif</small></div>
-      </section>
-
-      <section class="grid">
-        <article id="input" class="panel">
-          <div class="panel-head"><span class="kicker">New Record</span><h2>Input Transaksi</h2></div>
-          <div class="mode-tabs"><button id="incomeTab" class="active">Pemasukan</button><button id="expenseTab">Pengeluaran</button><button id="transferTab">Transfer</button></div>
-
-          <form id="incomeForm" class="form tx-form">
-            <label>Tanggal<input id="incomeTanggal" type="date"></label>
-            <label>Masuk ke Bank/Dompet<input id="incomeBank" type="text" placeholder="Contoh: Mandiri, BCA, Dana"></label>
-            <label>Sumber Pemasukan<input id="incomeSource" type="text" placeholder="Contoh: Gaji, penjualan barang"></label>
-            <label>Nominal<input id="incomeNominal" type="number" placeholder="Contoh: 8000000"></label>
-            <label>Keterangan<input id="incomeKeterangan" type="text" placeholder="Contoh: Gaji bulan Juni"></label>
-            <button id="saveIncomeButton" class="btn primary" type="submit">Simpan Pemasukan</button>
-          </form>
-
-          <form id="expenseForm" class="form tx-form hidden">
-            <label>Tanggal<input id="expenseTanggal" type="date"></label>
-            <label>Dibayar dari Bank/Dompet<input id="expenseBank" type="text" placeholder="Contoh: Mandiri, BCA, Cash"></label>
-            <label>Kategori<select id="expenseKategori"><option>Makan</option><option>Transportasi</option><option>Belanja</option><option>Tagihan</option><option>Hiburan</option><option>Kesehatan</option><option>Lainnya</option></select></label>
-            <label>Nominal<input id="expenseNominal" type="number" placeholder="Contoh: 25000"></label>
-            <label>Keterangan<input id="expenseKeterangan" type="text" placeholder="Contoh: makan siang"></label>
-            <button id="saveExpenseButton" class="btn primary" type="submit">Simpan Pengeluaran</button>
-          </form>
-
-          <form id="transferForm" class="form tx-form hidden">
-            <label>Tanggal<input id="transferTanggal" type="date"></label>
-            <label>Dari Bank/Dompet<input id="transferFromBank" type="text" placeholder="Contoh: Mandiri"></label>
-            <label>Ke Bank/Dompet Tujuan<input id="transferToBank" type="text" placeholder="Contoh: BCA, Dana, Bank Mandiri"></label>
-            <label>Nominal<input id="transferNominal" type="number" placeholder="Contoh: 500000"></label>
-            <label>Keterangan<input id="transferKeterangan" type="text" placeholder="Contoh: pindah dana operasional"></label>
-            <button id="saveTransferButton" class="btn primary" type="submit">Simpan Transfer</button>
-          </form>
-          <div id="transactionMessage" class="notice info">Nama bank akan dinormalisasi otomatis.</div>
+      <section id="dashboard" class="stats-grid">
+        <article class="stat-card primary-stat">
+          <div class="stat-label">Sisa Uang</div>
+          <div id="sisaUang" class="stat-value">Rp 0</div>
+          <div class="stat-meta">Total pemasukan - total pengeluaran</div>
         </article>
 
-        <article id="bank" class="panel">
-          <div class="panel-head split"><div><span class="kicker">Bank Balance</span><h2>Saldo per Bank</h2></div><div><button id="downloadCsvButton" class="btn soft-green">CSV</button><button id="downloadExcelButton" class="btn soft-yellow">Excel</button></div></div>
+        <article class="stat-card income-stat">
+          <div class="stat-label">Total Pemasukan</div>
+          <div id="totalPemasukan" class="stat-value">Rp 0</div>
+          <div class="stat-meta">Semua uang masuk</div>
+        </article>
+
+        <article class="stat-card expense-stat">
+          <div class="stat-label">Total Pengeluaran</div>
+          <div id="totalPengeluaran" class="stat-value">Rp 0</div>
+          <div class="stat-meta">Semua uang keluar</div>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-label">Jumlah Bank</div>
+          <div id="jumlahBank" class="stat-value">0</div>
+          <div class="stat-meta">Bank/dompet aktif</div>
+        </article>
+      </section>
+
+      <section class="main-grid">
+        <article id="input" class="panel input-panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">New Record</p>
+              <h2>Input Transaksi</h2>
+            </div>
+          </div>
+
+          <div class="transaction-tabs">
+            <button id="incomeTab" class="transaction-tab active" type="button">Pemasukan</button>
+            <button id="expenseTab" class="transaction-tab" type="button">Pengeluaran</button>
+            <button id="transferTab" class="transaction-tab" type="button">Transfer</button>
+          </div>
+
+          <form id="incomeForm" class="form-stack transaction-form">
+            <div class="field">
+              <label for="incomeTanggal">Tanggal</label>
+              <input id="incomeTanggal" type="date">
+            </div>
+
+            <div class="field">
+              <label for="incomeBank">Masuk ke Bank/Dompet</label>
+              <input id="incomeBank" type="text" placeholder="Contoh: Mandiri, BCA, Dana">
+            </div>
+
+            <div class="field">
+              <label for="incomeSource">Sumber Pemasukan</label>
+              <input id="incomeSource" type="text" placeholder="Contoh: Gaji, penjualan barang">
+            </div>
+
+            <div class="field">
+              <label for="incomeNominal">Nominal</label>
+              <input id="incomeNominal" type="number" placeholder="Contoh: 8000000">
+            </div>
+
+            <div class="field">
+              <label for="incomeKeterangan">Keterangan</label>
+              <input id="incomeKeterangan" type="text" placeholder="Contoh: Gaji bulan Juni">
+            </div>
+
+            <button id="saveIncomeButton" class="btn btn-primary" type="submit">
+              Simpan Pemasukan
+            </button>
+          </form>
+
+          <form id="expenseForm" class="form-stack transaction-form hidden">
+            <div class="field">
+              <label for="expenseTanggal">Tanggal</label>
+              <input id="expenseTanggal" type="date">
+            </div>
+
+            <div class="field">
+              <label for="expenseBank">Dibayar dari Bank/Dompet</label>
+              <input id="expenseBank" type="text" placeholder="Contoh: Mandiri, BCA, Cash">
+            </div>
+
+            <div class="field">
+              <label for="expenseKategori">Kategori</label>
+              <select id="expenseKategori">
+                <option value="Makan">Makan</option>
+                <option value="Transportasi">Transportasi</option>
+                <option value="Belanja">Belanja</option>
+                <option value="Tagihan">Tagihan</option>
+                <option value="Hiburan">Hiburan</option>
+                <option value="Kesehatan">Kesehatan</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="expenseNominal">Nominal</label>
+              <input id="expenseNominal" type="number" placeholder="Contoh: 25000">
+            </div>
+
+            <div class="field">
+              <label for="expenseKeterangan">Keterangan</label>
+              <input id="expenseKeterangan" type="text" placeholder="Contoh: makan siang">
+            </div>
+
+            <button id="saveExpenseButton" class="btn btn-primary" type="submit">
+              Simpan Pengeluaran
+            </button>
+          </form>
+
+          <form id="transferForm" class="form-stack transaction-form hidden">
+            <div class="field">
+              <label for="transferTanggal">Tanggal</label>
+              <input id="transferTanggal" type="date">
+            </div>
+
+            <div class="field">
+              <label for="transferFromBank">Dari Bank/Dompet</label>
+              <input id="transferFromBank" type="text" placeholder="Contoh: Mandiri">
+            </div>
+
+            <div class="field">
+              <label for="transferToBank">Ke Bank/Dompet Tujuan</label>
+              <input id="transferToBank" type="text" placeholder="Contoh: BCA, Dana, Bank Mandiri">
+            </div>
+
+            <div class="field">
+              <label for="transferNominal">Nominal</label>
+              <input id="transferNominal" type="number" placeholder="Contoh: 500000">
+            </div>
+
+            <div class="field">
+              <label for="transferKeterangan">Keterangan</label>
+              <input id="transferKeterangan" type="text" placeholder="Contoh: pindah dana operasional">
+            </div>
+
+            <button id="saveTransferButton" class="btn btn-primary" type="submit">
+              Simpan Transfer
+            </button>
+          </form>
+
+          <div id="transactionMessage" class="notice info">
+            Nama bank akan dinormalisasi. Contoh: Mandiri, Bank Mandiri, dan ManDiri dianggap satu bank.
+          </div>
+        </article>
+
+        <article id="bank" class="panel bank-panel">
+          <div class="panel-header table-header">
+            <div>
+              <p class="section-label">Bank Balance</p>
+              <h2>Saldo per Bank</h2>
+            </div>
+
+            <div class="export-actions">
+              <button id="downloadCsvButton" class="btn btn-soft-success" type="button">CSV</button>
+              <button id="downloadExcelButton" class="btn btn-soft-warning" type="button">Excel</button>
+            </div>
+          </div>
+
           <div id="bankBalanceGrid" class="bank-grid"></div>
-          <div class="summary-note">Transfer antar bank tidak mengubah total uang. Transfer hanya memindahkan saldo antar bank/dompet.</div>
+
+          <div class="summary-note">
+            Total sisa uang dihitung dari seluruh saldo bank/dompet. Transfer antar bank tidak mengubah total uang, hanya memindahkan saldo.
+          </div>
         </article>
       </section>
 
-      <section id="data" class="panel history">
-        <div class="panel-head"><span class="kicker">History</span><h2>Riwayat Transaksi</h2></div>
-        <div class="filters">
-          <label>Filter Tanggal<input id="filterTanggal" type="date"></label>
-          <label>Filter Tipe<select id="filterTipe"><option value="Semua">Semua Tipe</option><option value="income">Pemasukan</option><option value="expense">Pengeluaran</option><option value="transfer">Transfer</option></select></label>
-          <label>Filter Bank<input id="filterBank" type="text" placeholder="Contoh: Mandiri"></label>
-          <button id="resetFilterButton" class="btn secondary">Reset</button>
+      <section id="data" class="panel data-panel full-panel">
+        <div class="panel-header table-header">
+          <div>
+            <p class="section-label">History</p>
+            <h2>Riwayat Transaksi</h2>
+          </div>
         </div>
+
+        <div class="filter-card">
+          <div class="field">
+            <label for="filterTanggal">Filter Tanggal</label>
+            <input id="filterTanggal" type="date">
+          </div>
+
+          <div class="field">
+            <label for="filterTipe">Filter Tipe</label>
+            <select id="filterTipe">
+              <option value="Semua">Semua Tipe</option>
+              <option value="income">Pemasukan</option>
+              <option value="expense">Pengeluaran</option>
+              <option value="transfer">Transfer</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="filterBank">Filter Bank</label>
+            <input id="filterBank" type="text" placeholder="Contoh: Mandiri">
+          </div>
+
+          <button id="resetFilterButton" class="btn btn-secondary" type="button">
+            Reset
+          </button>
+        </div>
+
         <div id="tabelContainer"></div>
       </section>
     </section>
   </main>
+
+  <div id="editModal" class="modal-backdrop hidden">
+    <section class="modal-card">
+      <div class="modal-header">
+        <div>
+          <p class="section-label">Edit Record</p>
+          <h2 id="editTitle">Edit Transaksi</h2>
+        </div>
+        <button id="closeEditModal" class="icon-btn" type="button">×</button>
+      </div>
+
+      <form id="editForm" class="form-stack modal-body">
+        <input id="editId" type="hidden">
+        <input id="editType" type="hidden">
+
+        <div class="field">
+          <label for="editTanggal">Tanggal</label>
+          <input id="editTanggal" type="date">
+        </div>
+
+        <div id="editIncomeFields" class="edit-field-group hidden">
+          <div class="field">
+            <label for="editIncomeBank">Masuk ke Bank/Dompet</label>
+            <input id="editIncomeBank" type="text" placeholder="Contoh: Mandiri">
+          </div>
+
+          <div class="field">
+            <label for="editIncomeSource">Sumber Pemasukan</label>
+            <input id="editIncomeSource" type="text" placeholder="Contoh: Gaji">
+          </div>
+        </div>
+
+        <div id="editExpenseFields" class="edit-field-group hidden">
+          <div class="field">
+            <label for="editExpenseBank">Dibayar dari Bank/Dompet</label>
+            <input id="editExpenseBank" type="text" placeholder="Contoh: Mandiri">
+          </div>
+
+          <div class="field">
+            <label for="editExpenseKategori">Kategori</label>
+            <select id="editExpenseKategori">
+              <option value="Makan">Makan</option>
+              <option value="Transportasi">Transportasi</option>
+              <option value="Belanja">Belanja</option>
+              <option value="Tagihan">Tagihan</option>
+              <option value="Hiburan">Hiburan</option>
+              <option value="Kesehatan">Kesehatan</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="editTransferFields" class="edit-field-group hidden">
+          <div class="field">
+            <label for="editTransferFromBank">Dari Bank/Dompet</label>
+            <input id="editTransferFromBank" type="text" placeholder="Contoh: Mandiri">
+          </div>
+
+          <div class="field">
+            <label for="editTransferToBank">Ke Bank/Dompet Tujuan</label>
+            <input id="editTransferToBank" type="text" placeholder="Contoh: BCA">
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="editNominal">Nominal</label>
+          <input id="editNominal" type="number" placeholder="Contoh: 25000">
+        </div>
+
+        <div class="field">
+          <label for="editKeterangan">Keterangan</label>
+          <input id="editKeterangan" type="text" placeholder="Keterangan transaksi">
+        </div>
+
+        <div id="editMessage" class="notice info modal-notice">
+          Ubah data transaksi, lalu klik Simpan Perubahan.
+        </div>
+
+        <div class="modal-actions">
+          <button id="cancelEditButton" class="btn btn-secondary" type="button">Batal</button>
+          <button id="saveEditButton" class="btn btn-primary" type="submit">Simpan Perubahan</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
   <script type="module" src="assets/app.js"></script>
 </body>
 </html>
