@@ -1190,3 +1190,166 @@ tr:last-child td {
     min-height: 240px;
   }
 }
+
+/* COMPACT BANK SECTION PATCH */
+.main-grid {
+  align-items: stretch;
+}
+
+.input-panel,
+.bank-panel {
+  height: 100%;
+}
+
+.bank-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+.bank-dashboard {
+  grid-template-columns: minmax(220px, 0.82fr) minmax(300px, 1.18fr);
+  gap: 14px;
+  padding: 18px;
+  flex: 1;
+}
+
+.bank-dashboard .bank-grid {
+  grid-template-columns: 1fr;
+  gap: 10px;
+  align-content: start;
+}
+
+.bank-card {
+  padding: 15px;
+}
+
+.bank-name {
+  font-size: 15px;
+}
+
+.bank-balance {
+  margin-top: 12px;
+  font-size: 20px;
+}
+
+.bank-detail {
+  margin-top: 8px;
+  line-height: 1.45;
+}
+
+.bank-panel .summary-note {
+  margin: 0 18px 18px;
+  padding: 12px 14px;
+  font-size: 12px;
+}
+
+.bank-panel .chart-card {
+  padding: 15px;
+}
+
+.bank-panel .chart-wrap {
+  height: 218px;
+  min-height: 218px;
+}
+
+.bank-panel .chart-empty {
+  height: 218px;
+  min-height: 218px;
+}
+
+.cashflow-section {
+  margin-bottom: 22px;
+}
+
+.cashflow-section .panel-header {
+  padding: 18px 22px;
+}
+
+.standalone-cashflow {
+  margin: 18px 22px 22px;
+  padding: 16px;
+}
+
+.standalone-cashflow .short-chart {
+  height: 230px;
+  min-height: 230px;
+}
+
+@media (max-width: 1180px) {
+  .bank-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .bank-panel .chart-wrap,
+  .bank-panel .chart-empty {
+    height: 220px;
+    min-height: 220px;
+  }
+}
+
+@media (max-width: 720px) {
+  .cashflow-section .panel-header {
+    padding: 18px;
+  }
+
+  .standalone-cashflow {
+    margin: 18px;
+  }
+
+  .standalone-cashflow .short-chart {
+    height: 220px;
+    min-height: 220px;
+  }
+}
+
+
+/* FIX BANK BALANCE CHART SIZE - NORMAL WIDTH & HEIGHT */
+.bank-dashboard {
+  grid-template-columns: minmax(260px, 1fr) minmax(320px, 1fr) !important;
+  align-items: start !important;
+}
+
+.bank-dashboard .bank-card {
+  min-height: 180px !important;
+}
+
+.bank-dashboard .chart-card {
+  width: 100% !important;
+  max-width: 520px !important;
+  justify-self: start !important;
+  padding: 14px !important;
+}
+
+.bank-dashboard .chart-header {
+  margin-bottom: 8px !important;
+}
+
+.bank-dashboard .chart-header h3 {
+  font-size: 15px !important;
+}
+
+.bank-panel .chart-wrap {
+  height: 180px !important;
+  min-height: 180px !important;
+}
+
+.bank-panel .chart-empty {
+  height: 180px !important;
+  min-height: 180px !important;
+}
+
+@media (max-width: 1180px) {
+  .bank-dashboard {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bank-dashboard .chart-card {
+    max-width: 100% !important;
+  }
+
+  .bank-panel .chart-wrap,
+  .bank-panel .chart-empty {
+    height: 200px !important;
+    min-height: 200px !important;
+  }
+}

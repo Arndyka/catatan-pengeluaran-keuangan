@@ -793,8 +793,10 @@ function renderBankBalanceChart() {
         {
           label: "Saldo",
           data: banks.map((bank) => bank.balance),
-          borderRadius: 10,
-          borderSkipped: false
+          borderRadius: 8,
+          borderSkipped: false,
+          barThickness: 28,
+          maxBarThickness: 32
         }
       ]
     },
