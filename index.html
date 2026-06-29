@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="assets/styles.css">
 
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -317,7 +318,33 @@
             </div>
           </div>
 
-          <div id="bankBalanceGrid" class="bank-grid"></div>
+          <div class="bank-dashboard">
+            <div id="bankBalanceGrid" class="bank-grid"></div>
+
+            <div class="chart-card">
+              <div class="chart-header">
+                <div>
+                  <p class="section-label">Bank Allocation</p>
+                  <h3>Chart Saldo per Bank</h3>
+                </div>
+              </div>
+              <div class="chart-wrap">
+                <canvas id="bankBalanceChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="chart-card cashflow-card">
+            <div class="chart-header">
+              <div>
+                <p class="section-label">Cashflow</p>
+                <h3>Pemasukan vs Pengeluaran</h3>
+              </div>
+            </div>
+            <div class="chart-wrap short-chart">
+              <canvas id="cashflowChart"></canvas>
+            </div>
+          </div>
 
           <div class="summary-note">
             Total sisa uang dihitung dari seluruh saldo bank/dompet. Transfer antar bank tidak mengubah total uang, hanya memindahkan saldo.

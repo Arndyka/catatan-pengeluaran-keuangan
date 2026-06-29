@@ -5,14 +5,12 @@
 */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBTI3nR4CA5HdVGeP3zg7YibS2kfEvcCNc",
-  authDomain: "catatan-pengeluaran-keua-19af4.firebaseapp.com",
-  databaseURL: "https://catatan-pengeluaran-keua-19af4-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "catatan-pengeluaran-keua-19af4",
-  storageBucket: "catatan-pengeluaran-keua-19af4.firebasestorage.app",
-  messagingSenderId: "582629555317",
-  appId: "1:582629555317:web:4e8a943c221f53f96bcc3c",
-  measurementId: "G-GDWT3NWNMH"
+  apiKey: "ISI_API_KEY_KAMU",
+  authDomain: "ISI_PROJECT_ID.firebaseapp.com",
+  projectId: "ISI_PROJECT_ID",
+  storageBucket: "ISI_PROJECT_ID.appspot.com",
+  messagingSenderId: "ISI_MESSAGING_SENDER_ID",
+  appId: "ISI_APP_ID"
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -103,7 +101,12 @@ const totalPengeluaran = document.getElementById("totalPengeluaran");
 const jumlahBank = document.getElementById("jumlahBank");
 
 const bankBalanceGrid = document.getElementById("bankBalanceGrid");
+const bankBalanceChartCanvas = document.getElementById("bankBalanceChart");
+const cashflowChartCanvas = document.getElementById("cashflowChart");
 const tabelContainer = document.getElementById("tabelContainer");
+
+let bankBalanceChartInstance = null;
+let cashflowChartInstance = null;
 
 const filterTanggal = document.getElementById("filterTanggal");
 const filterTipe = document.getElementById("filterTipe");
@@ -660,6 +663,7 @@ function applyFilters(item) {
 function renderAll() {
   renderStats();
   renderBankBalances();
+  renderCharts();
   renderTable();
 }
 
@@ -726,6 +730,177 @@ function amountDisplay(item) {
   if (item.type === "expense") return `<span class="amount expense">- ${formatRupiah(item.nominal)}</span>`;
   return `<span class="amount transfer">${formatRupiah(item.nominal)}</span>`;
 }
+
+
+function destroyChart(instance) {
+  if (instance) {
+    instance.destroy();
+  }
+}
+
+function getChartTextColor() {
+  return "#667085";
+}
+
+function getChartGridColor() {
+  return "rgba(228, 231, 236, 0.9)";
+}
+
+function renderCharts() {
+  renderBankBalanceChart();
+  renderCashflowChart();
+}
+
+function renderBankBalanceChart() {
+  if (!bankBalanceChartCanvas || typeof Chart === "undefined") {
+    return;
+  }
+
+  const banks = getBankBalances()
+    .filter((bank) => bank.balance > 0)
+    .sort((a, b) => b.balance - a.balance);
+
+  if (bankBalanceChartInstance) {
+    bankBalanceChartInstance.destroy();
+    bankBalanceChartInstance = null;
+  }
+
+  const container = bankBalanceChartCanvas.parentElement;
+
+  const oldEmpty = container.querySelector(".chart-empty");
+  if (oldEmpty) {
+    oldEmpty.remove();
+  }
+
+  bankBalanceChartCanvas.classList.remove("hidden");
+
+  if (banks.length === 0) {
+    bankBalanceChartCanvas.classList.add("hidden");
+    const empty = document.createElement("div");
+    empty.className = "chart-empty";
+    empty.innerHTML = "Belum ada saldo positif.<br>Input pemasukan untuk menampilkan chart saldo per bank.";
+    container.appendChild(empty);
+    return;
+  }
+
+  bankBalanceChartInstance = new Chart(bankBalanceChartCanvas, {
+    type: "doughnut",
+    data: {
+      labels: banks.map((bank) => bank.name),
+      datasets: [
+        {
+          data: banks.map((bank) => bank.balance),
+          borderWidth: 3,
+          borderColor: "#ffffff",
+          hoverOffset: 8
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: "68%",
+      plugins: {
+        legend: {
+          position: "bottom",
+          labels: {
+            color: getChartTextColor(),
+            usePointStyle: true,
+            pointStyle: "circle",
+            boxWidth: 8,
+            padding: 16,
+            font: {
+              size: 12,
+              weight: "700"
+            }
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.raw || 0;
+              const total = context.dataset.data.reduce((sum, current) => sum + current, 0);
+              const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
+              return `${context.label}: ${formatRupiah(value)} (${percentage}%)`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderCashflowChart() {
+  if (!cashflowChartCanvas || typeof Chart === "undefined") {
+    return;
+  }
+
+  const totalIncome = incomes.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+  const totalExpense = expenses.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+  const remaining = totalIncome - totalExpense;
+
+  if (cashflowChartInstance) {
+    cashflowChartInstance.destroy();
+    cashflowChartInstance = null;
+  }
+
+  cashflowChartInstance = new Chart(cashflowChartCanvas, {
+    type: "bar",
+    data: {
+      labels: ["Pemasukan", "Pengeluaran", "Sisa Uang"],
+      datasets: [
+        {
+          label: "Nominal",
+          data: [totalIncome, totalExpense, remaining],
+          borderRadius: 12,
+          borderSkipped: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: false
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return formatRupiah(context.raw || 0);
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            color: getChartTextColor(),
+            font: {
+              size: 12,
+              weight: "800"
+            }
+          },
+          grid: {
+            display: false
+          }
+        },
+        y: {
+          ticks: {
+            color: getChartTextColor(),
+            callback: function(value) {
+              return formatRupiah(value);
+            }
+          },
+          grid: {
+            color: getChartGridColor()
+          }
+        }
+      }
+    }
+  });
+}
+
 
 function renderTable() {
   const rows = getUnifiedTransactions();

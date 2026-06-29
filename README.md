@@ -1,9 +1,11 @@
 # Spendly Budget Tracker - With Edit Transaction
 
-Versi ini menambahkan fitur Edit Transaksi.
+Versi ini menambahkan fitur Edit Transaksi dan chart dashboard.
 
 ## Fitur Baru
 
+- Chart saldo per bank
+- Chart pemasukan vs pengeluaran
 - Edit pemasukan
 - Edit pengeluaran
 - Edit transfer
@@ -58,3 +60,19 @@ service cloud.firestore {
 ## Catatan
 
 Fitur edit membutuhkan `updateDoc`, sehingga Firestore Rules harus mengizinkan `update`.
+
+
+## Chart
+
+Versi ini memakai Chart.js melalui CDN:
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+```
+
+Chart yang ditambahkan:
+
+1. Chart Saldo per Bank
+2. Chart Pemasukan vs Pengeluaran
+
+Jika chart belum muncul, tekan Ctrl + F5 setelah GitHub Pages selesai deploy.
