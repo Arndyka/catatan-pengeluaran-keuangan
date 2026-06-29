@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Spendly | Catatan Pengeluaran</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="assets/styles.css">
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+</head>
+
+<body>
+  <main id="authScreen" class="auth-screen">
+    <section class="auth-card">
+      <div class="auth-visual">
+        <div class="brand-row">
+          <div class="brand-mark">S</div>
+          <div>
+            <div class="brand-name">Spendly</div>
+            <div class="brand-subtitle">Personal Expense Tracker</div>
+          </div>
+        </div>
+
+        <div class="auth-copy">
+          <p class="eyebrow">Cloud-based finance log</p>
+          <h1>Kelola pengeluaran harian dengan lebih rapi.</h1>
+          <p>
+            Data tersimpan online di Firebase berdasarkan akun user, sehingga tetap sinkron saat dibuka dari laptop atau HP.
+          </p>
+        </div>
+
+        <div class="feature-stack">
+          <div class="feature-item">
+            <span>01</span>
+            <div>
+              <strong>Private per user</strong>
+              <p>Setiap akun hanya melihat data miliknya sendiri.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <span>02</span>
+            <div>
+              <strong>Export siap pakai</strong>
+              <p>Download CSV atau Excel dengan sheet per tanggal.</p>
+            </div>
+          </div>
+
+          <div class="feature-item">
+            <span>03</span>
+            <div>
+              <strong>Multi-device</strong>
+              <p>Login akun yang sama, data tetap sama.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="auth-form-panel">
+        <div class="mobile-brand">
+          <div class="brand-mark">S</div>
+          <div>
+            <div class="brand-name">Spendly</div>
+            <div class="brand-subtitle">Expense Tracker</div>
+          </div>
+        </div>
+
+        <div class="auth-heading">
+          <h2 id="authTitle">Masuk ke akun</h2>
+          <p id="authSubtitle">Gunakan email dan password untuk mengakses data pengeluaran.</p>
+        </div>
+
+        <div class="auth-tabs">
+          <button id="loginTab" class="tab-btn active" type="button">Login</button>
+          <button id="registerTab" class="tab-btn" type="button">Register</button>
+        </div>
+
+        <form id="authForm" class="form-stack">
+          <div class="field">
+            <label for="authEmail">Email</label>
+            <input id="authEmail" type="email" placeholder="nama@email.com" autocomplete="email">
+          </div>
+
+          <div class="field">
+            <label for="authPassword">Password</label>
+            <input id="authPassword" type="password" placeholder="Minimal 6 karakter" autocomplete="current-password">
+          </div>
+
+          <button id="authButton" class="btn btn-primary" type="submit">
+            Login
+          </button>
+
+          <div id="authMessage" class="notice info">
+            Masukkan email dan password untuk login. Jika belum punya akun, pilih Register.
+          </div>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <main id="appScreen" class="app-shell hidden">
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">S</div>
+        <div>
+          <div class="brand-name">Spendly</div>
+          <div class="brand-subtitle">Expense Tracker</div>
+        </div>
+      </div>
+
+      <nav class="side-nav">
+        <a class="nav-item active" href="#dashboard">
+          <span class="nav-icon">⌘</span>
+          Dashboard
+        </a>
+        <a class="nav-item" href="#input">
+          <span class="nav-icon">＋</span>
+          Input Data
+        </a>
+        <a class="nav-item" href="#data">
+          <span class="nav-icon">▦</span>
+          Data Transaksi
+        </a>
+      </nav>
+
+      <div class="sidebar-note">
+        <span class="note-label">Database</span>
+        <strong>Firebase Firestore</strong>
+        <p>Data tersimpan online sesuai akun user.</p>
+      </div>
+    </aside>
+
+    <section class="content-area">
+      <header class="topbar">
+        <div>
+          <p class="page-kicker">Overview</p>
+          <h1>Dashboard Pengeluaran</h1>
+        </div>
+
+        <div class="account-card">
+          <div class="avatar" id="userInitial">U</div>
+          <div class="account-info">
+            <span>Login sebagai</span>
+            <strong id="userEmail">-</strong>
+          </div>
+          <button id="logoutButton" class="btn btn-ghost" type="button">Logout</button>
+        </div>
+      </header>
+
+      <section id="dashboard" class="stats-grid">
+        <article class="stat-card primary-stat">
+          <div class="stat-label">Total Pengeluaran</div>
+          <div id="totalPengeluaran" class="stat-value">Rp 0</div>
+          <div class="stat-meta">Sesuai data yang sedang difilter</div>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-label">Jumlah Transaksi</div>
+          <div id="jumlahTransaksi" class="stat-value">0</div>
+          <div class="stat-meta">Total transaksi aktif</div>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-label">Kategori Terbesar</div>
+          <div id="kategoriTerbesar" class="stat-value">-</div>
+          <div class="stat-meta">Berdasarkan nominal tertinggi</div>
+        </article>
+
+        <article class="stat-card">
+          <div class="stat-label">Rata-rata Transaksi</div>
+          <div id="rataTransaksi" class="stat-value">Rp 0</div>
+          <div class="stat-meta">Total dibagi jumlah transaksi</div>
+        </article>
+      </section>
+
+      <section class="main-grid">
+        <article id="input" class="panel input-panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">New Record</p>
+              <h2>Input Pengeluaran</h2>
+            </div>
+          </div>
+
+          <form id="expenseForm" class="form-stack">
+            <div class="field">
+              <label for="tanggal">Tanggal</label>
+              <input id="tanggal" type="date">
+            </div>
+
+            <div class="field">
+              <label for="kategori">Kategori</label>
+              <select id="kategori">
+                <option value="Makan">Makan</option>
+                <option value="Transportasi">Transportasi</option>
+                <option value="Belanja">Belanja</option>
+                <option value="Tagihan">Tagihan</option>
+                <option value="Hiburan">Hiburan</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="nominal">Nominal</label>
+              <input id="nominal" type="number" placeholder="Contoh: 25000">
+            </div>
+
+            <div class="field">
+              <label for="keterangan">Keterangan</label>
+              <input id="keterangan" type="text" placeholder="Contoh: makan siang">
+            </div>
+
+            <button id="saveExpenseButton" class="btn btn-primary" type="submit">
+              Simpan Pengeluaran
+            </button>
+
+            <div id="expenseMessage" class="notice info">
+              Data akan tersimpan ke akun yang sedang login.
+            </div>
+          </form>
+        </article>
+
+        <article id="data" class="panel data-panel">
+          <div class="panel-header table-header">
+            <div>
+              <p class="section-label">Transactions</p>
+              <h2>Data Pengeluaran</h2>
+            </div>
+
+            <div class="export-actions">
+              <button id="downloadCsvButton" class="btn btn-soft-success" type="button">CSV</button>
+              <button id="downloadExcelButton" class="btn btn-soft-warning" type="button">Excel</button>
+            </div>
+          </div>
+
+          <div class="filter-card">
+            <div class="field">
+              <label for="filterTanggal">Filter Tanggal</label>
+              <input id="filterTanggal" type="date">
+            </div>
+
+            <div class="field">
+              <label for="filterKategori">Filter Kategori</label>
+              <select id="filterKategori">
+                <option value="Semua">Semua Kategori</option>
+                <option value="Makan">Makan</option>
+                <option value="Transportasi">Transportasi</option>
+                <option value="Belanja">Belanja</option>
+                <option value="Tagihan">Tagihan</option>
+                <option value="Hiburan">Hiburan</option>
+              </select>
+            </div>
+
+            <button id="resetFilterButton" class="btn btn-secondary" type="button">
+              Reset
+            </button>
+          </div>
+
+          <div id="categoryBreakdown" class="category-breakdown"></div>
+
+          <div id="tabelContainer"></div>
+        </article>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="assets/app.js"></script>
+</body>
+</html>
