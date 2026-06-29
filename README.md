@@ -1,114 +1,62 @@
-# Spendly - Catatan Pengeluaran Firebase
+# Spendly Budget Tracker
 
-Ini adalah versi UI profesional untuk website catatan pengeluaran.
+Versi ini menambahkan fitur Budget Tracker:
 
-## Struktur File
+- Pemasukan
+- Pengeluaran
+- Transfer antar bank/dompet
+- Saldo per bank
+- Normalisasi nama bank
+- Total sisa uang
+- Export CSV
+- Export Excel dengan sheet ringkasan dan per tanggal
+- Login user Firebase
+- Data tersimpan online di Firestore
 
-```text
-catatan_pengeluaran_premium/
-├── index.html
-├── README.md
-├── FIRESTORE_RULES.txt
-└── assets/
-    ├── styles.css
-    └── app.js
-```
-
-## Fitur
-
-- Login user
-- Register user
-- Logout user
-- Data tersimpan online di Firebase Firestore
-- Setiap user memiliki data masing-masing
-- Data sama di laptop dan HP jika login dengan akun yang sama
-- Dashboard total pengeluaran
-- Jumlah transaksi
-- Kategori terbesar
-- Rata-rata transaksi
-- Input pengeluaran
-- Filter tanggal
-- Filter kategori
-- Download CSV
-- Download Excel dengan sheet per tanggal
-
-## Setup Firebase
-
-1. Buka Firebase Console:
-   https://console.firebase.google.com
-
-2. Buat project baru.
-
-3. Tambahkan Web App.
-
-4. Copy firebaseConfig.
-
-5. Buka file:
+## Struktur Firestore
 
 ```text
-assets/app.js
+users/{userId}/incomes/{incomeId}
+users/{userId}/expenses/{expenseId}
+users/{userId}/transfers/{transferId}
 ```
 
-6. Ganti bagian ini:
+## Normalisasi Nama Bank
 
-```js
-const firebaseConfig = {
-  apiKey: "ISI_API_KEY_KAMU",
-  authDomain: "ISI_PROJECT_ID.firebaseapp.com",
-  projectId: "ISI_PROJECT_ID",
-  storageBucket: "ISI_PROJECT_ID.appspot.com",
-  messagingSenderId: "ISI_MESSAGING_SENDER_ID",
-  appId: "ISI_APP_ID"
-};
+Contoh berikut dianggap satu bank yang sama:
+
+```text
+Mandiri
+Bank Mandiri
+ManDiri
 ```
 
-dengan config asli dari Firebase.
+## Cara Update dari Versi Lama
 
-## Aktifkan Authentication
-
-1. Firebase Console
-2. Build
-3. Authentication
-4. Get Started
-5. Sign-in method
-6. Email/Password
-7. Enable
-8. Save
-
-## Aktifkan Firestore
-
-1. Firebase Console
-2. Build
-3. Firestore Database
-4. Create database
-5. Start in production mode
-6. Enable
+1. Extract ZIP.
+2. Buka file lama `assets/app.js` di GitHub.
+3. Copy bagian `firebaseConfig` kamu.
+4. Buka file baru `assets/app.js`.
+5. Paste `firebaseConfig` kamu ke file baru.
+6. Upload ulang semua file/folder ke GitHub:
+   - `index.html`
+   - `README.md`
+   - `FIRESTORE_RULES.txt`
+   - `assets/app.js`
+   - `assets/styles.css`
+7. Commit changes.
+8. Update Firestore Rules menggunakan isi `FIRESTORE_RULES.txt`.
+9. Tunggu GitHub Pages update sekitar 1-5 menit.
+10. Refresh website dengan Ctrl + F5.
 
 ## Firestore Rules
 
-Buka file `FIRESTORE_RULES.txt`, lalu copy isinya ke:
+Gunakan isi file `FIRESTORE_RULES.txt`.
 
-```text
-Firestore Database > Rules
-```
+## Catatan
 
-Klik Publish.
-
-## Upload ke GitHub Pages
-
-Upload semua file/folder ini ke repository GitHub:
-
-```text
-index.html
-README.md
-FIRESTORE_RULES.txt
-assets/
-```
-
-Pastikan folder `assets` ikut ter-upload.
-
-Lalu aktifkan GitHub Pages:
-
-```text
-Settings > Pages > Deploy from a branch > main > /root
-```
+- Transfer tidak mengubah total uang keseluruhan.
+- Transfer hanya memindahkan saldo dari satu bank ke bank lain.
+- Sisa uang = total pemasukan - total pengeluaran.
+- Saldo total semua bank harus sama dengan sisa uang.
+- Pengeluaran lama tanpa nama bank akan masuk ke bank "Belum Dicatat".
