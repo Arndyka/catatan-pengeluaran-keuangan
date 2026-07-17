@@ -1,5 +1,4 @@
 Firebase Storage tidak digunakan.
 
-Screenshot/PDF hanya diproses OCR di browser.
-File tidak disimpan.
-Hasil scan disimpan sebagai data teks/transaksi di Firestore.
+Screenshot dan PDF diproses OCR di browser.
+File tidak disimpan ke Firebase Storage.

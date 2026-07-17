@@ -1,159 +1,200 @@
-# Spendly Stable Multi OCR
+# Spendly Accounting Pro
 
-Versi stabil rebuild dari nol.
+Major upgrade dari Spendly Budget Tracker.
 
-## Fitur
+## Arsitektur Modular
 
-- Login Email/Password
-- Register Email/Password
-- Firebase Auth persistence untuk HP
-- Firestore per user
-- Input pemasukan
-- Input pengeluaran
-- Transfer antar bank/dompet
-- Edit transaksi
-- Hapus transaksi
-- Saldo per bank
-- Chart saldo per bank
-- Chart pemasukan vs pengeluaran
-- OCR banyak transaksi dalam satu screenshot
-- Upload PDF/e-statement
-- PDF dibaca per halaman
-- Review batch dalam tabel
-- Edit/centang/hapus hasil OCR sebelum simpan
-- Simpan banyak transaksi sekaligus
-- Financial Advisor lokal
+```text
+assets/js/
+├── app.js
+├── accounting.js
+├── auth.js
+├── budget.js
+├── credit-card.js
+├── firebase.js
+├── recurring.js
+├── reports.js
+├── repository.js
+├── scanner.js
+├── settings.js
+├── state.js
+├── transactions.js
+└── utils.js
+```
+
+Login/Register, Firestore, akuntansi, OCR, budget, recurring transaction, kartu kredit, dan laporan tidak lagi ditumpuk dalam satu file.
+
+## Prinsip Akuntansi
+
+Setiap transaksi membentuk jurnal berpasangan:
+
+### Pemasukan
+
+```text
+Debit  Aset/Rekening
+Kredit Pendapatan
+```
+
+### Pengeluaran Tunai/Bank
+
+```text
+Debit  Beban
+Kredit Aset/Rekening
+```
+
+### Transfer Antar Rekening
+
+```text
+Debit  Rekening Tujuan
+Kredit Rekening Sumber
+```
+
+### Belanja Kartu Kredit
+
+```text
+Debit  Beban
+Kredit Liabilitas Kartu Kredit
+```
+
+### Bayar Kartu Kredit
+
+```text
+Debit  Liabilitas Kartu Kredit
+Kredit Aset/Rekening
+```
+
+### Pembelian Investasi
+
+```text
+Debit  Aset Investasi
+Kredit Aset/Rekening
+```
+
+Pembayaran kartu kredit tidak dicatat sebagai beban kedua kali. Beban sudah diakui ketika pembelian dilakukan.
+
+## Anti-Duplikat Permanen
+
+Setiap transaksi dibuatkan fingerprint SHA-256 berdasarkan:
+
+- tipe
+- tanggal
+- nominal
+- akun sumber
+- akun tujuan
+- kategori
+- merchant
+- keterangan
+- recurring rule
+
+Fingerprint menjadi ID dokumen Firestore. Transaksi identik tidak bisa masuk dua kali, termasuk dari dua perangkat.
+
+## Semua Pengaturan Tersinkronisasi
+
+Disimpan pada:
+
+```text
+users/{uid}/settings/profile
+users/{uid}/settings/credit_card
+users/{uid}/budget_plans/{YYYY-MM}
+users/{uid}/recurring_rules/{ruleId}
+users/{uid}/transactions/{fingerprint}
+```
+
+## Transaksi Berulang
+
+Mendukung transaksi bulanan seperti:
+
+- gaji
+- internet
+- Netflix
+- sewa
+- cicilan
+- investasi rutin
+- pembayaran kartu kredit
+
+Posting berulang bersifat idempotent karena recurring rule dan periode ikut masuk fingerprint.
+
+## Kartu Kredit
+
+Fitur:
+
+- total limit
+- limit terpakai
+- sisa limit
+- tagihan tercetak
+- tagihan berjalan
+- cicilan aktif
+- pembayaran minimum
+- tanggal cetak
+- jatuh tempo
+- rekonsiliasi dengan Livin'/e-billing
+
+Belanja kartu kredit mengakui beban dan liabilitas. Pembayaran kartu hanya mengurangi liabilitas.
+
+## Budget
+
+Mendukung:
+
+- persentase pemasukan
+- nominal tetap
+- budget kebutuhan pokok
+- investasi
+- kategori spesifik
+- target vs aktual
+- sisa budget
+- peringatan overbudget
+
+## Laporan Bulanan
+
+- Laporan Surplus/Defisit
+- Laporan Arus Kas
+- Neraca Pribadi
+- Neraca Saldo
+- Persamaan Akuntansi
 - Export CSV
-- Export Excel
+
+## Migrasi Data Lama
+
+Klik `Migrasi Data Lama` di Dashboard untuk memindahkan koleksi:
+
+```text
+incomes
+expenses
+transfers
+```
+
+ke koleksi `transactions`.
+
+Duplikat otomatis dilewati.
 
 ## Upload ke GitHub
 
-Upload/replace semua file:
+Upload seluruh file/folder:
 
 ```text
 index.html
 README.md
 FIRESTORE_RULES.txt
 STORAGE_RULES.txt
-assets/app.js
-assets/styles.css
+assets/
 ```
 
-Hapus file/folder lama yang tidak perlu:
+Jangan mencampur `assets/js/app.js` baru dengan `assets/app.js` versi lama.
 
-```text
-azure-function-api/
-package.json
-local.settings.json.example
-scanTransaction.js
-financialAdvice.js
-azureOpenAI.js
-DEPLOY_STEP_BY_STEP.md
-```
-
-## Firebase Checklist
+## Firebase
 
 Authentication:
-- Email/Password harus Enabled.
 
-Authorized domains:
-- Pastikan ada `arndyka.github.io`.
+```text
+Email/Password = Enabled
+```
 
-Firestore Rules:
-- Pakai isi `FIRESTORE_RULES.txt`.
+Authorized domain:
+
+```text
+arndyka.github.io
+```
 
 ## Catatan
 
-Tidak memakai:
-- Azure OpenAI
-- Azure Function
-- Firebase Storage
-
-
-## Feature Upgrade
-
-Tambahan fitur:
-- Multi page: Dashboard, Input Transaksi, Review & Summary.
-- Data duplikat dicegah saat input manual dan saat simpan hasil OCR.
-- Tombol `Bersihkan Duplikat` untuk menghapus data lama yang sama.
-- Bank/Dompet memakai dropdown, bukan ketik manual.
-- Fitur tambah bank/dompet baru.
-- Default bank termasuk `Mandiri Credit Card`.
-- Fitur Hide/Show Saldo untuk menyamarkan nominal di dashboard.
-- Sistem Kartu Kredit Mandiri:
-  - Belanja pakai kartu kredit: pilih bank `Mandiri Credit Card`.
-  - Bayar tagihan: input Transfer dari bank sumber ke `Mandiri Credit Card`.
-  - Outstanding dihitung dari saldo negatif kartu kredit.
-- Budget plan:
-  - Bisa tambah target persentase dari pemasukan.
-  - Default: Kebutuhan Pokok 70%, Investasi/Tabungan 30%.
-
-
-## Adaptive Layout Desktop
-
-Perbaikan:
-- Dashboard memakai lebar halaman penuh.
-- Panel saldo tidak lagi menyisakan kolom kosong.
-- Form input menjadi dua kolom pada desktop.
-- Form tetap satu kolom pada tablet dan HP.
-- Scanner memenuhi lebar halaman sebelum hasil review muncul.
-- Single OCR review menjadi dua kolom pada desktop.
-- Batch OCR review tetap full width.
-- Saldo per bank menjadi dua kolom pada layar besar.
-- Chart diperbesar agar proporsional di laptop.
-- Judul halaman berubah sesuai menu aktif.
-
-
-## Hapus Semua Transaksi
-
-Tambahan:
-- Tombol `Hapus Semua` tersedia pada halaman Review & Summary.
-- Menghapus seluruh pemasukan, pengeluaran, dan transfer milik user yang sedang login.
-- Memakai dua tahap konfirmasi:
-  1. Konfirmasi browser.
-  2. Ketik `HAPUS SEMUA`.
-- Penghapusan hanya berlaku untuk akun user yang sedang login.
-
-
-## Default Hide Saldo
-
-Perubahan:
-- Saldo otomatis tersembunyi saat website dibuka atau user login.
-- Tombol awal menjadi `Show Saldo`.
-- Nominal pada kartu ringkasan dan saldo per bank disamarkan.
-- Grafik saldo dan cashflow ikut disembunyikan agar nilai tidak terlihat dari panjang bar atau skala sumbu.
-- Klik `Show Saldo` untuk menampilkan semua nominal dan grafik.
-
-
-## Credit Card Manager
-
-Modul Kartu Kredit Mandiri sekarang memiliki:
-- Total limit.
-- Limit terpakai.
-- Sisa limit.
-- Tagihan tercetak.
-- Tagihan berjalan.
-- Cicilan bulan ini.
-- Pembayaran minimum.
-- Estimasi denda terlambat dan biaya overlimit.
-- Tanggal cetak tagihan.
-- Periode billing.
-- Tanggal jatuh tempo.
-- Tanggal pengingat pembayaran.
-- Daftar cicilan aktif dan estimasi sisa jadwal.
-
-Default aplikasi:
-- Limit contoh: Rp10.000.000, wajib disesuaikan dengan kartu user.
-- Tanggal cetak: tanggal 7 setiap bulan.
-- Jatuh tempo: 20 hari setelah tanggal cetak.
-- Pengingat: H-5.
-- Pembayaran minimum: 5% atau Rp50.000, mana yang lebih besar.
-- Bunga retail: 1,75% per bulan.
-- Biaya terlambat: 1% dari tagihan, maksimal Rp100.000.
-- Biaya overlimit: Rp150.000.
-
-Catatan:
-- Tagihan tercetak aktual dapat diinput manual dari Livin'/e-billing.
-- Jika nilai aktual diisi 0, aplikasi memakai estimasi otomatis.
-- Tanggal resmi dan nominal resmi tetap harus dicocokkan dengan Livin'/e-billing.
-- Bunga/admin cicilan promo tidak dihitung otomatis.
+Aplikasi ini menerapkan prinsip dasar double-entry accounting untuk personal finance. Aplikasi bukan pengganti laporan resmi bank, konsultan pajak, atau software akuntansi tersertifikasi.

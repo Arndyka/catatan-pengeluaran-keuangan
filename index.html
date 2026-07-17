@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Spendly Budget Tracker</title>
-  <link rel="stylesheet" href="assets/styles.css?v=credit-card-manager-20260717" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spendly Accounting Pro</title>
+  <link rel="stylesheet" href="assets/styles.css?v=accounting-pro-20260717">
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -13,7 +13,7 @@
         <div class="brand-logo">S</div>
         <div>
           <h1>Spendly</h1>
-          <p>Budget tracker pribadi</p>
+          <p>Personal finance berbasis jurnal berpasangan</p>
         </div>
       </div>
 
@@ -25,22 +25,16 @@
       <form id="authForm" class="form-stack">
         <div class="field">
           <label for="authEmail">Email</label>
-          <input id="authEmail" type="email" autocomplete="email" placeholder="email@contoh.com" required />
+          <input id="authEmail" type="email" autocomplete="email" required>
         </div>
-
         <div class="field">
           <label for="authPassword">Password</label>
-          <input id="authPassword" type="password" autocomplete="current-password" placeholder="Minimal 6 karakter" required />
+          <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required>
         </div>
-
-        <button id="authButton" class="btn btn-primary" type="submit">Login</button>
+        <button id="authSubmitButton" class="btn btn-primary" type="submit">Login</button>
       </form>
 
       <div id="authMessage" class="notice hidden"></div>
-
-      <p class="small-note">
-        Pastikan Firebase Authentication → Email/Password sudah Enabled.
-      </p>
     </div>
   </section>
 
@@ -50,18 +44,23 @@
         <div class="brand-logo">S</div>
         <div>
           <h1>Spendly</h1>
-          <p>Budget Tracker</p>
+          <p>Accounting Pro</p>
         </div>
       </div>
 
       <nav class="nav">
         <button class="nav-link active" data-page="dashboard" type="button">Dashboard</button>
-        <button class="nav-link" data-page="input" type="button">Input Transaksi</button>
-        <button class="nav-link" data-page="review" type="button">Review & Summary</button>
+        <button class="nav-link" data-page="transactions" type="button">Transaksi</button>
+        <button class="nav-link" data-page="recurring" type="button">Transaksi Berulang</button>
+        <button class="nav-link" data-page="credit-card" type="button">Kartu Kredit</button>
+        <button class="nav-link" data-page="budget" type="button">Budget</button>
+        <button class="nav-link" data-page="reports" type="button">Laporan</button>
+        <button class="nav-link" data-page="scanner" type="button">OCR / PDF</button>
+        <button class="nav-link" data-page="settings" type="button">Pengaturan</button>
       </nav>
 
-      <div class="sync-box">
-        <p class="label">Login sebagai</p>
+      <div class="sidebar-user">
+        <p class="section-label">Login sebagai</p>
         <p id="userEmail" class="user-email">-</p>
         <button id="logoutButton" class="btn btn-light" type="button">Logout</button>
       </div>
@@ -71,589 +70,591 @@
       <header class="topbar">
         <div>
           <p id="pageEyebrow" class="section-label">Overview</p>
-          <h1 id="pageTitle">Budget Tracker</h1>
+          <h1 id="pageTitle">Dashboard</h1>
         </div>
         <div class="topbar-actions">
-          <button id="toggleBalanceButton" class="btn btn-light" type="button">Hide Saldo</button>
-          <button id="downloadCSVButton" class="btn btn-light" type="button">CSV</button>
-          <button id="downloadExcelButton" class="btn btn-light" type="button">Excel</button>
+          <span id="syncStatus" class="sync-status">Menyambungkan...</span>
+          <button id="toggleBalanceButton" class="btn btn-light" type="button">Show Saldo</button>
         </div>
       </header>
 
-      <section id="dashboard" class="stats-grid">
-        <article class="stat-card">
-          <p>Sisa Uang</p>
-          <h2 id="remainingBalance">Rp 0</h2>
-        </article>
-        <article class="stat-card">
-          <p>Total Pemasukan</p>
-          <h2 id="totalIncome">Rp 0</h2>
-        </article>
-        <article class="stat-card">
-          <p>Total Pengeluaran</p>
-          <h2 id="totalExpense">Rp 0</h2>
-        </article>
-        <article class="stat-card">
-          <p>Bank/Dompet</p>
-          <h2 id="bankCount">0</h2>
-        </article>
-      </section>
+      <section id="page-dashboard" class="page-section">
+        <div class="stats-grid">
+          <article class="stat-card">
+            <p>Total Aset</p>
+            <h2 id="dashboardAssets">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Total Liabilitas</p>
+            <h2 id="dashboardLiabilities">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Ekuitas Bersih</p>
+            <h2 id="dashboardEquity">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Surplus Bulan Ini</p>
+            <h2 id="dashboardNetIncome">Rp ••••••</h2>
+          </article>
+        </div>
 
-      <section class="main-grid">
-        <section id="input" class="panel">
+        <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">New Record</p>
+              <p class="section-label">Accounting Equation</p>
+              <h2>Aset = Liabilitas + Ekuitas</h2>
+            </div>
+            <span id="accountingEquationStatus" class="pill">Belum dihitung</span>
+          </div>
+          <div class="equation-grid">
+            <article>
+              <p>Aset</p>
+              <h3 id="equationAssets">Rp ••••••</h3>
+            </article>
+            <div class="equation-symbol">=</div>
+            <article>
+              <p>Liabilitas</p>
+              <h3 id="equationLiabilities">Rp ••••••</h3>
+            </article>
+            <div class="equation-symbol">+</div>
+            <article>
+              <p>Ekuitas</p>
+              <h3 id="equationEquity">Rp ••••••</h3>
+            </article>
+          </div>
+        </section>
+
+        <section class="dashboard-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Accounts</p>
+                <h2>Saldo Rekening & Akun</h2>
+              </div>
+            </div>
+            <div id="accountBalanceGrid" class="account-grid"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Month Summary</p>
+                <h2>Ringkasan Bulan Berjalan</h2>
+              </div>
+            </div>
+            <div id="monthSummary" class="summary-list"></div>
+          </section>
+        </section>
+
+        <section class="panel migration-panel">
+          <div>
+            <p class="section-label">Legacy Migration</p>
+            <h2>Migrasi Data dari Versi Lama</h2>
+            <p>Memindahkan koleksi incomes, expenses, dan transfers lama ke sistem jurnal baru. Duplikat otomatis dilewati.</p>
+          </div>
+          <button id="migrateLegacyButton" class="btn btn-light" type="button">Migrasi Data Lama</button>
+        </section>
+      </section>
+
+      <section id="page-transactions" class="page-section hidden">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">Journal Entry</p>
               <h2>Input Transaksi</h2>
             </div>
           </div>
 
-          <div class="tx-tabs">
-            <button id="incomeTab" class="tx-tab active" type="button">Pemasukan</button>
-            <button id="expenseTab" class="tx-tab" type="button">Pengeluaran</button>
-            <button id="transferTab" class="tx-tab" type="button">Transfer</button>
-          </div>
-
-          <div class="add-bank-box">
-            <div>
-              <p class="section-label">Bank Option</p>
-              <strong>Tambah Bank/Dompet</strong>
-            </div>
-            <div class="add-bank-actions">
-              <input id="newBankInput" type="text" placeholder="Contoh: Allo Bank, Blu, Mandiri Credit Card">
-              <button id="addBankButton" class="btn btn-light" type="button">Tambah</button>
-            </div>
-          </div>
-
-          <form id="transactionForm" class="form-stack padded-form">
+          <form id="transactionForm" class="form-grid">
             <div class="field">
-              <label for="tanggalInput">Tanggal</label>
-              <input id="tanggalInput" type="date" required />
+              <label for="transactionDate">Tanggal</label>
+              <input id="transactionDate" type="date" required>
             </div>
 
-            <div id="singleBankWrap" class="field">
-              <label for="bankInput">Bank/Dompet</label>
-              <select id="bankInput"></select>
+            <div class="field">
+              <label for="transactionType">Tipe Transaksi</label>
+              <select id="transactionType">
+                <option value="income">Pemasukan</option>
+                <option value="expense">Pengeluaran Tunai/Bank</option>
+                <option value="transfer">Transfer Antar Akun</option>
+                <option value="credit_purchase">Belanja Kartu Kredit</option>
+                <option value="credit_payment">Bayar Kartu Kredit</option>
+                <option value="investment">Pembelian Investasi</option>
+              </select>
             </div>
 
-            <div id="transferBankWrap" class="grid-2 hidden">
-              <div class="field">
-                <label for="fromBankInput">Dari Bank/Dompet</label>
-                <select id="fromBankInput"></select>
-              </div>
-              <div class="field">
-                <label for="toBankInput">Ke Bank/Dompet</label>
-                <select id="toBankInput"></select>
-              </div>
+            <div class="field">
+              <label id="sourceAccountLabel" for="sourceAccount">Akun Sumber</label>
+              <select id="sourceAccount"></select>
             </div>
 
-            <div id="incomeSourceWrap" class="field">
-              <label for="incomeSourceInput">Sumber Pemasukan</label>
-              <input id="incomeSourceInput" type="text" placeholder="Contoh: Gaji" />
+            <div id="destinationAccountWrap" class="field hidden">
+              <label id="destinationAccountLabel" for="destinationAccount">Akun Tujuan</label>
+              <select id="destinationAccount"></select>
             </div>
 
-            <div id="expenseCategoryWrap" class="field hidden">
-              <label for="categoryInput">Kategori</label>
-              <select id="categoryInput">
+            <div class="field">
+              <label for="transactionCategory">Kategori</label>
+              <select id="transactionCategory">
+                <option value="Gaji">Gaji</option>
+                <option value="Bonus">Bonus</option>
                 <option value="Makan">Makan</option>
                 <option value="Transportasi">Transportasi</option>
                 <option value="Belanja">Belanja</option>
                 <option value="Tagihan">Tagihan</option>
-                <option value="Hiburan">Hiburan</option>
                 <option value="Kesehatan">Kesehatan</option>
+                <option value="Hiburan">Hiburan</option>
+                <option value="Pendidikan">Pendidikan</option>
                 <option value="Investasi">Investasi</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
             </div>
 
-
-            <div id="creditPurchaseFields" class="credit-purchase-fields hidden">
-              <div class="field">
-                <label for="creditPurchaseType">Jenis Transaksi Kartu Kredit</label>
-                <select id="creditPurchaseType">
-                  <option value="regular">Belanja Biasa</option>
-                  <option value="installment">Cicilan</option>
-                </select>
-              </div>
-
-              <div id="installmentTenorWrap" class="field hidden">
-                <label for="installmentTenor">Tenor Cicilan</label>
-                <select id="installmentTenor">
-                  <option value="2">2 bulan</option>
-                  <option value="3">3 bulan</option>
-                  <option value="6">6 bulan</option>
-                  <option value="12" selected>12 bulan</option>
-                  <option value="18">18 bulan</option>
-                  <option value="24">24 bulan</option>
-                  <option value="36">36 bulan</option>
-                </select>
-              </div>
-
-              <div id="installmentPreview" class="installment-preview">
-                Pilih nominal untuk melihat estimasi cicilan per bulan.
-              </div>
+            <div class="field">
+              <label for="transactionAmount">Nominal</label>
+              <input id="transactionAmount" type="number" min="1" step="1" required>
             </div>
 
             <div class="field">
-              <label for="nominalInput">Nominal</label>
-              <input id="nominalInput" type="number" min="1" placeholder="Contoh: 25000" required />
+              <label for="transactionMerchant">Merchant / Sumber</label>
+              <input id="transactionMerchant" type="text">
             </div>
 
             <div class="field">
-              <label for="keteranganInput">Keterangan</label>
-              <input id="keteranganInput" type="text" placeholder="Opsional" />
+              <label for="transactionDescription">Keterangan</label>
+              <input id="transactionDescription" type="text">
             </div>
 
-            <button id="submitTransactionButton" class="btn btn-primary" type="submit">Simpan Transaksi</button>
-            <div id="formMessage" class="notice hidden"></div>
+            <div id="installmentWrap" class="field hidden">
+              <label for="installmentTenor">Tenor Cicilan</label>
+              <select id="installmentTenor">
+                <option value="1">Bukan cicilan</option>
+                <option value="3">3 bulan</option>
+                <option value="6">6 bulan</option>
+                <option value="12">12 bulan</option>
+                <option value="18">18 bulan</option>
+                <option value="24">24 bulan</option>
+                <option value="36">36 bulan</option>
+              </select>
+            </div>
+
+            <button id="saveTransactionButton" class="btn btn-primary form-submit" type="submit">Simpan Transaksi</button>
           </form>
+
+          <div id="transactionMessage" class="notice hidden"></div>
         </section>
 
-        <section id="saldo" class="panel">
+        <section class="panel">
+          <div class="panel-header table-header">
+            <div>
+              <p class="section-label">Journal History</p>
+              <h2>Riwayat Transaksi</h2>
+            </div>
+            <div class="table-actions">
+              <select id="transactionFilter">
+                <option value="all">Semua Tipe</option>
+                <option value="income">Pemasukan</option>
+                <option value="expense">Pengeluaran</option>
+                <option value="transfer">Transfer</option>
+                <option value="credit_purchase">Belanja Kartu Kredit</option>
+                <option value="credit_payment">Bayar Kartu Kredit</option>
+                <option value="investment">Investasi</option>
+              </select>
+              <input id="transactionSearch" type="search" placeholder="Cari transaksi...">
+              <button id="deleteAllTransactionsButton" class="btn btn-danger" type="button">Hapus Semua</button>
+            </div>
+          </div>
+          <div id="transactionTableContainer" class="table-container"></div>
+        </section>
+      </section>
+
+      <section id="page-recurring" class="page-section hidden">
+        <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">Balance</p>
-              <h2>Saldo per Bank</h2>
+              <p class="section-label">Recurring Rules</p>
+              <h2>Transaksi Berulang</h2>
             </div>
           </div>
 
-          <div class="bank-layout">
-            <div id="bankBalanceGrid" class="bank-grid"></div>
+          <form id="recurringForm" class="form-grid">
+            <div class="field">
+              <label for="recurringName">Nama Aturan</label>
+              <input id="recurringName" type="text" placeholder="Contoh: Gaji, Internet, Netflix" required>
+            </div>
+            <div class="field">
+              <label for="recurringType">Tipe</label>
+              <select id="recurringType">
+                <option value="income">Pemasukan</option>
+                <option value="expense">Pengeluaran</option>
+                <option value="transfer">Transfer</option>
+                <option value="credit_payment">Bayar Kartu Kredit</option>
+                <option value="investment">Investasi</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="recurringDay">Tanggal Setiap Bulan</label>
+              <input id="recurringDay" type="number" min="1" max="28" value="1" required>
+            </div>
+            <div class="field">
+              <label for="recurringAmount">Nominal</label>
+              <input id="recurringAmount" type="number" min="1" required>
+            </div>
+            <div class="field">
+              <label for="recurringSource">Akun Sumber</label>
+              <select id="recurringSource"></select>
+            </div>
+            <div class="field">
+              <label for="recurringDestination">Akun Tujuan</label>
+              <select id="recurringDestination"></select>
+            </div>
+            <div class="field">
+              <label for="recurringCategory">Kategori</label>
+              <input id="recurringCategory" type="text" value="Lainnya">
+            </div>
+            <div class="field">
+              <label for="recurringStart">Mulai</label>
+              <input id="recurringStart" type="date" required>
+            </div>
+            <div class="field">
+              <label for="recurringEnd">Berakhir (opsional)</label>
+              <input id="recurringEnd" type="date">
+            </div>
+            <button class="btn btn-primary form-submit" type="submit">Simpan Aturan</button>
+          </form>
 
-            <div class="chart-card">
-              <p class="section-label">Chart</p>
-              <h3>Distribusi Saldo per Bank</h3>
-              <div class="chart-wrap">
-                <canvas id="bankBalanceChart"></canvas>
+          <div id="recurringMessage" class="notice hidden"></div>
+        </section>
+
+        <section class="recurring-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Due Items</p>
+                <h2>Transaksi yang Sudah Jatuh Jadwal</h2>
+              </div>
+              <button id="postDueRecurringButton" class="btn btn-primary" type="button">Posting Semua yang Jatuh Jadwal</button>
+            </div>
+            <div id="dueRecurringList" class="list-stack"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Rules</p>
+                <h2>Daftar Aturan</h2>
               </div>
             </div>
-          </div>
+            <div id="recurringRuleList" class="list-stack"></div>
+          </section>
         </section>
       </section>
 
-      <section class="panel cashflow-section">
-        <div class="panel-header">
-          <div>
-            <p class="section-label">Cashflow</p>
-            <h2>Pemasukan vs Pengeluaran</h2>
-          </div>
-        </div>
-        <div class="chart-card chart-wide">
-          <div class="chart-wrap cashflow-wrap">
-            <canvas id="cashflowChart"></canvas>
-          </div>
-        </div>
-      </section>
+      <section id="page-credit-card" class="page-section hidden">
+        <section class="stats-grid credit-stats">
+          <article class="stat-card">
+            <p>Total Limit</p>
+            <h2 id="ccLimit">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Limit Terpakai</p>
+            <h2 id="ccUsed">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Sisa Limit</p>
+            <h2 id="ccAvailable">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Tagihan Tercetak</p>
+            <h2 id="ccBilled">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Tagihan Berjalan</p>
+            <h2 id="ccUnbilled">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Cicilan Bulan Ini</p>
+            <h2 id="ccInstallment">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Pembayaran Minimum</p>
+            <h2 id="ccMinimum">Rp ••••••</h2>
+          </article>
+          <article class="stat-card">
+            <p>Jatuh Tempo</p>
+            <h2 id="ccDueDate">-</h2>
+          </article>
+        </section>
 
-
-      <section id="creditCardSection" class="panel credit-card-section">
-        <div class="panel-header credit-panel-header">
-          <div>
-            <p class="section-label">Credit Card Manager</p>
-            <h2>Kartu Kredit Mandiri</h2>
-          </div>
-          <button id="toggleCreditSettingsButton" class="btn btn-light" type="button">Pengaturan Kartu</button>
-        </div>
-
-        <div class="credit-card-dashboard">
-          <div class="credit-metric-grid">
-            <article class="credit-metric">
-              <p>Total Limit</p>
-              <h3 id="creditLimitValue">Rp 0</h3>
-              <span>Limit yang diberikan bank</span>
-            </article>
-
-            <article class="credit-metric">
-              <p>Limit Terpakai</p>
-              <h3 id="creditUsedLimit">Rp 0</h3>
-              <span>Total pemakaian yang belum tertutup pembayaran</span>
-            </article>
-
-            <article class="credit-metric">
-              <p>Sisa Limit</p>
-              <h3 id="creditAvailableLimit">Rp 0</h3>
-              <span id="creditLimitPercent">0% terpakai</span>
-            </article>
-
-            <article class="credit-metric">
-              <p>Tagihan Tercetak</p>
-              <h3 id="creditBilledAmount">Rp 0</h3>
-              <span>Sudah masuk lembar tagihan</span>
-            </article>
-
-            <article class="credit-metric">
-              <p>Tagihan Berjalan</p>
-              <h3 id="creditUnbilledAmount">Rp 0</h3>
-              <span>Belum masuk lembar tagihan</span>
-            </article>
-
-            <article class="credit-metric">
-              <p>Cicilan Bulan Ini</p>
-              <h3 id="creditMonthlyInstallment">Rp 0</h3>
-              <span id="creditInstallmentCount">0 cicilan aktif</span>
-            </article>
-
-            <article class="credit-metric">
-              <p>Pembayaran Minimum</p>
-              <h3 id="creditMinimumPayment">Rp 0</h3>
-              <span>Estimasi minimum tagihan saat ini</span>
-            </article>
-
-            <article class="credit-metric">
-              <p>Estimasi Biaya Risiko</p>
-              <h3 id="creditRiskCost">Rp 0</h3>
-              <span>Denda terlambat/overlimit bila berlaku</span>
-            </article>
-          </div>
-
-          <div class="credit-cycle-grid">
-            <article class="credit-cycle-card">
-              <p class="section-label">Billing Cycle</p>
-              <h3 id="creditStatementDate">-</h3>
-              <p id="creditCycleRange">Periode transaksi belum tersedia.</p>
-            </article>
-
-            <article class="credit-cycle-card">
-              <p class="section-label">Payment Due</p>
-              <h3 id="creditDueDate">-</h3>
-              <p id="creditDueStatus">Belum ada status jatuh tempo.</p>
-            </article>
-
-            <article class="credit-cycle-card">
-              <p class="section-label">Reminder</p>
-              <h3 id="creditReminderDate">-</h3>
-              <p>Pengingat pembayaran sebelum jatuh tempo.</p>
-            </article>
-          </div>
-
-          <div id="creditSettingsPanel" class="credit-settings-panel hidden">
-            <div class="credit-settings-intro">
+        <section class="credit-grid">
+          <section class="panel">
+            <div class="panel-header">
               <div>
-                <p class="section-label">Default Setting</p>
-                <h3>Atur sesuai data di Livin’ atau e-billing</h3>
+                <p class="section-label">Billing Cycle</p>
+                <h2>Siklus Tagihan</h2>
               </div>
-              <p>
-                Default aplikasi: tanggal cetak setiap tanggal 7, jatuh tempo 20 hari setelah tanggal cetak,
-                dan pengingat 5 hari sebelum jatuh tempo. Semua nilai dapat diubah.
-              </p>
             </div>
+            <div id="ccCycleSummary" class="summary-list"></div>
+          </section>
 
-            <form id="creditSettingsForm" class="credit-settings-form">
-              <div class="field">
-                <label for="creditLimitInput">Total Limit Kartu</label>
-                <input id="creditLimitInput" type="number" min="0" step="50000" />
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Installments</p>
+                <h2>Cicilan Aktif</h2>
               </div>
+            </div>
+            <div id="ccInstallmentList" class="list-stack"></div>
+          </section>
+        </section>
 
-              <div class="field">
-                <label for="statementDayInput">Tanggal Cetak Tagihan</label>
-                <input id="statementDayInput" type="number" min="1" max="28" />
-              </div>
-
-              <div class="field">
-                <label for="dueDaysInput">Jarak ke Jatuh Tempo (hari)</label>
-                <input id="dueDaysInput" type="number" min="1" max="40" />
-              </div>
-
-              <div class="field">
-                <label for="reminderDaysInput">Pengingat H-</label>
-                <input id="reminderDaysInput" type="number" min="1" max="15" />
-              </div>
-
-              <div class="field">
-                <label for="manualStatementInput">Tagihan Tercetak Aktual (opsional)</label>
-                <input id="manualStatementInput" type="number" min="0" step="1000" placeholder="0 = hitung otomatis" />
-              </div>
-
-              <div class="field">
-                <label for="minimumPaymentPercentInput">Minimum Payment (%)</label>
-                <input id="minimumPaymentPercentInput" type="number" min="1" max="100" step="0.1" />
-              </div>
-
-              <div class="field">
-                <label for="minimumPaymentFloorInput">Minimum Nominal Pembayaran</label>
-                <input id="minimumPaymentFloorInput" type="number" min="0" step="10000" />
-              </div>
-
-              <div class="field">
-                <label for="monthlyInterestInput">Bunga Retail per Bulan (%)</label>
-                <input id="monthlyInterestInput" type="number" min="0" max="10" step="0.01" />
-              </div>
-
-              <button class="btn btn-primary" type="submit">Simpan Pengaturan</button>
-            </form>
-
-            <div id="creditSettingsMessage" class="notice hidden"></div>
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">Reconciliation</p>
+              <h2>Rekonsiliasi Tagihan Resmi</h2>
+            </div>
           </div>
 
-          <div class="credit-detail-grid">
-            <section class="credit-detail-card">
-              <div class="credit-detail-header">
-                <div>
-                  <p class="section-label">Installment</p>
-                  <h3>Daftar Cicilan Aktif</h3>
-                </div>
-              </div>
-              <div id="creditInstallmentList" class="credit-installment-list"></div>
-            </section>
-
-            <section class="credit-detail-card">
-              <p class="section-label">Cara Mencatat</p>
-              <h3>Alur Kartu Kredit</h3>
-              <ol class="credit-guide-list">
-                <li>Belanja biasa: pilih <b>Pengeluaran → Mandiri Credit Card → Belanja Biasa</b>.</li>
-                <li>Cicilan: pilih <b>Pengeluaran → Mandiri Credit Card → Cicilan</b>, lalu pilih tenor.</li>
-                <li>Bayar tagihan: pilih <b>Transfer</b> dari rekening sumber ke <b>Mandiri Credit Card</b>.</li>
-                <li>Limit terpakai berkurang setelah pembayaran dicatat sebagai transfer ke kartu kredit.</li>
-                <li>Cocokkan tagihan tercetak dan tanggal resmi dengan Livin’/e-billing.</li>
-              </ol>
-            </section>
-          </div>
-        </div>
-      </section>
-
-      <section id="scanner" class="panel scanner-section">
-        <div class="panel-header">
-          <div>
-            <p class="section-label">OCR / PDF Scanner</p>
-            <h2>Scan Banyak Transaksi</h2>
-          </div>
-        </div>
-
-        <div id="scannerGrid" class="scanner-grid">
-          <div class="upload-card">
+          <form id="creditReconcileForm" class="form-grid">
             <div class="field">
-              <label for="scanFileInput">Upload Screenshot / PDF</label>
-              <input id="scanFileInput" type="file" accept="image/*,.pdf,application/pdf" multiple />
+              <label for="officialStatementAmount">Tagihan Resmi di Livin'/e-Billing</label>
+              <input id="officialStatementAmount" type="number" min="0">
             </div>
-
-            <div id="scanPreviewBox" class="preview-box">
-              Preview file akan muncul di sini.
+            <div class="field">
+              <label for="officialStatementDate">Tanggal Cetak Resmi</label>
+              <input id="officialStatementDate" type="date">
             </div>
+            <div class="field">
+              <label for="officialDueDate">Tanggal Jatuh Tempo Resmi</label>
+              <input id="officialDueDate" type="date">
+            </div>
+            <div class="field">
+              <label for="reconciliationNote">Catatan Selisih</label>
+              <input id="reconciliationNote" type="text" placeholder="Contoh: materai, bunga, admin cicilan">
+            </div>
+            <button class="btn btn-primary form-submit" type="submit">Simpan Rekonsiliasi</button>
+          </form>
 
-            <button id="scanButton" class="btn btn-primary" type="button">Scan File</button>
+          <div id="creditReconcileMessage" class="notice hidden"></div>
+          <div id="creditReconcileSummary" class="reconcile-summary"></div>
+        </section>
+      </section>
 
-            <div id="scanMessage" class="notice info">
-              Bisa scan 1 transaksi, mutasi banyak transaksi, atau PDF. File tidak disimpan.
+      <section id="page-budget" class="page-section hidden">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">Budget Plan</p>
+              <h2>Rencana Anggaran Bulanan</h2>
+            </div>
+            <input id="budgetMonth" type="month">
+          </div>
+
+          <form id="budgetForm" class="form-grid">
+            <div class="field">
+              <label for="budgetName">Nama Pos</label>
+              <input id="budgetName" type="text" placeholder="Contoh: Kebutuhan Pokok" required>
+            </div>
+            <div class="field">
+              <label for="budgetCategory">Kategori Aktual</label>
+              <select id="budgetCategory">
+                <option value="needs">Kebutuhan Pokok</option>
+                <option value="Makan">Makan</option>
+                <option value="Transportasi">Transportasi</option>
+                <option value="Tagihan">Tagihan</option>
+                <option value="Kesehatan">Kesehatan</option>
+                <option value="Belanja">Belanja</option>
+                <option value="Hiburan">Hiburan</option>
+                <option value="Investasi">Investasi</option>
+                <option value="Lainnya">Lainnya</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="budgetMethod">Metode</label>
+              <select id="budgetMethod">
+                <option value="percentage">Persentase Pemasukan</option>
+                <option value="nominal">Nominal Tetap</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="budgetValue">Nilai</label>
+              <input id="budgetValue" type="number" min="0" required>
+            </div>
+            <button class="btn btn-primary form-submit" type="submit">Tambah Pos Budget</button>
+          </form>
+
+          <div id="budgetMessage" class="notice hidden"></div>
+          <div id="budgetSummary" class="budget-summary"></div>
+          <div id="budgetList" class="budget-list"></div>
+        </section>
+      </section>
+
+      <section id="page-reports" class="page-section hidden">
+        <section class="panel report-toolbar">
+          <div>
+            <p class="section-label">Monthly Report</p>
+            <h2>Laporan Bulanan</h2>
+          </div>
+          <div class="report-actions">
+            <input id="reportMonth" type="month">
+            <button id="exportReportCsv" class="btn btn-light" type="button">Export CSV</button>
+          </div>
+        </section>
+
+        <div class="report-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Income Statement</p>
+                <h2>Laporan Surplus/Defisit</h2>
+              </div>
+            </div>
+            <div id="incomeStatementReport" class="summary-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Cash Flow</p>
+                <h2>Laporan Arus Kas</h2>
+              </div>
+            </div>
+            <div id="cashFlowReport" class="summary-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Balance Sheet</p>
+                <h2>Neraca Pribadi</h2>
+              </div>
+            </div>
+            <div id="balanceSheetReport" class="summary-list"></div>
+          </section>
+        </div>
+
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">Trial Balance</p>
+              <h2>Neraca Saldo</h2>
+            </div>
+          </div>
+          <div id="trialBalanceContainer" class="table-container"></div>
+        </section>
+      </section>
+
+      <section id="page-scanner" class="page-section hidden">
+        <section class="panel">
+          <div class="panel-header">
+            <div>
+              <p class="section-label">OCR / PDF</p>
+              <h2>Scan Banyak Transaksi</h2>
             </div>
           </div>
 
-          <div id="singleReviewCard" class="review-card hidden">
-            <div class="review-title">
-              <div>
-                <p class="section-label">Single Review</p>
-                <h3>Hasil OCR</h3>
+          <div class="scanner-grid">
+            <div class="upload-card">
+              <div class="field">
+                <label for="scanInput">Upload Screenshot / PDF</label>
+                <input id="scanInput" type="file" accept="image/*,.pdf,application/pdf" multiple>
               </div>
-              <span id="singleConfidenceBadge" class="pill">0%</span>
+              <div id="scanPreview" class="preview-box">Preview file akan muncul di sini.</div>
+              <button id="scanButton" class="btn btn-primary" type="button">Scan File</button>
+              <div id="scanMessage" class="notice info">File diproses di browser dan tidak disimpan.</div>
             </div>
+          </div>
 
-            <form id="singleScanForm" class="form-stack">
+          <div id="scanReviewContainer" class="scan-review"></div>
+        </section>
+      </section>
+
+      <section id="page-settings" class="page-section hidden">
+        <section class="settings-grid">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <p class="section-label">Accounts</p>
+                <h2>Rekening & Akun</h2>
+              </div>
+            </div>
+            <form id="accountForm" class="form-grid compact-form">
               <div class="field">
-                <label for="singleType">Tipe</label>
-                <select id="singleType">
-                  <option value="expense">Pengeluaran</option>
-                  <option value="income">Pemasukan</option>
-                  <option value="transfer">Transfer</option>
+                <label for="accountName">Nama Akun</label>
+                <input id="accountName" type="text" required>
+              </div>
+              <div class="field">
+                <label for="accountType">Tipe Akun</label>
+                <select id="accountType">
+                  <option value="asset">Aset</option>
+                  <option value="liability">Liabilitas</option>
                 </select>
               </div>
-
               <div class="field">
-                <label for="singleTanggal">Tanggal</label>
-                <input id="singleTanggal" type="date" />
-              </div>
-
-              <div class="field">
-                <label for="singleBank">Bank/Dompet</label>
-                <select id="singleBank"></select>
-              </div>
-
-              <div id="singleToBankWrap" class="field hidden">
-                <label for="singleToBank">Bank Tujuan</label>
-                <select id="singleToBank"></select>
-              </div>
-
-              <div class="field">
-                <label for="singleMerchant">Merchant/Sumber</label>
-                <input id="singleMerchant" type="text" />
-              </div>
-
-              <div class="field">
-                <label for="singleKategori">Kategori</label>
-                <select id="singleKategori">
-                  <option value="Makan">Makan</option>
-                  <option value="Transportasi">Transportasi</option>
-                  <option value="Belanja">Belanja</option>
-                  <option value="Tagihan">Tagihan</option>
-                  <option value="Hiburan">Hiburan</option>
-                  <option value="Kesehatan">Kesehatan</option>
-                  <option value="Transfer">Transfer</option>
-                  <option value="Pemasukan">Pemasukan</option>
-                  <option value="Investasi">Investasi</option>
-                  <option value="Lainnya">Lainnya</option>
+                <label for="accountSubtype">Subtipe</label>
+                <select id="accountSubtype">
+                  <option value="bank">Bank</option>
+                  <option value="cash">Tunai</option>
+                  <option value="ewallet">E-Wallet</option>
+                  <option value="investment">Investasi</option>
+                  <option value="credit_card">Kartu Kredit</option>
+                  <option value="other">Lainnya</option>
                 </select>
               </div>
-
-              <div class="field">
-                <label for="singleNominal">Nominal</label>
-                <input id="singleNominal" type="number" min="1" />
-              </div>
-
-              <div class="field">
-                <label for="singleKeterangan">Keterangan</label>
-                <input id="singleKeterangan" type="text" />
-              </div>
-
-              <div class="field">
-                <label for="singleScanNote">Catatan Scan</label>
-                <input id="singleScanNote" type="text" readonly />
-              </div>
-
-              <button id="saveSingleScanButton" class="btn btn-primary" type="submit">Simpan Hasil Scan</button>
+              <button class="btn btn-primary form-submit" type="submit">Tambah Akun</button>
             </form>
-          </div>
+            <div id="accountMessage" class="notice hidden"></div>
+            <div id="accountSettingsList" class="list-stack"></div>
+          </section>
 
-          <div id="batchReviewCard" class="review-card batch-card hidden">
-            <div class="review-title">
+          <section class="panel">
+            <div class="panel-header">
               <div>
-                <p class="section-label">Batch Review</p>
-                <h3>Review Banyak Transaksi</h3>
+                <p class="section-label">Credit Card Settings</p>
+                <h2>Pengaturan Kartu Kredit</h2>
               </div>
-              <span id="batchCountBadge" class="pill">0 item</span>
             </div>
-
-            <div class="batch-help">
-              Review dulu. Kamu bisa edit, hapus baris, dan centang transaksi yang mau disimpan.
-            </div>
-
-            <div id="batchTableContainer" class="batch-table-container"></div>
-
-            <div class="batch-actions">
-              <button id="selectAllBatchButton" class="btn btn-light" type="button">Pilih Semua</button>
-              <button id="saveBatchButton" class="btn btn-primary" type="button">Simpan Terpilih</button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="advisor" class="panel advisor-section">
-        <div class="panel-header">
-          <div>
-            <p class="section-label">Advisor</p>
-            <h2>Financial Advisor</h2>
-          </div>
-          <button id="advisorButton" class="btn btn-primary" type="button">Generate Advice</button>
-        </div>
-        <div class="advisor-output" id="advisorOutput">
-          Klik Generate Advice untuk melihat saran keuangan.
-        </div>
-      </section>
-
-      
-      <section id="budgetPlanner" class="panel budget-planner-section">
-        <div class="panel-header">
-          <div>
-            <p class="section-label">Budget Plan</p>
-            <h2>Setting Keinginan Pengeluaran</h2>
-          </div>
-        </div>
-
-        <form id="budgetPlanForm" class="budget-form">
-          <div class="field">
-            <label for="budgetPlanName">Nama Pos</label>
-            <input id="budgetPlanName" type="text" placeholder="Contoh: Kebutuhan Pokok, Investasi">
-          </div>
-          <div class="field">
-            <label for="budgetPlanPercent">Persentase dari Pemasukan</label>
-            <input id="budgetPlanPercent" type="number" min="1" max="100" placeholder="Contoh: 70">
-          </div>
-          <button class="btn btn-primary" type="submit">Tambah Plan</button>
-        </form>
-
-        <div id="budgetPlanMessage" class="notice hidden"></div>
-        <div id="budgetPlanList" class="budget-plan-list"></div>
-      </section>
-
-      <section id="riwayat" class="panel history-section">
-        <div class="panel-header table-header">
-          <div>
-            <p class="section-label">History</p>
-            <h2>Riwayat Transaksi</h2>
-          </div>
-
-          <div class="filters">
-            <div class="history-action-buttons">
-              <button id="dedupeButton" class="btn btn-light" type="button">Bersihkan Duplikat</button>
-              <button id="deleteAllButton" class="btn btn-danger" type="button">Hapus Semua</button>
-            </div>
-            <select id="typeFilter">
-              <option value="all">Semua Tipe</option>
-              <option value="income">Pemasukan</option>
-              <option value="expense">Pengeluaran</option>
-              <option value="transfer">Transfer</option>
-            </select>
-            <input id="searchInput" type="search" placeholder="Cari transaksi..." />
-          </div>
-        </div>
-
-        <div id="historyContainer" class="history-container"></div>
+            <form id="creditSettingsForm" class="form-grid compact-form">
+              <div class="field">
+                <label for="ccLimitInput">Limit</label>
+                <input id="ccLimitInput" type="number" min="0">
+              </div>
+              <div class="field">
+                <label for="ccStatementDayInput">Tanggal Cetak</label>
+                <input id="ccStatementDayInput" type="number" min="1" max="28">
+              </div>
+              <div class="field">
+                <label for="ccDueDaysInput">Jarak Jatuh Tempo</label>
+                <input id="ccDueDaysInput" type="number" min="1" max="40">
+              </div>
+              <div class="field">
+                <label for="ccReminderDaysInput">Pengingat H-</label>
+                <input id="ccReminderDaysInput" type="number" min="1" max="15">
+              </div>
+              <div class="field">
+                <label for="ccMinimumPercentInput">Minimum Payment (%)</label>
+                <input id="ccMinimumPercentInput" type="number" min="1" max="100" step="0.1">
+              </div>
+              <div class="field">
+                <label for="ccMinimumFloorInput">Minimum Nominal</label>
+                <input id="ccMinimumFloorInput" type="number" min="0">
+              </div>
+              <div class="field">
+                <label for="ccInterestInput">Bunga per Bulan (%)</label>
+                <input id="ccInterestInput" type="number" min="0" step="0.01">
+              </div>
+              <button class="btn btn-primary form-submit" type="submit">Simpan Pengaturan</button>
+            </form>
+            <div id="creditSettingsMessage" class="notice hidden"></div>
+          </section>
+        </section>
       </section>
     </main>
   </div>
 
-  <div id="editModal" class="modal hidden">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 id="editTitle">Edit Transaksi</h3>
-        <button id="closeEditModal" class="icon-button" type="button">×</button>
-      </div>
-
-      <form id="editForm" class="form-stack">
-        <input id="editId" type="hidden" />
-        <input id="editType" type="hidden" />
-
-        <div class="field">
-          <label for="editTanggal">Tanggal</label>
-          <input id="editTanggal" type="date" required />
-        </div>
-
-        <div class="field">
-          <label for="editBank">Bank/Dompet</label>
-          <select id="editBank" required></select>
-        </div>
-
-        <div id="editToBankWrap" class="field hidden">
-          <label for="editToBank">Bank Tujuan</label>
-          <select id="editToBank"></select>
-        </div>
-
-        <div class="field">
-          <label for="editKategori">Kategori / Sumber</label>
-          <input id="editKategori" type="text" required />
-        </div>
-
-        <div class="field">
-          <label for="editNominal">Nominal</label>
-          <input id="editNominal" type="number" min="1" required />
-        </div>
-
-        <div class="field">
-          <label for="editKeterangan">Keterangan</label>
-          <input id="editKeterangan" type="text" />
-        </div>
-
-        <div id="editMessage" class="notice hidden"></div>
-
-        <div class="modal-actions">
-          <button id="cancelEditButton" class="btn btn-light" type="button">Batal</button>
-          <button class="btn btn-primary" type="submit">Simpan Perubahan</button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/app.js?v=credit-card-manager-20260717"></script>
+  <script type="module" src="assets/js/app.js?v=accounting-pro-20260717"></script>
 </body>
 </html>
