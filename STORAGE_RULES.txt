@@ -1,5 +1,5 @@
-Firebase Storage tidak digunakan pada versi ini.
+Firebase Storage tidak digunakan.
 
-Screenshot hanya diproses di browser memakai Tesseract.js.
-File screenshot tidak disimpan.
-Hasil teks scan disimpan ke Firestore sebagai field scanNote.
+Screenshot/PDF hanya diproses OCR di browser.
+File tidak disimpan.
+Hasil scan disimpan sebagai data teks/transaksi di Firestore.
