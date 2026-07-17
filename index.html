@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spendly Budget Tracker</title>
-  <link rel="stylesheet" href="assets/styles.css?v=full-fixed-20260717" />
+  <link rel="stylesheet" href="assets/styles.css?v=multi-ocr-pdf-20260717" />
 </head>
 <body>
   <div id="authScreen" class="auth-screen">
@@ -215,25 +215,25 @@
         <div class="panel-header">
           <div>
             <p class="section-label">OCR Scanner</p>
-            <h2>Scan Screenshot Transaksi</h2>
+            <h2>Scan Screenshot / PDF Transaksi</h2>
           </div>
         </div>
 
         <div class="ai-scanner-grid">
           <div class="upload-card">
             <div class="field">
-              <label for="screenshotInput">Upload Screenshot</label>
-              <input id="screenshotInput" type="file" accept="image/*" />
+              <label for="screenshotInput">Upload Screenshot / PDF</label>
+              <input id="screenshotInput" type="file" accept="image/*,.pdf,application/pdf" multiple />
             </div>
 
             <div id="screenshotPreviewBox" class="screenshot-preview empty-preview">
-              <span>Preview screenshot akan muncul di sini.</span>
+              <span>Preview screenshot/PDF akan muncul di sini.</span>
             </div>
 
-            <button id="scanScreenshotButton" class="btn btn-primary" type="button">Scan Screenshot</button>
+            <button id="scanScreenshotButton" class="btn btn-primary" type="button">Scan File</button>
 
             <div id="scanMessage" class="notice info no-margin">
-              Mode OCR lokal. File screenshot tidak disimpan. Hasil scan wajib direview sebelum disimpan.
+              Mode OCR lokal. Bisa scan satu transaksi, mutasi banyak transaksi dalam satu screenshot, atau PDF. File tidak disimpan.
             </div>
           </div>
 
@@ -308,6 +308,28 @@
               <button id="saveScannedTransactionButton" class="btn btn-primary" type="submit">Simpan Hasil Scan</button>
             </form>
           </div>
+
+          <div id="multiScanResultCard" class="scan-result-card multi-scan-card hidden">
+            <div class="result-header">
+              <div>
+                <p class="section-label">Batch Review</p>
+                <h3>Review Banyak Transaksi</h3>
+              </div>
+              <span id="multiScanCountBadge" class="confidence-badge">0 item</span>
+            </div>
+
+            <div class="multi-scan-help">
+              Sistem membaca tanggal per grup, nominal plus/minus, jenis transaksi, merchant, dan kategori otomatis. Cek ulang semua baris sebelum simpan.
+            </div>
+
+            <div id="multiScanTableContainer" class="multi-scan-table-container"></div>
+
+            <div class="multi-actions">
+              <button id="selectAllScannedButton" class="btn btn-secondary" type="button">Pilih Semua</button>
+              <button id="saveSelectedScannedButton" class="btn btn-primary" type="button">Simpan Terpilih</button>
+            </div>
+          </div>
+
         </div>
       </section>
 
@@ -429,7 +451,8 @@
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/app.js?v=full-fixed-20260717"></script>
+  <script type="module" src="assets/app.js?v=multi-ocr-pdf-20260717"></script>
 </body>
 </html>

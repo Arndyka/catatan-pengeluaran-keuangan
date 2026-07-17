@@ -38,6 +38,10 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+if (window.pdfjsLib) {
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+}
+
 const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.warn("Auth persistence fallback:", error);
 });
@@ -52,6 +56,7 @@ let bankBalanceChart = null;
 let cashflowChart = null;
 let selectedScreenshotFile = null;
 let latestScanResult = null;
+let scannedTransactions = [];
 
 const $ = (id) => document.getElementById(id);
 
@@ -117,6 +122,12 @@ const scanNominal = $("scanNominal");
 const scanKeterangan = $("scanKeterangan");
 const scanNoteInput = $("scanNoteInput");
 const saveScannedTransactionButton = $("saveScannedTransactionButton");
+
+const multiScanResultCard = $("multiScanResultCard");
+const multiScanCountBadge = $("multiScanCountBadge");
+const multiScanTableContainer = $("multiScanTableContainer");
+const selectAllScannedButton = $("selectAllScannedButton");
+const saveSelectedScannedButton = $("saveSelectedScannedButton");
 
 const generateAdviceButton = $("generateAdviceButton");
 const advisorOutput = $("advisorOutput");
@@ -897,29 +908,45 @@ function buildScanNote(bank, tanggal, kategori, nominal) {
 }
 
 function handleScreenshotPreview() {
-  const file = screenshotInput.files?.[0];
+  const files = [...(screenshotInput.files || [])];
 
-  selectedScreenshotFile = file || null;
+  selectedScreenshotFile = files[0] || null;
   latestScanResult = null;
+  scannedTransactions = [];
   scanResultCard.classList.add("hidden");
+  multiScanResultCard.classList.add("hidden");
 
-  if (!file) {
+  if (!files.length) {
     screenshotPreviewBox.className = "screenshot-preview empty-preview";
-    screenshotPreviewBox.innerHTML = "<span>Preview screenshot akan muncul di sini.</span>";
+    screenshotPreviewBox.innerHTML = "<span>Preview screenshot/PDF akan muncul di sini.</span>";
     return;
   }
 
-  if (!file.type.startsWith("image/")) {
-    setNotice(scanMessage, "error", "File harus berupa gambar.");
+  const invalid = files.find((file) => !file.type.startsWith("image/") && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf"));
+  if (invalid) {
+    setNotice(scanMessage, "error", "File harus berupa gambar atau PDF.");
     screenshotInput.value = "";
     selectedScreenshotFile = null;
     return;
   }
 
-  const previewUrl = URL.createObjectURL(file);
-  screenshotPreviewBox.className = "screenshot-preview";
-  screenshotPreviewBox.innerHTML = `<img src="${previewUrl}" alt="Preview screenshot transaksi">`;
-  setNotice(scanMessage, "info", "Screenshot siap discan. Klik Scan Screenshot.");
+  const firstFile = files[0];
+
+  if (firstFile.type === "application/pdf" || firstFile.name.toLowerCase().endsWith(".pdf")) {
+    screenshotPreviewBox.className = "screenshot-preview empty-preview";
+    screenshotPreviewBox.innerHTML = `
+      <div class="pdf-page-preview">
+        <strong>${files.length} file dipilih</strong>
+        <span>PDF akan dirender per halaman lalu dibaca OCR.</span>
+      </div>
+    `;
+  } else {
+    const previewUrl = URL.createObjectURL(firstFile);
+    screenshotPreviewBox.className = "screenshot-preview";
+    screenshotPreviewBox.innerHTML = `<img src="${previewUrl}" alt="Preview screenshot transaksi">`;
+  }
+
+  setNotice(scanMessage, "info", `${files.length} file siap discan. Klik Scan File.`);
 }
 
 function setScanLoading(isLoading) {
@@ -927,9 +954,463 @@ function setScanLoading(isLoading) {
   scanScreenshotButton.textContent = isLoading ? "Membaca OCR..." : "Scan Screenshot";
 }
 
-async function scanScreenshotWithOcr() {
-  if (!selectedScreenshotFile) {
-    setNotice(scanMessage, "error", "Upload screenshot terlebih dahulu.");
+
+async function renderPdfToCanvases(file) {
+  if (!window.pdfjsLib) {
+    throw new Error("PDF.js belum termuat. Refresh halaman lalu coba lagi.");
+  }
+
+  const buffer = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
+  const canvases = [];
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber++) {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    await page.render({
+      canvasContext: context,
+      viewport
+    }).promise;
+
+    canvases.push({
+      source: canvas,
+      label: `${file.name} halaman ${pageNumber}`
+    });
+  }
+
+  return canvases;
+}
+
+async function buildOcrTargets(files) {
+  const targets = [];
+
+  for (const file of files) {
+    const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+    if (isPdf) {
+      const canvases = await renderPdfToCanvases(file);
+      targets.push(...canvases);
+    } else {
+      targets.push({
+        source: file,
+        label: file.name
+      });
+    }
+  }
+
+  return targets;
+}
+
+function parseDateLineToIso(line) {
+  const text = cleanOcrLine(line);
+  const currentYear = new Date().getFullYear();
+
+  let match = text.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](20\d{2})/);
+  if (match) {
+    const day = match[1].padStart(2, "0");
+    const month = match[2].padStart(2, "0");
+    return `${match[3]}-${month}-${day}`;
+  }
+
+  match = text.match(/(20\d{2})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/);
+  if (match) {
+    const month = match[2].padStart(2, "0");
+    const day = match[3].padStart(2, "0");
+    return `${match[1]}-${month}-${day}`;
+  }
+
+  const monthMap = {
+    jan: "01", januari: "01", january: "01",
+    feb: "02", februari: "02", february: "02",
+    mar: "03", maret: "03", march: "03",
+    apr: "04", april: "04",
+    mei: "05", may: "05",
+    jun: "06", juni: "06", june: "06",
+    jul: "07", juli: "07", july: "07",
+    agu: "08", agustus: "08", aug: "08", august: "08",
+    sep: "09", september: "09",
+    okt: "10", oktober: "10", oct: "10", october: "10",
+    nov: "11", november: "11",
+    des: "12", desember: "12", dec: "12", december: "12"
+  };
+
+  match = text.toLowerCase().match(/(\d{1,2})\s+([a-zA-Z]+)\s+(20\d{2})?/);
+  if (match && monthMap[match[2]]) {
+    const day = match[1].padStart(2, "0");
+    const month = monthMap[match[2]];
+    const year = match[3] || currentYear;
+    return `${year}-${month}-${day}`;
+  }
+
+  return "";
+}
+
+function cleanMerchantName(value) {
+  let text = cleanText(value)
+    .replace(/^ke\s+/i, "")
+    .replace(/^dari\s+/i, "")
+    .replace(/[-–—]\s*(cp|id|no|ref).*$/i, "")
+    .replace(/\bMANDIRI\s+DIGITA.*$/i, "")
+    .replace(/\bDIGITA.*$/i, "")
+    .replace(/\s+\d{5,}.*$/g, "")
+    .trim();
+
+  const upperFix = {
+    familymart: "FamilyMart",
+    famiymart: "FamilyMart",
+    famlymart: "FamilyMart"
+  };
+
+  const key = text.toLowerCase().replace(/[^a-z]/g, "");
+  if (upperFix[key]) return upperFix[key];
+
+  return text;
+}
+
+function inferMerchantFromGroup(groupLines) {
+  const priority = groupLines.find((line) => /\b(ke|dari)\b\s+[a-zA-Z]/i.test(line));
+  if (priority) {
+    return cleanMerchantName(priority);
+  }
+
+  const ignore = [
+    "qr bayar", "bayar/top-up", "bayar", "top-up", "transfer rupiah", "transfer",
+    "pembayaran qr", "transaksi", "e-statement", "april", "mei", "juni", "juli",
+    "mandiri", "bca", "bri", "bni", "rp", "idr"
+  ];
+
+  const candidate = groupLines.find((line) => {
+    const lower = line.toLowerCase();
+    if (ignore.some((word) => lower.includes(word))) return false;
+    if (line.length < 3 || line.length > 50) return false;
+    if (/^\d+$/.test(line)) return false;
+    return /[a-zA-Z]/.test(line);
+  });
+
+  return candidate ? cleanMerchantName(candidate) : "";
+}
+
+function inferTypeFromGroup(groupLines, sign) {
+  const context = groupLines.join(" ").toLowerCase();
+
+  if (sign === "+") return "income";
+  if (sign === "-") return "expense";
+
+  if (/(qr bayar|bayar\/top.?up|bayar|pembayaran|top.?up|purchase|payment)/.test(context)) return "expense";
+  if (/(transfer rupiah|transfer|kirim uang)/.test(context)) return "transfer";
+  if (/(dana masuk|uang masuk|incoming|received|refund|cashback|gaji|salary)/.test(context)) return "income";
+
+  return "expense";
+}
+
+function inferCategoryFromMerchantAndGroup(merchant, groupLines, type) {
+  if (type === "transfer") return "Transfer";
+  if (type === "income") return "Pemasukan";
+
+  const context = `${merchant} ${groupLines.join(" ")}`.toLowerCase();
+
+  if (/(ayam|sambel|sambal|kopi|coffee|kedai|makan|food|restaurant|resto|nasi|mie|bakso|sate|kfc|mcd|starbucks|familymart|familiymart|indomaret|alfamart)/.test(context)) {
+    return "Makan";
+  }
+
+  if (/(grab|gojek|gocar|goride|taxi|taksi|tol|parkir|parking|pertamina|bensin|shell)/.test(context)) {
+    return "Transportasi";
+  }
+
+  if (/(tokopedia|shopee|lazada|blibli|belanja|mall|store|miniso)/.test(context)) {
+    return "Belanja";
+  }
+
+  if (/(pln|listrik|pdam|internet|wifi|telkom|indihome|bpjs|tagihan|pulsa|data|token)/.test(context)) {
+    return "Tagihan";
+  }
+
+  if (/(netflix|spotify|bioskop|cinema|game|steam|hiburan)/.test(context)) {
+    return "Hiburan";
+  }
+
+  if (/(apotek|pharmacy|klinik|rumah sakit|hospital|obat|dokter)/.test(context)) {
+    return "Kesehatan";
+  }
+
+  return "Lainnya";
+}
+
+function parseMultiTransactionsFromOcr(rawText, sourceLabel = "") {
+  const text = normalizeOcrText(rawText);
+  const lines = text
+    .split("\n")
+    .map((line) => cleanOcrLine(line))
+    .filter(Boolean);
+
+  const bank = extractBankFromOcr(text);
+  let currentDate = "";
+  const results = [];
+
+  lines.forEach((line, index) => {
+    const date = parseDateLineToIso(line);
+    if (date) {
+      currentDate = date;
+    }
+
+    const amountInfo = extractAmountWithSign(line);
+    if (!amountInfo) return;
+
+    const groupStart = Math.max(0, index - 4);
+    const groupEnd = Math.min(lines.length, index + 4);
+    const groupLines = lines.slice(groupStart, groupEnd);
+
+    const type = inferTypeFromGroup(groupLines, amountInfo.sign);
+    const merchant = inferMerchantFromGroup(groupLines);
+    const kategori = inferCategoryFromMerchantAndGroup(merchant, groupLines, type);
+    const tanggal = currentDate || extractDateFromOcr(groupLines.join("\n"));
+    const nominal = amountInfo.amount;
+    const confidence = calculateOcrConfidence({ nominal, bank, merchant, tanggal, kategori });
+
+    // Hindari duplikat amount yang sama pada grup sama.
+    const duplicate = results.some((item) =>
+      item.tanggal === tanggal &&
+      item.nominal === nominal &&
+      item.type === type &&
+      item.merchant === merchant
+    );
+
+    if (!duplicate && nominal >= 1000) {
+      results.push({
+        id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${index}-${Math.random()}`,
+        selected: type !== "income" || results.length === 0,
+        type,
+        tanggal,
+        bank,
+        toBank: "",
+        merchant,
+        kategori,
+        nominal,
+        keterangan: merchant ? `OCR: ${merchant}` : `OCR dari ${sourceLabel || "file"}`,
+        confidence,
+        scanNote: buildScanNote(bank, tanggal, kategori, nominal),
+        sourceLabel
+      });
+    }
+  });
+
+  if (results.length) {
+    return results;
+  }
+
+  const single = parseOcrTransaction(text, { name: sourceLabel || "file" });
+  if (single.nominal) {
+    return [{
+      id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+      selected: true,
+      ...single,
+      scanNote: buildScanNote(single.bank, single.tanggal, single.kategori, single.nominal),
+      sourceLabel
+    }];
+  }
+
+  return [];
+}
+
+function renderMultiScanTable() {
+  if (!scannedTransactions.length) {
+    multiScanResultCard.classList.add("hidden");
+    return;
+  }
+
+  multiScanResultCard.classList.remove("hidden");
+  multiScanCountBadge.textContent = `${scannedTransactions.length} item`;
+
+  multiScanTableContainer.innerHTML = `
+    <table class="multi-scan-table">
+      <thead>
+        <tr>
+          <th class="check-cell">Pilih</th>
+          <th>Tanggal</th>
+          <th>Tipe</th>
+          <th>Bank</th>
+          <th>Bank Tujuan</th>
+          <th>Merchant/Sumber</th>
+          <th>Kategori</th>
+          <th class="nominal-cell">Nominal</th>
+          <th>Keterangan</th>
+          <th>Confidence</th>
+          <th>Hapus</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${scannedTransactions.map((item, index) => `
+          <tr data-index="${index}">
+            <td class="check-cell"><input data-field="selected" type="checkbox" ${item.selected ? "checked" : ""}></td>
+            <td><input data-field="tanggal" type="date" value="${item.tanggal || ""}"></td>
+            <td>
+              <select data-field="type">
+                <option value="expense" ${item.type === "expense" ? "selected" : ""}>Pengeluaran</option>
+                <option value="income" ${item.type === "income" ? "selected" : ""}>Pemasukan</option>
+                <option value="transfer" ${item.type === "transfer" ? "selected" : ""}>Transfer</option>
+              </select>
+            </td>
+            <td><input data-field="bank" type="text" value="${item.bank || ""}"></td>
+            <td><input data-field="toBank" type="text" value="${item.toBank || ""}" placeholder="Khusus transfer"></td>
+            <td><input data-field="merchant" type="text" value="${item.merchant || ""}"></td>
+            <td>
+              <select data-field="kategori">
+                ${["Makan", "Transportasi", "Belanja", "Tagihan", "Hiburan", "Kesehatan", "Transfer", "Pemasukan", "Lainnya"].map((category) =>
+                  `<option value="${category}" ${item.kategori === category ? "selected" : ""}>${category}</option>`
+                ).join("")}
+              </select>
+            </td>
+            <td><input data-field="nominal" type="number" min="1" value="${item.nominal || ""}"></td>
+            <td><input data-field="keterangan" type="text" value="${item.keterangan || ""}"></td>
+            <td>${Math.round(Number(item.confidence || 0) * 100)}%</td>
+            <td><button class="small-btn danger" type="button" data-remove-scan="${index}">Hapus</button></td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function syncMultiScanFromTable() {
+  const rows = multiScanTableContainer.querySelectorAll("tr[data-index]");
+  rows.forEach((row) => {
+    const index = Number(row.dataset.index);
+    const item = scannedTransactions[index];
+    if (!item) return;
+
+    row.querySelectorAll("[data-field]").forEach((input) => {
+      const field = input.dataset.field;
+      if (field === "selected") {
+        item.selected = input.checked;
+      } else if (field === "nominal") {
+        item.nominal = Number(input.value || 0);
+      } else {
+        item[field] = input.value;
+      }
+    });
+
+    item.scanNote = buildScanNote(item.bank, item.tanggal, item.kategori, item.nominal);
+  });
+}
+
+async function saveOneScannedTransaction(item) {
+  const type = item.type;
+  const tanggal = item.tanggal;
+  const nominal = Number(item.nominal || 0);
+  const bank = normalizeBank(item.bank);
+  const toBank = normalizeBank(item.toBank);
+  const merchant = cleanText(item.merchant);
+  const kategori = item.kategori || "Lainnya";
+  const keterangan = cleanText(item.keterangan);
+  const scanNote = buildScanNote(bank.display, tanggal, kategori, nominal);
+
+  if (!tanggal || !nominal || nominal <= 0 || !bank.key) {
+    throw new Error(`Data belum lengkap: ${scanNote}`);
+  }
+
+  if (type === "transfer" && (!toBank.key || toBank.key === bank.key)) {
+    throw new Error(`Transfer perlu bank tujuan yang valid: ${scanNote}`);
+  }
+
+  if (type === "income") {
+    await addDoc(collectionRef("incomes"), {
+      tanggal,
+      bankKey: bank.key,
+      bankName: bank.display,
+      sumber: merchant || "Pemasukan dari OCR",
+      nominal,
+      keterangan,
+      merchant,
+      source: "ocr_batch",
+      confidence: item.confidence || null,
+      scanNote,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  }
+
+  if (type === "expense") {
+    await addDoc(collectionRef("expenses"), {
+      tanggal,
+      bankKey: bank.key,
+      bankName: bank.display,
+      kategori: kategori === "Pemasukan" ? "Lainnya" : kategori,
+      nominal,
+      keterangan: keterangan || merchant || "Pengeluaran dari OCR",
+      merchant,
+      source: "ocr_batch",
+      confidence: item.confidence || null,
+      scanNote,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  }
+
+  if (type === "transfer") {
+    await addDoc(collectionRef("transfers"), {
+      tanggal,
+      fromBankKey: bank.key,
+      fromBankName: bank.display,
+      toBankKey: toBank.key,
+      toBankName: toBank.display,
+      nominal,
+      keterangan: keterangan || "Transfer dari OCR",
+      merchant,
+      source: "ocr_batch",
+      confidence: item.confidence || null,
+      scanNote,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+  }
+}
+
+async function saveSelectedScannedTransactions() {
+  syncMultiScanFromTable();
+  const selected = scannedTransactions.filter((item) => item.selected);
+
+  if (!selected.length) {
+    setNotice(scanMessage, "error", "Pilih minimal satu transaksi untuk disimpan.");
+    return;
+  }
+
+  saveSelectedScannedButton.disabled = true;
+  saveSelectedScannedButton.textContent = "Menyimpan...";
+
+  try {
+    for (const item of selected) {
+      await saveOneScannedTransaction(item);
+    }
+
+    setNotice(scanMessage, "success", `${selected.length} transaksi berhasil disimpan.`);
+    scannedTransactions = [];
+    renderMultiScanTable();
+    multiScanResultCard.classList.add("hidden");
+    scanResultCard.classList.add("hidden");
+    screenshotInput.value = "";
+    selectedScreenshotFile = null;
+    screenshotPreviewBox.className = "screenshot-preview empty-preview";
+    screenshotPreviewBox.innerHTML = "<span>Preview screenshot/PDF akan muncul di sini.</span>";
+  } catch (error) {
+    setNotice(scanMessage, "error", error.message || "Gagal menyimpan transaksi terpilih.");
+  } finally {
+    saveSelectedScannedButton.disabled = false;
+    saveSelectedScannedButton.textContent = "Simpan Terpilih";
+  }
+}
+
+
+async async function scanScreenshotWithOcr() {
+  const files = [...(screenshotInput.files || [])];
+
+  if (!files.length) {
+    setNotice(scanMessage, "error", "Upload screenshot atau PDF terlebih dahulu.");
     return;
   }
 
@@ -939,31 +1420,65 @@ async function scanScreenshotWithOcr() {
   }
 
   setScanLoading(true);
-  setNotice(scanMessage, "info", "OCR sedang membaca screenshot...");
+  setNotice(scanMessage, "info", "Menyiapkan file untuk OCR...");
+  scannedTransactions = [];
+  scanResultCard.classList.add("hidden");
+  multiScanResultCard.classList.add("hidden");
 
   try {
-    const result = await Tesseract.recognize(selectedScreenshotFile, "ind+eng", {
-      logger: (progress) => {
-        if (progress.status === "recognizing text") {
-          const percent = Math.round((progress.progress || 0) * 100);
-          setNotice(scanMessage, "info", `OCR sedang membaca screenshot... ${percent}%`);
+    const targets = await buildOcrTargets(files);
+    let combinedText = "";
+
+    for (let index = 0; index < targets.length; index++) {
+      const target = targets[index];
+      setNotice(scanMessage, "info", `OCR membaca ${target.label} (${index + 1}/${targets.length})...`);
+
+      const result = await Tesseract.recognize(target.source, "ind+eng", {
+        logger: (progress) => {
+          if (progress.status === "recognizing text") {
+            const percent = Math.round((progress.progress || 0) * 100);
+            setNotice(scanMessage, "info", `OCR ${target.label}... ${percent}%`);
+          }
         }
-      }
+      });
+
+      const rawText = result?.data?.text || "";
+      combinedText += `\n\n--- ${target.label} ---\n${rawText}`;
+
+      const parsed = parseMultiTransactionsFromOcr(rawText, target.label);
+      scannedTransactions.push(...parsed);
+    }
+
+    // Dedup transaksi antar halaman/file
+    const seen = new Set();
+    scannedTransactions = scannedTransactions.filter((item) => {
+      const key = `${item.tanggal}|${item.type}|${item.bank}|${item.merchant}|${item.nominal}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
 
-    const rawText = result?.data?.text || "";
-    const transaction = parseOcrTransaction(rawText, selectedScreenshotFile);
+    if (scannedTransactions.length > 1) {
+      renderMultiScanTable();
+      setNotice(scanMessage, "success", `${scannedTransactions.length} transaksi terdeteksi. Review tabel sebelum simpan.`);
+      return;
+    }
 
+    if (scannedTransactions.length === 1) {
+      latestScanResult = scannedTransactions[0];
+      fillScanReviewForm(scannedTransactions[0]);
+      renderMultiScanTable();
+      setNotice(scanMessage, "success", "1 transaksi terdeteksi. Bisa review di form atau tabel.");
+      return;
+    }
+
+    // fallback single parser
+    const transaction = parseOcrTransaction(combinedText, files[0]);
     latestScanResult = transaction;
     fillScanReviewForm(transaction);
-
-    if (transaction.confidence < 0.55) {
-      setNotice(scanMessage, "info", "OCR selesai, tapi confidence rendah. Cek ulang semua field sebelum simpan.");
-    } else {
-      setNotice(scanMessage, "success", "OCR selesai. Review hasilnya sebelum disimpan.");
-    }
+    setNotice(scanMessage, "info", "OCR selesai, tapi transaksi tidak terbaca jelas. Cek ulang field manual.");
   } catch (error) {
-    setNotice(scanMessage, "error", error.message || "Gagal membaca screenshot dengan OCR.");
+    setNotice(scanMessage, "error", error.message || "Gagal membaca file dengan OCR.");
   } finally {
     setScanLoading(false);
   }
@@ -1001,9 +1516,133 @@ function parseNumberCandidate(raw) {
   return Number.isFinite(number) ? number : 0;
 }
 
+
+function cleanOcrLine(line) {
+  return String(line || "")
+    .replace(/[|_~]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function extractAmountWithSign(line) {
+  const text = String(line || "");
+  const match = text.match(/([+-])\s*(?:rp|idr)?\s*([0-9][0-9.,]{2,})/i)
+    || text.match(/(?:rp|idr)\s*([0-9][0-9.,]{2,})/i)
+    || text.match(/([0-9]{1,3}(?:[.,][0-9]{3})+(?:,[0-9]{2})?)/);
+
+  if (!match) return null;
+
+  const sign = match[1] === "+" || match[1] === "-" ? match[1] : "";
+  const rawAmount = match[2] || match[1];
+  const amount = parseNumberCandidate(rawAmount);
+
+  if (!amount || amount < 1000) return null;
+
+  return {
+    sign,
+    amount
+  };
+}
+
+function detectTransactionKindFromLines(lines, index, sign) {
+  const context = lines.slice(Math.max(0, index - 4), Math.min(lines.length, index + 3)).join(" ").toLowerCase();
+
+  if (sign === "+") return "income";
+  if (sign === "-") return "expense";
+
+  if (/(qr bayar|bayar\/top.?up|bayar|top.?up|pembayaran|purchase|payment)/.test(context)) {
+    return "expense";
+  }
+
+  if (/(transfer rupiah|transfer|kirim uang)/.test(context)) {
+    return "transfer";
+  }
+
+  if (/(uang masuk|dana masuk|incoming|received|refund|cashback|gaji|salary)/.test(context)) {
+    return "income";
+  }
+
+  return "expense";
+}
+
+function extractMerchantNearAmount(lines, index) {
+  const contextLines = lines.slice(Math.max(0, index - 5), Math.min(lines.length, index + 4));
+
+  const merchantLine = contextLines.find((line) => {
+    const lower = line.toLowerCase();
+
+    if (/^(qr bayar|bayar\/top.?up|transfer rupiah|transfer|transaksi)$/i.test(line)) return false;
+    if (/(rp|idr|\+|-|tanggal|date|rekening|mandiri|bca|bri|bni|bsi|e-statement|april|mei|juni|juli|search|pencarian)/i.test(line)) return false;
+    if (/^\d+$/.test(line)) return false;
+    if (line.length < 4 || line.length > 48) return false;
+
+    return /[a-zA-Z]/.test(line);
+  });
+
+  if (merchantLine) {
+    return merchantLine
+      .replace(/^ke\s+/i, "")
+      .replace(/^dari\s+/i, "")
+      .trim();
+  }
+
+  return "";
+}
+
+function extractBestTransactionFromOcr(text) {
+  const lines = normalizeOcrText(text)
+    .split("\n")
+    .map((line) => cleanOcrLine(line))
+    .filter(Boolean);
+
+  const candidates = [];
+
+  lines.forEach((line, index) => {
+    const amountInfo = extractAmountWithSign(line);
+    if (!amountInfo) return;
+
+    const type = detectTransactionKindFromLines(lines, index, amountInfo.sign);
+    const merchant = extractMerchantNearAmount(lines, index);
+    const context = lines.slice(Math.max(0, index - 4), Math.min(lines.length, index + 3)).join(" ").toLowerCase();
+
+    let score = 0;
+    if (amountInfo.sign === "-") score += 40;
+    if (amountInfo.sign === "+") score += 20;
+    if (/qr bayar|bayar\/top.?up|bayar|pembayaran/.test(context)) score += 35;
+    if (/transfer rupiah|transfer/.test(context)) score += 10;
+    if (merchant) score += 15;
+    if (index < 8) score += 8; // transaksi paling atas biasanya paling relevan
+    score += Math.min(10, amountInfo.amount / 100000);
+
+    candidates.push({
+      type,
+      nominal: amountInfo.amount,
+      merchant,
+      score,
+      index
+    });
+  });
+
+  if (!candidates.length) return null;
+
+  // Prioritas: uang keluar/QR/Bayar. Ini menghindari salah ambil Transfer Rupiah dari daftar mutasi.
+  const expenseCandidates = candidates.filter((item) => item.type === "expense");
+  const target = (expenseCandidates.length ? expenseCandidates : candidates)
+    .sort((a, b) => b.score - a.score)[0];
+
+  return target;
+}
+
+
 function extractNominalFromOcr(text) {
+  const transaction = extractBestTransactionFromOcr(text);
+  if (transaction && transaction.nominal) {
+    return transaction.nominal;
+  }
+
   const candidates = [];
   const patterns = [
+    /([+-])\s*(?:rp|idr)?\s*([0-9][0-9.,]{2,})/gi,
     /(?:rp|idr)\s*([0-9][0-9.,]{2,})/gi,
     /(?:total|jumlah|amount|nominal|bayar|pembayaran|paid|payment|subtotal)\D{0,25}([0-9][0-9.,]{2,})/gi,
     /([0-9]{1,3}(?:[.,][0-9]{3})+(?:,[0-9]{2})?)/g
@@ -1012,7 +1651,8 @@ function extractNominalFromOcr(text) {
   patterns.forEach((pattern) => {
     let match;
     while ((match = pattern.exec(text)) !== null) {
-      const value = parseNumberCandidate(match[1]);
+      const raw = match[2] || match[1];
+      const value = parseNumberCandidate(raw);
       if (value >= 1000 && value <= 1000000000) {
         candidates.push(value);
       }
@@ -1106,15 +1746,22 @@ function extractBankFromOcr(text) {
 }
 
 function extractMerchantFromOcr(text, bank) {
+  const bestTransaction = extractBestTransactionFromOcr(text);
+  if (bestTransaction?.merchant) {
+    return bestTransaction.merchant;
+  }
+
   const lines = normalizeOcrText(text)
     .split("\n")
-    .map((line) => line.trim())
+    .map((line) => cleanOcrLine(line))
     .filter(Boolean);
 
   const blocked = [
     "rp", "idr", "total", "jumlah", "amount", "nominal", "tanggal", "date",
     "waktu", "time", "berhasil", "sukses", "transaksi", "transfer", "qris",
-    "receipt", "struk", "invoice", "bank", "rekening", "ref", "referensi"
+    "receipt", "struk", "invoice", "bank", "rekening", "ref", "referensi",
+    "april", "mei", "juni", "juli", "january", "february", "march",
+    "e-statement", "statement", "pencarian", "search"
   ];
 
   const bankLower = String(bank || "").toLowerCase();
@@ -1124,7 +1771,8 @@ function extractMerchantFromOcr(text, bank) {
     if (bankLower && lower.includes(bankLower)) return false;
     if (blocked.some((word) => lower.includes(word))) return false;
     if (/^\d+$/.test(lower)) return false;
-    if (line.length < 3 || line.length > 42) return false;
+    if (/^(april|mei|juni|juli|jan|feb|mar|apr|may|jun|jul)(\s|$)/i.test(line)) return false;
+    if (line.length < 3 || line.length > 46) return false;
     return /[a-zA-Z]/.test(line);
   });
 
@@ -1148,14 +1796,23 @@ function inferCategoryFromOcr(text, merchant) {
 }
 
 function inferTransactionTypeFromOcr(text) {
+  const bestTransaction = extractBestTransactionFromOcr(text);
+  if (bestTransaction?.type) {
+    return bestTransaction.type;
+  }
+
   const lower = text.toLowerCase();
+
+  if (/(uang masuk|dana masuk|incoming|receive|received|refund|cashback|gaji|salary|\+\s*rp)/.test(lower)) {
+    return "income";
+  }
+
+  if (/(qr bayar|bayar|top.?up|pembayaran|purchase|payment|-\s*rp)/.test(lower)) {
+    return "expense";
+  }
 
   if (/(transfer|kirim uang|pindah dana|rekening tujuan|beneficiary)/.test(lower)) {
     return "transfer";
-  }
-
-  if (/(uang masuk|dana masuk|incoming|receive|received|refund|cashback|gaji|salary)/.test(lower)) {
-    return "income";
   }
 
   return "expense";
@@ -1173,12 +1830,14 @@ function calculateOcrConfidence({ nominal, bank, merchant, tanggal, kategori }) 
 
 function parseOcrTransaction(rawText, file) {
   const text = normalizeOcrText(rawText);
+  const best = extractBestTransactionFromOcr(text);
+
   const tanggal = extractDateFromOcr(text);
-  const nominal = extractNominalFromOcr(text);
+  const nominal = best?.nominal || extractNominalFromOcr(text);
   const bank = extractBankFromOcr(text);
-  const merchant = extractMerchantFromOcr(text, bank);
+  const merchant = best?.merchant || extractMerchantFromOcr(text, bank);
   const rawCategory = inferCategoryFromOcr(text, merchant);
-  const type = inferTransactionTypeFromOcr(text);
+  const type = best?.type || inferTransactionTypeFromOcr(text);
   const kategori = type === "transfer" ? "Transfer" : rawCategory;
   const confidence = calculateOcrConfidence({ nominal, bank, merchant, tanggal, kategori });
 
@@ -1526,6 +2185,26 @@ downloadExcelButton.addEventListener("click", downloadExcel);
 screenshotInput.addEventListener("change", handleScreenshotPreview);
 scanScreenshotButton.addEventListener("click", scanScreenshotWithOcr);
 scanReviewForm.addEventListener("submit", saveScannedTransaction);
+
+multiScanTableContainer.addEventListener("input", syncMultiScanFromTable);
+multiScanTableContainer.addEventListener("change", syncMultiScanFromTable);
+multiScanTableContainer.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-remove-scan]");
+  if (!button) return;
+  const index = Number(button.dataset.removeScan);
+  scannedTransactions.splice(index, 1);
+  renderMultiScanTable();
+});
+
+selectAllScannedButton.addEventListener("click", () => {
+  const shouldSelect = scannedTransactions.some((item) => !item.selected);
+  scannedTransactions.forEach((item) => {
+    item.selected = shouldSelect;
+  });
+  renderMultiScanTable();
+});
+
+saveSelectedScannedButton.addEventListener("click", saveSelectedScannedTransactions);
 scanType.addEventListener("change", toggleScanToBank);
 
 [scanTanggal, scanBank, scanKategori, scanNominal].forEach((element) => {
