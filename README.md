@@ -1,63 +1,65 @@
-# Spendly OCR Budget Tracker
+# Spendly Full Fixed
 
-Versi ini tidak memakai Azure OpenAI, tidak memakai backend, dan tidak memakai Firebase Storage.
+Versi lengkap yang diperbaiki ulang dari nol.
 
-## Fitur Baru
+## Fitur
 
-- OCR Screenshot Scanner berbasis Tesseract.js
-- File screenshot hanya diproses di browser
-- File screenshot tidak disimpan
-- Hasil OCR tampil dulu untuk review/edit
-- Simpan transaksi ke Firestore
-- Catatan scan disimpan dengan format: `Bank | Tanggal | Kategori | Jumlah`
-- Financial Advisor lokal berbasis rule sederhana
+- Login Email/Password
+- Register Email/Password
+- Firebase Auth persistence untuk HP
+- Firestore per user
+- Input pemasukan
+- Input pengeluaran
+- Transfer antar bank/dompet
+- Edit transaksi
+- Hapus transaksi
+- Saldo per bank
+- Chart saldo per bank
+- Chart pemasukan vs pengeluaran
+- OCR screenshot scanner lokal dengan Tesseract.js
+- Review hasil OCR sebelum simpan
+- Catatan scan format: `Bank | Tanggal | Kategori | Jumlah`
+- Financial Advisor lokal rule-based
+- Export CSV
+- Export Excel
 
-## Upload ke GitHub Pages
+## Upload ke GitHub
 
-Upload/replace file ini:
+Upload/replace file berikut:
 
 ```text
 index.html
 README.md
+FIRESTORE_RULES.txt
 STORAGE_RULES.txt
 assets/app.js
 assets/styles.css
 ```
 
-Folder `azure-function-api` tidak diperlukan lagi untuk versi ini.
+## Firebase Authentication
 
-## Cara Kerja OCR
+Pastikan:
 
 ```text
-Upload screenshot
-↓
-Tesseract.js membaca teks di browser
-↓
-Rule parser mencari nominal, tanggal, bank, merchant, kategori
-↓
-Hasil tampil di form review
-↓
-User edit jika perlu
-↓
-Klik Simpan Hasil Scan
-↓
-Data masuk Firestore
+Authentication → Sign-in method → Email/Password → Enabled
 ```
 
-## Catatan Akurasi
+Pastikan Authorized domains berisi:
 
-OCR lokal tidak secerdas AI vision. Hasil tetap perlu dicek ulang, terutama nominal, tanggal, bank/dompet, kategori, dan merchant.
+```text
+arndyka.github.io
+```
 
+## Firestore Rules
 
-## Revisi Mobile Login Fixed
+Pakai isi `FIRESTORE_RULES.txt`.
 
-Perubahan:
-- Firebase Auth memakai browserLocalPersistence agar login lebih stabil di HP.
-- Pesan error login diperjelas.
-- Ditambahkan cache-busting pada `assets/app.js` dan `assets/styles.css` agar HP tidak mengambil file lama.
-- Versi ini tetap OCR lokal, tanpa Azure OpenAI, tanpa Azure Function, dan tanpa Firebase Storage.
+## Catatan
 
-Kalau HP masih gagal login:
-1. Pastikan Firebase Authentication Email/Password sudah Enabled.
-2. Pastikan Authorized domains berisi `arndyka.github.io`.
-3. Di Chrome HP, clear site data untuk `arndyka.github.io`, lalu buka ulang website.
+Versi ini tidak memakai:
+
+- Azure OpenAI
+- Azure Function
+- Firebase Storage
+
+Jadi tidak perlu API key AI atau billing Firebase Storage.

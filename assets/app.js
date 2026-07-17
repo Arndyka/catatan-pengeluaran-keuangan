@@ -1,20 +1,3 @@
-/*
-  PENTING:
-  Ganti firebaseConfig di bawah dengan config Firebase kamu.
-  Kalau kamu update dari versi sebelumnya, copy firebaseConfig lama kamu ke sini.
-*/
-
-const firebaseConfig = {
-  apiKey: "AIzaSyBTI3nR4CA5HdVGeP3zg7YibS2kfEvcCNc",
-  authDomain: "catatan-pengeluaran-keua-19af4.firebaseapp.com",
-  databaseURL: "https://catatan-pengeluaran-keua-19af4-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "catatan-pengeluaran-keua-19af4",
-  storageBucket: "catatan-pengeluaran-keua-19af4.firebasestorage.app",
-  messagingSenderId: "582629555317",
-  appId: "1:582629555317:web:4e8a943c221f53f96bcc3c",
-  measurementId: "G-GDWT3NWNMH"
-};
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 
 import {
@@ -40,157 +23,146 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+const firebaseConfig = {
+  apiKey: "AIzaSyBTI3nR4CA5HdVGeP3zg7YibS2kfEvcCNc",
+  authDomain: "catatan-pengeluaran-keua-19af4.firebaseapp.com",
+  databaseURL: "https://catatan-pengeluaran-keua-19af4-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "catatan-pengeluaran-keua-19af4",
+  storageBucket: "catatan-pengeluaran-keua-19af4.firebasestorage.app",
+  messagingSenderId: "582629555317",
+  appId: "1:582629555317:web:4e8a943c221f53f96bcc3c",
+  measurementId: "G-GDWT3NWNMH"
+};
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
 const authPersistenceReady = setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.warn("Firebase Auth persistence fallback:", error);
+  console.warn("Auth persistence fallback:", error);
 });
 
-
-let authMode = "login";
 let currentUser = null;
-let unsubscribers = [];
+let txMode = "income";
 let incomes = [];
 let expenses = [];
 let transfers = [];
-
-const authScreen = document.getElementById("authScreen");
-const appScreen = document.getElementById("appScreen");
-
-const loginTab = document.getElementById("loginTab");
-const registerTab = document.getElementById("registerTab");
-const authTitle = document.getElementById("authTitle");
-const authSubtitle = document.getElementById("authSubtitle");
-const authForm = document.getElementById("authForm");
-const authEmail = document.getElementById("authEmail");
-const authPassword = document.getElementById("authPassword");
-const authButton = document.getElementById("authButton");
-const authMessage = document.getElementById("authMessage");
-
-const userEmail = document.getElementById("userEmail");
-const userInitial = document.getElementById("userInitial");
-const logoutButton = document.getElementById("logoutButton");
-
-const incomeTab = document.getElementById("incomeTab");
-const expenseTab = document.getElementById("expenseTab");
-const transferTab = document.getElementById("transferTab");
-
-const incomeForm = document.getElementById("incomeForm");
-const expenseForm = document.getElementById("expenseForm");
-const transferForm = document.getElementById("transferForm");
-
-const incomeTanggal = document.getElementById("incomeTanggal");
-const incomeBank = document.getElementById("incomeBank");
-const incomeSource = document.getElementById("incomeSource");
-const incomeNominal = document.getElementById("incomeNominal");
-const incomeKeterangan = document.getElementById("incomeKeterangan");
-const saveIncomeButton = document.getElementById("saveIncomeButton");
-
-const expenseTanggal = document.getElementById("expenseTanggal");
-const expenseBank = document.getElementById("expenseBank");
-const expenseKategori = document.getElementById("expenseKategori");
-const expenseNominal = document.getElementById("expenseNominal");
-const expenseKeterangan = document.getElementById("expenseKeterangan");
-const saveExpenseButton = document.getElementById("saveExpenseButton");
-
-const transferTanggal = document.getElementById("transferTanggal");
-const transferFromBank = document.getElementById("transferFromBank");
-const transferToBank = document.getElementById("transferToBank");
-const transferNominal = document.getElementById("transferNominal");
-const transferKeterangan = document.getElementById("transferKeterangan");
-const saveTransferButton = document.getElementById("saveTransferButton");
-
-const transactionMessage = document.getElementById("transactionMessage");
-
-const sisaUang = document.getElementById("sisaUang");
-const totalPemasukan = document.getElementById("totalPemasukan");
-const totalPengeluaran = document.getElementById("totalPengeluaran");
-const jumlahBank = document.getElementById("jumlahBank");
-
-const bankBalanceGrid = document.getElementById("bankBalanceGrid");
-const bankBalanceChartCanvas = document.getElementById("bankBalanceChart");
-const cashflowChartCanvas = document.getElementById("cashflowChart");
-const tabelContainer = document.getElementById("tabelContainer");
-
-let bankBalanceChartInstance = null;
-let cashflowChartInstance = null;
-
-const filterTanggal = document.getElementById("filterTanggal");
-const filterTipe = document.getElementById("filterTipe");
-const filterBank = document.getElementById("filterBank");
-const resetFilterButton = document.getElementById("resetFilterButton");
-const downloadCsvButton = document.getElementById("downloadCsvButton");
-const downloadExcelButton = document.getElementById("downloadExcelButton");
-
-const screenshotInput = document.getElementById("screenshotInput");
-const screenshotPreviewBox = document.getElementById("screenshotPreviewBox");
-const scanScreenshotButton = document.getElementById("scanScreenshotButton");
-const scanMessage = document.getElementById("scanMessage");
-const scanResultCard = document.getElementById("scanResultCard");
-const scanReviewForm = document.getElementById("scanReviewForm");
-const scanConfidenceBadge = document.getElementById("scanConfidenceBadge");
-const scanType = document.getElementById("scanType");
-const scanTanggal = document.getElementById("scanTanggal");
-const scanBank = document.getElementById("scanBank");
-const scanToBankWrap = document.getElementById("scanToBankWrap");
-const scanToBank = document.getElementById("scanToBank");
-const scanMerchant = document.getElementById("scanMerchant");
-const scanKategori = document.getElementById("scanKategori");
-const scanNominal = document.getElementById("scanNominal");
-const scanKeterangan = document.getElementById("scanKeterangan");
-const scanSuggestedFileName = document.getElementById("scanSuggestedFileName");
-const saveScannedTransactionButton = document.getElementById("saveScannedTransactionButton");
-
-const generateAdviceButton = document.getElementById("generateAdviceButton");
-const advisorOutput = document.getElementById("advisorOutput");
-
+let unsubscribeList = [];
+let bankBalanceChart = null;
+let cashflowChart = null;
 let selectedScreenshotFile = null;
 let latestScanResult = null;
 
+const $ = (id) => document.getElementById(id);
 
-const editModal = document.getElementById("editModal");
-const closeEditModal = document.getElementById("closeEditModal");
-const cancelEditButton = document.getElementById("cancelEditButton");
-const editForm = document.getElementById("editForm");
-const editTitle = document.getElementById("editTitle");
-const editId = document.getElementById("editId");
-const editType = document.getElementById("editType");
-const editTanggal = document.getElementById("editTanggal");
-const editIncomeFields = document.getElementById("editIncomeFields");
-const editExpenseFields = document.getElementById("editExpenseFields");
-const editTransferFields = document.getElementById("editTransferFields");
-const editIncomeBank = document.getElementById("editIncomeBank");
-const editIncomeSource = document.getElementById("editIncomeSource");
-const editExpenseBank = document.getElementById("editExpenseBank");
-const editExpenseKategori = document.getElementById("editExpenseKategori");
-const editTransferFromBank = document.getElementById("editTransferFromBank");
-const editTransferToBank = document.getElementById("editTransferToBank");
-const editNominal = document.getElementById("editNominal");
-const editKeterangan = document.getElementById("editKeterangan");
-const editMessage = document.getElementById("editMessage");
-const saveEditButton = document.getElementById("saveEditButton");
+const authScreen = $("authScreen");
+const appShell = $("appShell");
+const loginTab = $("loginTab");
+const registerTab = $("registerTab");
+const authForm = $("authForm");
+const authEmail = $("authEmail");
+const authPassword = $("authPassword");
+const authButton = $("authButton");
+const authMessage = $("authMessage");
+const userEmail = $("userEmail");
+const logoutButton = $("logoutButton");
 
-const COMMON_BANK_ALIASES = {
-  mandiri: ["mandiri", "bank mandiri", "pt bank mandiri", "mandiri bank"],
-  bca: ["bca", "bank bca", "bank central asia"],
-  bri: ["bri", "bank bri", "bank rakyat indonesia"],
-  bni: ["bni", "bank bni", "bank negara indonesia"],
-  btn: ["btn", "bank btn", "bank tabungan negara"],
-  cimb: ["cimb", "cimb niaga", "bank cimb", "bank cimb niaga"],
+const incomeTab = $("incomeTab");
+const expenseTab = $("expenseTab");
+const transferTab = $("transferTab");
+const transactionForm = $("transactionForm");
+const tanggalInput = $("tanggalInput");
+const bankInput = $("bankInput");
+const singleBankWrap = $("singleBankWrap");
+const transferBankWrap = $("transferBankWrap");
+const fromBankInput = $("fromBankInput");
+const toBankInput = $("toBankInput");
+const incomeSourceWrap = $("incomeSourceWrap");
+const incomeSourceInput = $("incomeSourceInput");
+const expenseCategoryWrap = $("expenseCategoryWrap");
+const categoryInput = $("categoryInput");
+const nominalInput = $("nominalInput");
+const keteranganInput = $("keteranganInput");
+const formMessage = $("formMessage");
+
+const remainingBalanceEl = $("remainingBalance");
+const totalIncomeEl = $("totalIncome");
+const totalExpenseEl = $("totalExpense");
+const bankCountEl = $("bankCount");
+const bankBalanceGrid = $("bankBalanceGrid");
+const bankBalanceChartCanvas = $("bankBalanceChart");
+const cashflowChartCanvas = $("cashflowChart");
+
+const typeFilter = $("typeFilter");
+const searchInput = $("searchInput");
+const tableContainer = $("tableContainer");
+const downloadCSVButton = $("downloadCSVButton");
+const downloadExcelButton = $("downloadExcelButton");
+
+const screenshotInput = $("screenshotInput");
+const screenshotPreviewBox = $("screenshotPreviewBox");
+const scanScreenshotButton = $("scanScreenshotButton");
+const scanMessage = $("scanMessage");
+const scanResultCard = $("scanResultCard");
+const scanReviewForm = $("scanReviewForm");
+const scanConfidenceBadge = $("scanConfidenceBadge");
+const scanType = $("scanType");
+const scanTanggal = $("scanTanggal");
+const scanBank = $("scanBank");
+const scanToBankWrap = $("scanToBankWrap");
+const scanToBank = $("scanToBank");
+const scanMerchant = $("scanMerchant");
+const scanKategori = $("scanKategori");
+const scanNominal = $("scanNominal");
+const scanKeterangan = $("scanKeterangan");
+const scanNoteInput = $("scanNoteInput");
+const saveScannedTransactionButton = $("saveScannedTransactionButton");
+
+const generateAdviceButton = $("generateAdviceButton");
+const advisorOutput = $("advisorOutput");
+
+const editModal = $("editModal");
+const closeEditModal = $("closeEditModal");
+const cancelEditButton = $("cancelEditButton");
+const editForm = $("editForm");
+const editTitle = $("editTitle");
+const editId = $("editId");
+const editType = $("editType");
+const editTanggal = $("editTanggal");
+const editIncomeFields = $("editIncomeFields");
+const editExpenseFields = $("editExpenseFields");
+const editTransferFields = $("editTransferFields");
+const editIncomeBank = $("editIncomeBank");
+const editIncomeSource = $("editIncomeSource");
+const editExpenseBank = $("editExpenseBank");
+const editExpenseKategori = $("editExpenseKategori");
+const editTransferFromBank = $("editTransferFromBank");
+const editTransferToBank = $("editTransferToBank");
+const editNominal = $("editNominal");
+const editKeterangan = $("editKeterangan");
+const editMessage = $("editMessage");
+
+let authMode = "login";
+
+const BANK_ALIASES = {
+  mandiri: ["mandiri", "bank mandiri", "livin", "livin mandiri"],
+  bca: ["bca", "bank bca", "bank central asia", "mybca"],
+  bri: ["bri", "bank bri", "brimo"],
+  bni: ["bni", "bank bni"],
+  bsi: ["bsi", "bank syariah indonesia"],
+  cimb: ["cimb", "cimb niaga", "octo"],
   permata: ["permata", "bank permata"],
   danamon: ["danamon", "bank danamon"],
-  bsi: ["bsi", "bank bsi", "bank syariah indonesia"],
   jago: ["jago", "bank jago"],
-  jenius: ["jenius", "bank btpn", "btpn"],
-  seabank: ["seabank", "sea bank", "bank seabank"],
+  jenius: ["jenius"],
+  seabank: ["seabank", "sea bank"],
+  krom: ["krom"],
   dana: ["dana"],
-  gopay: ["gopay", "go pay"],
+  gopay: ["gopay", "go pay", "go-pay"],
   ovo: ["ovo"],
   shopeepay: ["shopeepay", "shopee pay"],
-  cash: ["cash", "tunai", "uang tunai"]
+  linkaja: ["linkaja", "link aja"],
+  tunai: ["cash", "tunai", "uang cash"]
 };
 
 const BANK_DISPLAY = {
@@ -198,172 +170,132 @@ const BANK_DISPLAY = {
   bca: "BCA",
   bri: "BRI",
   bni: "BNI",
-  btn: "BTN",
+  bsi: "BSI",
   cimb: "CIMB Niaga",
   permata: "Permata",
   danamon: "Danamon",
-  bsi: "BSI",
-  jago: "Bank Jago",
+  jago: "Jago",
   jenius: "Jenius",
   seabank: "SeaBank",
+  krom: "Krom",
   dana: "DANA",
   gopay: "GoPay",
   ovo: "OVO",
   shopeepay: "ShopeePay",
-  cash: "Tunai"
+  linkaja: "LinkAja",
+  tunai: "Tunai"
 };
-
-function setNotice(element, type, text) {
-  element.className = `notice ${type}`;
-  element.textContent = text;
-}
 
 function cleanText(value) {
   return String(value || "").trim().replace(/\s+/g, " ");
 }
 
-function basicNormalize(value) {
-  return cleanText(value)
-    .toLowerCase()
-    .replace(/[^\w\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
+function slugText(value) {
+  return cleanText(value).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-function normalizeBank(rawName) {
-  const original = cleanText(rawName);
-  let normalized = basicNormalize(original);
+function normalizeBank(value) {
+  const raw = cleanText(value);
+  const slug = slugText(raw);
 
-  if (!normalized) {
-    return { key: "", display: "" };
-  }
-
-  for (const [key, aliases] of Object.entries(COMMON_BANK_ALIASES)) {
-    if (aliases.includes(normalized)) {
-      return { key, display: BANK_DISPLAY[key] || toTitleCase(key) };
+  for (const [key, aliases] of Object.entries(BANK_ALIASES)) {
+    if (aliases.includes(slug)) {
+      return {
+        key,
+        display: BANK_DISPLAY[key]
+      };
     }
   }
 
-  normalized = normalized
-    .replace(/\bbank\b/g, "")
-    .replace(/\bpt\b/g, "")
-    .replace(/\bindonesia\b/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  for (const [key, aliases] of Object.entries(COMMON_BANK_ALIASES)) {
-    const normalizedAliases = aliases.map((alias) =>
-      basicNormalize(alias).replace(/\bbank\b/g, "").trim()
-    );
-
-    if (normalizedAliases.includes(normalized)) {
-      return { key, display: BANK_DISPLAY[key] || toTitleCase(key) };
-    }
+  if (!slug) {
+    return {
+      key: "",
+      display: ""
+    };
   }
 
   return {
-    key: normalized.replace(/\s+/g, "-"),
-    display: toTitleCase(normalized)
+    key: slug.replace(/\s+/g, "_"),
+    display: raw
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ")
   };
 }
 
-function toTitleCase(value) {
-  return String(value || "")
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => {
-      if (word.length <= 3) return word.toUpperCase();
-      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    })
-    .join(" ");
-}
-
-function setToday() {
-  const today = formatDateLocal(new Date());
-  incomeTanggal.value = today;
-  expenseTanggal.value = today;
-  transferTanggal.value = today;
-}
-
-function formatDateLocal(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
 function formatRupiah(value) {
-  return "Rp " + Number(value || 0).toLocaleString("id-ID");
+  return new Intl.NumberFormat("id-ID", {
+    style: "currency",
+    currency: "IDR",
+    maximumFractionDigits: 0
+  }).format(Number(value || 0));
 }
 
-function formatDateID(value) {
-  return new Date(value + "T00:00:00").toLocaleDateString("id-ID", {
-    year: "numeric",
-    month: "short",
-    day: "numeric"
-  });
+function formatDateLocal(date = new Date()) {
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60 * 1000);
+  return local.toISOString().slice(0, 10);
 }
 
-function escapeHTML(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+function setNotice(element, type, message) {
+  if (!element) return;
+  element.className = `notice ${type}`;
+  element.textContent = message;
 }
 
-function escapeCSV(value) {
-  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+function hideNotice(element) {
+  if (!element) return;
+  element.className = "notice hidden";
+  element.textContent = "";
 }
 
-function firebaseErrorMessage(code) {
+function getFirebaseAuthMessage(error) {
+  const code = error?.code || "";
   const messages = {
     "auth/invalid-email": "Format email tidak valid.",
     "auth/email-already-in-use": "Email ini sudah terdaftar. Gunakan Login.",
     "auth/weak-password": "Password terlalu lemah. Gunakan minimal 6 karakter.",
-    "auth/user-not-found": "Akun tidak ditemukan.",
+    "auth/user-not-found": "Akun tidak ditemukan. Pilih Register dulu.",
     "auth/wrong-password": "Password salah.",
     "auth/invalid-credential": "Email atau password salah. Jika belum punya akun, pilih Register dulu.",
     "auth/network-request-failed": "Koneksi internet bermasalah. Cek internet HP lalu coba lagi.",
     "auth/operation-not-allowed": "Login Email/Password belum aktif di Firebase Authentication.",
-    "auth/unauthorized-domain": "Domain website belum diizinkan di Firebase Authorized Domains. Tambahkan arndyka.github.io.",
+    "auth/unauthorized-domain": "Domain website belum diizinkan. Tambahkan arndyka.github.io di Firebase Authorized Domains.",
     "auth/too-many-requests": "Terlalu banyak percobaan login. Tunggu beberapa menit lalu coba lagi.",
-    "auth/internal-error": "Firebase Auth error. Coba refresh halaman atau bersihkan cache browser.",
     "permission-denied": "Akses database ditolak. Periksa Firestore Rules."
   };
-
-  return messages[code] || `Terjadi error: ${code}`;
+  return messages[code] || error?.message || "Terjadi error.";
 }
 
-function switchAuthMode(mode) {
-  authMode = mode;
+function showAuth() {
+  authScreen.classList.remove("hidden");
+  appShell.classList.add("hidden");
+}
 
-  if (mode === "login") {
-    loginTab.classList.add("active");
-    registerTab.classList.remove("active");
-    authTitle.textContent = "Masuk ke akun";
-    authSubtitle.textContent = "Gunakan email dan password. Jika di HP gagal, clear cache site lalu coba lagi.";
-    authButton.textContent = "Login";
-    setNotice(authMessage, "info", "Masukkan email dan password untuk login. Jika belum punya akun, pilih Register.");
-  } else {
-    registerTab.classList.add("active");
-    loginTab.classList.remove("active");
-    authTitle.textContent = "Buat akun baru";
-    authSubtitle.textContent = "Daftar akun agar data budget tersimpan online.";
-    authButton.textContent = "Register";
-    setNotice(authMessage, "info", "Gunakan email aktif dan password minimal 6 karakter.");
-  }
+function showApp() {
+  authScreen.classList.add("hidden");
+  appShell.classList.remove("hidden");
+}
+
+function setAuthMode(mode) {
+  authMode = mode;
+  loginTab.classList.toggle("active", mode === "login");
+  registerTab.classList.toggle("active", mode === "register");
+  authButton.textContent = mode === "login" ? "Login" : "Register";
+  authPassword.autocomplete = mode === "login" ? "current-password" : "new-password";
+  hideNotice(authMessage);
 }
 
 async function handleAuthSubmit(event) {
   event.preventDefault();
+  hideNotice(authMessage);
 
-  const email = authEmail.value.trim();
+  const email = cleanText(authEmail.value);
   const password = authPassword.value;
 
-  if (!email) {
-    setNotice(authMessage, "error", "Email wajib diisi.");
+  if (!email || !password) {
+    setNotice(authMessage, "error", "Email dan password wajib diisi.");
     return;
   }
 
@@ -373,7 +305,7 @@ async function handleAuthSubmit(event) {
   }
 
   authButton.disabled = true;
-  authButton.textContent = authMode === "login" ? "Memproses..." : "Mendaftarkan...";
+  authButton.textContent = authMode === "login" ? "Login..." : "Register...";
 
   try {
     await authPersistenceReady;
@@ -383,323 +315,201 @@ async function handleAuthSubmit(event) {
     } else {
       await createUserWithEmailAndPassword(auth, email, password);
     }
-
-    authEmail.value = "";
-    authPassword.value = "";
-    setNotice(authMessage, "success", "Berhasil masuk.");
   } catch (error) {
-    setNotice(authMessage, "error", firebaseErrorMessage(error.code));
+    setNotice(authMessage, "error", getFirebaseAuthMessage(error));
   } finally {
     authButton.disabled = false;
     authButton.textContent = authMode === "login" ? "Login" : "Register";
   }
 }
 
+async function handleLogout() {
+  await signOut(auth);
+}
+
 function collectionRef(name) {
   return collection(db, "users", currentUser.uid, name);
 }
 
-function listenCollection(name, callback) {
-  const q = query(collectionRef(name), orderBy("tanggal", "desc"));
-
-  const unsubscribe = onSnapshot(
-    q,
-    (snapshot) => {
-      callback(snapshot.docs.map((item) => ({ id: item.id, ...item.data() })));
-      renderAll();
-    },
-    (error) => {
-      setNotice(transactionMessage, "error", firebaseErrorMessage(error.code));
-    }
-  );
-
-  unsubscribers.push(unsubscribe);
+function docRef(name, id) {
+  return doc(db, "users", currentUser.uid, name, id);
 }
 
-function listenData() {
-  unsubscribeAll();
-
-  listenCollection("incomes", (items) => {
-    incomes = items;
-  });
-
-  listenCollection("expenses", (items) => {
-    expenses = items;
-  });
-
-  listenCollection("transfers", (items) => {
-    transfers = items;
-  });
+function clearSubscriptions() {
+  unsubscribeList.forEach((unsubscribe) => unsubscribe());
+  unsubscribeList = [];
 }
 
-function unsubscribeAll() {
-  unsubscribers.forEach((unsubscribe) => unsubscribe());
-  unsubscribers = [];
+function subscribeData() {
+  clearSubscriptions();
+
+  const incomeQuery = query(collectionRef("incomes"), orderBy("tanggal", "desc"));
+  const expenseQuery = query(collectionRef("expenses"), orderBy("tanggal", "desc"));
+  const transferQuery = query(collectionRef("transfers"), orderBy("tanggal", "desc"));
+
+  unsubscribeList.push(onSnapshot(incomeQuery, (snapshot) => {
+    incomes = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    renderAll();
+  }));
+
+  unsubscribeList.push(onSnapshot(expenseQuery, (snapshot) => {
+    expenses = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    renderAll();
+  }));
+
+  unsubscribeList.push(onSnapshot(transferQuery, (snapshot) => {
+    transfers = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    renderAll();
+  }));
 }
 
-function switchInputMode(mode) {
+function setTxMode(mode) {
+  txMode = mode;
+
   incomeTab.classList.toggle("active", mode === "income");
   expenseTab.classList.toggle("active", mode === "expense");
   transferTab.classList.toggle("active", mode === "transfer");
 
-  incomeForm.classList.toggle("hidden", mode !== "income");
-  expenseForm.classList.toggle("hidden", mode !== "expense");
-  transferForm.classList.toggle("hidden", mode !== "transfer");
+  singleBankWrap.classList.toggle("hidden", mode === "transfer");
+  transferBankWrap.classList.toggle("hidden", mode !== "transfer");
+  incomeSourceWrap.classList.toggle("hidden", mode !== "income");
+  expenseCategoryWrap.classList.toggle("hidden", mode !== "expense");
+
+  hideNotice(formMessage);
 }
 
-async function saveIncome(event) {
+async function saveTransaction(event) {
   event.preventDefault();
+  hideNotice(formMessage);
 
-  const bank = normalizeBank(incomeBank.value);
-  const tanggal = incomeTanggal.value;
-  const sumber = cleanText(incomeSource.value);
-  const nominal = Number(incomeNominal.value);
-  const keterangan = cleanText(incomeKeterangan.value);
+  const tanggal = tanggalInput.value;
+  const nominal = Number(nominalInput.value);
+  const keterangan = cleanText(keteranganInput.value);
 
-  if (!tanggal || !bank.key || !sumber || !nominal || nominal <= 0) {
-    setNotice(transactionMessage, "error", "Tanggal, bank, sumber pemasukan, dan nominal wajib diisi.");
+  if (!tanggal || !nominal || nominal <= 0) {
+    setNotice(formMessage, "error", "Tanggal dan nominal wajib diisi.");
     return;
   }
-
-  saveIncomeButton.disabled = true;
-  saveIncomeButton.textContent = "Menyimpan...";
 
   try {
-    await addDoc(collectionRef("incomes"), {
-      tanggal,
-      bankKey: bank.key,
-      bankName: bank.display,
-      sumber,
-      nominal,
-      keterangan,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+    if (txMode === "income") {
+      const bank = normalizeBank(bankInput.value);
+      const sumber = cleanText(incomeSourceInput.value) || "Pemasukan";
 
-    incomeSource.value = "";
-    incomeNominal.value = "";
-    incomeKeterangan.value = "";
-    setNotice(transactionMessage, "success", "Pemasukan berhasil disimpan.");
+      if (!bank.key) {
+        setNotice(formMessage, "error", "Bank/Dompet wajib diisi.");
+        return;
+      }
+
+      await addDoc(collectionRef("incomes"), {
+        tanggal,
+        bankKey: bank.key,
+        bankName: bank.display,
+        sumber,
+        nominal,
+        keterangan,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    if (txMode === "expense") {
+      const bank = normalizeBank(bankInput.value);
+      const kategori = categoryInput.value || "Lainnya";
+
+      if (!bank.key) {
+        setNotice(formMessage, "error", "Bank/Dompet wajib diisi.");
+        return;
+      }
+
+      await addDoc(collectionRef("expenses"), {
+        tanggal,
+        bankKey: bank.key,
+        bankName: bank.display,
+        kategori,
+        nominal,
+        keterangan,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    if (txMode === "transfer") {
+      const fromBank = normalizeBank(fromBankInput.value);
+      const toBank = normalizeBank(toBankInput.value);
+
+      if (!fromBank.key || !toBank.key) {
+        setNotice(formMessage, "error", "Bank asal dan tujuan wajib diisi.");
+        return;
+      }
+
+      if (fromBank.key === toBank.key) {
+        setNotice(formMessage, "error", "Bank asal dan tujuan tidak boleh sama.");
+        return;
+      }
+
+      await addDoc(collectionRef("transfers"), {
+        tanggal,
+        fromBankKey: fromBank.key,
+        fromBankName: fromBank.display,
+        toBankKey: toBank.key,
+        toBankName: toBank.display,
+        nominal,
+        keterangan,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    transactionForm.reset();
+    tanggalInput.value = formatDateLocal();
+    setNotice(formMessage, "success", "Transaksi berhasil disimpan.");
   } catch (error) {
-    setNotice(transactionMessage, "error", firebaseErrorMessage(error.code));
-  } finally {
-    saveIncomeButton.disabled = false;
-    saveIncomeButton.textContent = "Simpan Pemasukan";
-  }
-}
-
-async function saveExpense(event) {
-  event.preventDefault();
-
-  const bank = normalizeBank(expenseBank.value);
-  const tanggal = expenseTanggal.value;
-  const kategori = expenseKategori.value;
-  const nominal = Number(expenseNominal.value);
-  const keterangan = cleanText(expenseKeterangan.value);
-
-  if (!tanggal || !bank.key || !kategori || !nominal || nominal <= 0 || !keterangan) {
-    setNotice(transactionMessage, "error", "Tanggal, bank, kategori, nominal, dan keterangan wajib diisi.");
-    return;
-  }
-
-  saveExpenseButton.disabled = true;
-  saveExpenseButton.textContent = "Menyimpan...";
-
-  try {
-    await addDoc(collectionRef("expenses"), {
-      tanggal,
-      bankKey: bank.key,
-      bankName: bank.display,
-      kategori,
-      nominal,
-      keterangan,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-
-    expenseNominal.value = "";
-    expenseKeterangan.value = "";
-    setNotice(transactionMessage, "success", "Pengeluaran berhasil disimpan.");
-  } catch (error) {
-    setNotice(transactionMessage, "error", firebaseErrorMessage(error.code));
-  } finally {
-    saveExpenseButton.disabled = false;
-    saveExpenseButton.textContent = "Simpan Pengeluaran";
-  }
-}
-
-async function saveTransfer(event) {
-  event.preventDefault();
-
-  const fromBank = normalizeBank(transferFromBank.value);
-  const toBank = normalizeBank(transferToBank.value);
-  const tanggal = transferTanggal.value;
-  const nominal = Number(transferNominal.value);
-  const keterangan = cleanText(transferKeterangan.value);
-
-  if (!tanggal || !fromBank.key || !toBank.key || !nominal || nominal <= 0) {
-    setNotice(transactionMessage, "error", "Tanggal, bank asal, bank tujuan, dan nominal wajib diisi.");
-    return;
-  }
-
-  if (fromBank.key === toBank.key) {
-    setNotice(transactionMessage, "error", "Bank asal dan bank tujuan terbaca sama. Transfer tidak perlu dicatat.");
-    return;
-  }
-
-  saveTransferButton.disabled = true;
-  saveTransferButton.textContent = "Menyimpan...";
-
-  try {
-    await addDoc(collectionRef("transfers"), {
-      tanggal,
-      fromBankKey: fromBank.key,
-      fromBankName: fromBank.display,
-      toBankKey: toBank.key,
-      toBankName: toBank.display,
-      nominal,
-      keterangan,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-
-    transferNominal.value = "";
-    transferKeterangan.value = "";
-    setNotice(transactionMessage, "success", "Transfer berhasil disimpan.");
-  } catch (error) {
-    setNotice(transactionMessage, "error", firebaseErrorMessage(error.code));
-  } finally {
-    saveTransferButton.disabled = false;
-    saveTransferButton.textContent = "Simpan Transfer";
+    setNotice(formMessage, "error", getFirebaseAuthMessage(error));
   }
 }
 
 function getBankBalances() {
-  const balances = {};
+  const map = new Map();
 
-  function ensureBank(key, name) {
-    if (!balances[key]) {
-      balances[key] = {
+  const ensure = (key, name) => {
+    if (!map.has(key)) {
+      map.set(key, {
         key,
         name,
-        balance: 0,
         income: 0,
         expense: 0,
         transferIn: 0,
-        transferOut: 0
-      };
+        transferOut: 0,
+        balance: 0
+      });
     }
-  }
+    return map.get(key);
+  };
 
   incomes.forEach((item) => {
-    const bank = item.bankKey
-      ? { key: item.bankKey, display: item.bankName || toTitleCase(item.bankKey.replaceAll("-", " ")) }
-      : normalizeBank(item.bankName || "Belum Dicatat");
-
-    const key = bank.key || "belum-dicatat";
-    const name = bank.display || "Belum Dicatat";
-    ensureBank(key, name);
-    balances[key].balance += Number(item.nominal || 0);
-    balances[key].income += Number(item.nominal || 0);
+    const bank = ensure(item.bankKey || normalizeBank(item.bankName).key, item.bankName || "Belum Dicatat");
+    bank.income += Number(item.nominal || 0);
   });
 
   expenses.forEach((item) => {
-    const bank = item.bankKey
-      ? { key: item.bankKey, display: item.bankName || toTitleCase(item.bankKey.replaceAll("-", " ")) }
-      : normalizeBank(item.bankName || "Belum Dicatat");
-
-    const key = bank.key || "belum-dicatat";
-    const name = bank.display || "Belum Dicatat";
-    ensureBank(key, name);
-    balances[key].balance -= Number(item.nominal || 0);
-    balances[key].expense += Number(item.nominal || 0);
+    const bank = ensure(item.bankKey || normalizeBank(item.bankName).key, item.bankName || "Belum Dicatat");
+    bank.expense += Number(item.nominal || 0);
   });
 
   transfers.forEach((item) => {
-    const fromKey = item.fromBankKey || normalizeBank(item.fromBankName || "Belum Dicatat").key || "belum-dicatat";
-    const fromName = item.fromBankName || toTitleCase(fromKey.replaceAll("-", " "));
-    const toKey = item.toBankKey || normalizeBank(item.toBankName || "Belum Dicatat").key || "belum-dicatat";
-    const toName = item.toBankName || toTitleCase(toKey.replaceAll("-", " "));
-
-    ensureBank(fromKey, fromName);
-    ensureBank(toKey, toName);
-
-    balances[fromKey].balance -= Number(item.nominal || 0);
-    balances[fromKey].transferOut += Number(item.nominal || 0);
-
-    balances[toKey].balance += Number(item.nominal || 0);
-    balances[toKey].transferIn += Number(item.nominal || 0);
+    const fromBank = ensure(item.fromBankKey || normalizeBank(item.fromBankName).key, item.fromBankName || "Belum Dicatat");
+    const toBank = ensure(item.toBankKey || normalizeBank(item.toBankName).key, item.toBankName || "Belum Dicatat");
+    fromBank.transferOut += Number(item.nominal || 0);
+    toBank.transferIn += Number(item.nominal || 0);
   });
 
-  return Object.values(balances).sort((a, b) => b.balance - a.balance);
-}
-
-function getUnifiedTransactions() {
-  const incomeRows = incomes.map((item) => ({
-    id: item.id,
-    type: "income",
-    tanggal: item.tanggal,
-    bankKey: item.bankKey,
-    bankName: item.bankName,
-    title: item.sumber || "Pemasukan",
-    nominal: Number(item.nominal || 0),
-    keterangan: item.keterangan || "",
-    createdAt: item.createdAt?.seconds || 0
-  }));
-
-  const expenseRows = expenses.map((item) => {
-    const bank = item.bankKey
-      ? { key: item.bankKey, display: item.bankName || toTitleCase(item.bankKey.replaceAll("-", " ")) }
-      : normalizeBank(item.bankName || "Belum Dicatat");
-
-    return {
-      id: item.id,
-      type: "expense",
-      tanggal: item.tanggal,
-      bankKey: bank.key || "belum-dicatat",
-      bankName: bank.display || "Belum Dicatat",
-      title: item.kategori || "Pengeluaran",
-      nominal: Number(item.nominal || 0),
-      keterangan: item.keterangan || "",
-      createdAt: item.createdAt?.seconds || 0
-    };
-  });
-
-  const transferRows = transfers.map((item) => ({
-    id: item.id,
-    type: "transfer",
-    tanggal: item.tanggal,
-    bankKey: `${item.fromBankKey}|${item.toBankKey}`,
-    bankName: `${item.fromBankName} → ${item.toBankName}`,
-    title: "Transfer",
-    nominal: Number(item.nominal || 0),
-    keterangan: item.keterangan || "",
-    createdAt: item.createdAt?.seconds || 0
-  }));
-
-  return [...incomeRows, ...expenseRows, ...transferRows]
-    .filter(applyFilters)
-    .sort((a, b) => {
-      if (a.tanggal === b.tanggal) return b.createdAt - a.createdAt;
-      return b.tanggal.localeCompare(a.tanggal);
-    });
-}
-
-function applyFilters(item) {
-  const tanggal = filterTanggal.value;
-  const tipe = filterTipe.value;
-  const bankInput = cleanText(filterBank.value);
-  const bank = normalizeBank(bankInput);
-
-  const matchTanggal = tanggal === "" || item.tanggal === tanggal;
-  const matchTipe = tipe === "Semua" || item.type === tipe;
-
-  let matchBank = true;
-  if (bankInput !== "") {
-    matchBank = String(item.bankKey || "").includes(bank.key) || String(item.bankName || "").toLowerCase().includes(bankInput.toLowerCase());
-  }
-
-  return matchTanggal && matchTipe && matchBank;
+  return [...map.values()]
+    .map((bank) => ({
+      ...bank,
+      balance: bank.income - bank.expense + bank.transferIn - bank.transferOut
+    }))
+    .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
 }
 
 function renderAll() {
@@ -713,571 +523,361 @@ function renderStats() {
   const totalIncome = incomes.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
   const totalExpense = expenses.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
   const remaining = totalIncome - totalExpense;
-  const banks = getBankBalances().filter((bank) => bank.balance !== 0 || bank.income !== 0 || bank.expense !== 0 || bank.transferIn !== 0 || bank.transferOut !== 0);
+  const banks = getBankBalances().filter((bank) => bank.income || bank.expense || bank.transferIn || bank.transferOut);
 
-  totalPemasukan.textContent = formatRupiah(totalIncome);
-  totalPengeluaran.textContent = formatRupiah(totalExpense);
-  sisaUang.textContent = formatRupiah(remaining);
-  jumlahBank.textContent = banks.length;
+  totalIncomeEl.textContent = formatRupiah(totalIncome);
+  totalExpenseEl.textContent = formatRupiah(totalExpense);
+  remainingBalanceEl.textContent = formatRupiah(remaining);
+  bankCountEl.textContent = banks.length;
 }
 
 function renderBankBalances() {
   const banks = getBankBalances();
 
-  if (banks.length === 0) {
-    bankBalanceGrid.innerHTML = `
-      <div class="empty-state no-margin">
-        <div class="empty-icon">▣</div>
-        <h3>Belum ada saldo bank</h3>
-        <p>Input pemasukan terlebih dahulu, lalu saldo bank akan muncul di sini.</p>
-      </div>
-    `;
+  if (!banks.length) {
+    bankBalanceGrid.innerHTML = `<div class="empty-state">Belum ada saldo bank/dompet.</div>`;
     return;
   }
 
   bankBalanceGrid.innerHTML = banks.map((bank) => `
     <article class="bank-card">
-      <div class="bank-card-header">
-        <div>
-          <div class="bank-name">${escapeHTML(bank.name)}</div>
-          <div class="bank-key">Key: ${escapeHTML(bank.key)}</div>
-        </div>
-        <span class="bank-pill">Saldo</span>
-      </div>
-
-      <div class="bank-balance ${bank.balance < 0 ? "negative" : ""}">
-        ${formatRupiah(bank.balance)}
-      </div>
-
+      <p class="bank-name">${bank.name}</p>
+      <div class="bank-balance">${formatRupiah(bank.balance)}</div>
       <div class="bank-detail">
-        <small>Masuk: ${formatRupiah(bank.income)} · Keluar: ${formatRupiah(bank.expense)}</small><br>
-        <small>Transfer in: ${formatRupiah(bank.transferIn)} · Transfer out: ${formatRupiah(bank.transferOut)}</small>
+        Pemasukan: ${formatRupiah(bank.income)}<br>
+        Pengeluaran: ${formatRupiah(bank.expense)}<br>
+        Transfer masuk: ${formatRupiah(bank.transferIn)}<br>
+        Transfer keluar: ${formatRupiah(bank.transferOut)}
       </div>
     </article>
   `).join("");
 }
 
-function typeBadge(type) {
-  const label = {
-    income: "Pemasukan",
-    expense: "Pengeluaran",
-    transfer: "Transfer"
-  }[type];
-
-  return `<span class="badge badge-${type}">${label}</span>`;
-}
-
-function amountDisplay(item) {
-  if (item.type === "income") return `<span class="amount income">+ ${formatRupiah(item.nominal)}</span>`;
-  if (item.type === "expense") return `<span class="amount expense">- ${formatRupiah(item.nominal)}</span>`;
-  return `<span class="amount transfer">${formatRupiah(item.nominal)}</span>`;
-}
-
-
-function destroyChart(instance) {
-  if (instance) {
-    instance.destroy();
-  }
-}
-
-function getChartTextColor() {
-  return "#667085";
-}
-
-function getChartGridColor() {
-  return "rgba(228, 231, 236, 0.9)";
-}
-
 function renderCharts() {
-  renderBankBalanceChart();
+  renderBankChart();
   renderCashflowChart();
 }
 
-function renderBankBalanceChart() {
-  if (!bankBalanceChartCanvas || typeof Chart === "undefined") {
-    return;
+function renderBankChart() {
+  if (!bankBalanceChartCanvas || typeof Chart === "undefined") return;
+
+  const banks = getBankBalances().filter((bank) => bank.balance !== 0 || bank.income || bank.expense || bank.transferIn || bank.transferOut);
+
+  if (bankBalanceChart) {
+    bankBalanceChart.destroy();
+    bankBalanceChart = null;
   }
 
-  const banks = getBankBalances()
-    .filter((bank) => bank.balance !== 0 || bank.income !== 0 || bank.expense !== 0 || bank.transferIn !== 0 || bank.transferOut !== 0)
-    .sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance));
-
-  if (bankBalanceChartInstance) {
-    bankBalanceChartInstance.destroy();
-    bankBalanceChartInstance = null;
-  }
-
-  const container = bankBalanceChartCanvas.parentElement;
-
-  const oldEmpty = container.querySelector(".chart-empty");
-  if (oldEmpty) {
-    oldEmpty.remove();
-  }
-
-  bankBalanceChartCanvas.classList.remove("hidden");
-
-  if (banks.length === 0) {
-    bankBalanceChartCanvas.classList.add("hidden");
-    const empty = document.createElement("div");
-    empty.className = "chart-empty";
-    empty.innerHTML = "Belum ada data bank.<br>Input pemasukan atau pengeluaran untuk menampilkan chart.";
-    container.appendChild(empty);
-    return;
-  }
-
-  bankBalanceChartInstance = new Chart(bankBalanceChartCanvas, {
+  bankBalanceChart = new Chart(bankBalanceChartCanvas, {
     type: "bar",
     data: {
-      labels: banks.map((bank) => bank.name),
-      datasets: [
-        {
-          label: "Saldo",
-          data: banks.map((bank) => bank.balance),
-          borderRadius: 8,
-          borderSkipped: false,
-          barThickness: 28,
-          maxBarThickness: 32
-        }
-      ]
+      labels: banks.length ? banks.map((bank) => bank.name) : ["Belum ada data"],
+      datasets: [{
+        label: "Saldo",
+        data: banks.length ? banks.map((bank) => bank.balance) : [0],
+        borderRadius: 8,
+        borderSkipped: false,
+        barThickness: 26,
+        maxBarThickness: 32
+      }]
     },
     options: {
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          display: false
-        },
+        legend: { display: false },
         tooltip: {
           callbacks: {
-            label: function(context) {
-              return `Saldo: ${formatRupiah(context.raw || 0)}`;
-            }
+            label: (context) => formatRupiah(context.raw || 0)
           }
         }
       },
       scales: {
         x: {
           ticks: {
-            color: getChartTextColor(),
-            callback: function(value) {
-              return formatRupiah(value);
-            }
-          },
-          grid: {
-            color: getChartGridColor()
+            callback: (value) => formatRupiah(value)
           }
         },
         y: {
-          ticks: {
-            color: getChartTextColor(),
-            font: {
-              size: 12,
-              weight: "800"
-            }
-          },
-          grid: {
-            display: false
-          }
+          grid: { display: false }
         }
       }
     }
   });
 }
 
-
 function renderCashflowChart() {
-  if (!cashflowChartCanvas || typeof Chart === "undefined") {
-    return;
-  }
+  if (!cashflowChartCanvas || typeof Chart === "undefined") return;
 
   const totalIncome = incomes.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
   const totalExpense = expenses.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
   const remaining = totalIncome - totalExpense;
 
-  if (cashflowChartInstance) {
-    cashflowChartInstance.destroy();
-    cashflowChartInstance = null;
+  if (cashflowChart) {
+    cashflowChart.destroy();
+    cashflowChart = null;
   }
 
-  cashflowChartInstance = new Chart(cashflowChartCanvas, {
+  cashflowChart = new Chart(cashflowChartCanvas, {
     type: "bar",
     data: {
       labels: ["Pemasukan", "Pengeluaran", "Sisa Uang"],
-      datasets: [
-        {
-          label: "Nominal",
-          data: [totalIncome, totalExpense, remaining],
-          borderRadius: 12,
-          borderSkipped: false
-        }
-      ]
+      datasets: [{
+        label: "Nominal",
+        data: [totalIncome, totalExpense, remaining],
+        borderRadius: 12,
+        borderSkipped: false
+      }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          display: false
-        },
+        legend: { display: false },
         tooltip: {
           callbacks: {
-            label: function(context) {
-              return formatRupiah(context.raw || 0);
-            }
+            label: (context) => formatRupiah(context.raw || 0)
           }
         }
       },
       scales: {
-        x: {
-          ticks: {
-            color: getChartTextColor(),
-            font: {
-              size: 12,
-              weight: "800"
-            }
-          },
-          grid: {
-            display: false
-          }
-        },
         y: {
           ticks: {
-            color: getChartTextColor(),
-            callback: function(value) {
-              return formatRupiah(value);
-            }
-          },
-          grid: {
-            color: getChartGridColor()
+            callback: (value) => formatRupiah(value)
           }
+        },
+        x: {
+          grid: { display: false }
         }
       }
     }
   });
 }
 
+function getAllTransactions() {
+  const incomeRows = incomes.map((item) => ({
+    ...item,
+    type: "income",
+    title: item.sumber || "Pemasukan",
+    bankText: item.bankName || "-",
+    kategoriText: "Pemasukan"
+  }));
+
+  const expenseRows = expenses.map((item) => ({
+    ...item,
+    type: "expense",
+    title: item.merchant || item.keterangan || item.kategori || "Pengeluaran",
+    bankText: item.bankName || "-",
+    kategoriText: item.kategori || "Lainnya"
+  }));
+
+  const transferRows = transfers.map((item) => ({
+    ...item,
+    type: "transfer",
+    title: "Transfer",
+    bankText: `${item.fromBankName || "-"} → ${item.toBankName || "-"}`,
+    kategoriText: "Transfer"
+  }));
+
+  return [...incomeRows, ...expenseRows, ...transferRows]
+    .sort((a, b) => String(b.tanggal || "").localeCompare(String(a.tanggal || "")));
+}
+
+function getFilteredTransactions() {
+  const type = typeFilter.value;
+  const search = slugText(searchInput.value);
+
+  return getAllTransactions().filter((item) => {
+    const typeMatch = type === "all" || item.type === type;
+    const haystack = slugText([
+      item.tanggal,
+      item.title,
+      item.bankText,
+      item.kategoriText,
+      item.keterangan,
+      item.merchant,
+      item.scanNote
+    ].join(" "));
+    const searchMatch = !search || haystack.includes(search);
+    return typeMatch && searchMatch;
+  });
+}
 
 function renderTable() {
-  const rows = getUnifiedTransactions();
+  const rows = getFilteredTransactions();
 
-  if (rows.length === 0) {
-    tabelContainer.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">▦</div>
-        <h3>Belum ada transaksi</h3>
-        <p>Input pemasukan, pengeluaran, atau transfer untuk mulai melacak budget.</p>
-      </div>
-    `;
+  if (!rows.length) {
+    tableContainer.innerHTML = `<div class="empty-state">Belum ada transaksi.</div>`;
     return;
   }
 
-  tabelContainer.innerHTML = `
-    <div class="table-wrapper">
-      <table>
-        <thead>
+  tableContainer.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Tipe</th>
+          <th>Bank/Dompet</th>
+          <th>Kategori</th>
+          <th>Nominal</th>
+          <th>Keterangan</th>
+          <th>Catatan Scan</th>
+          <th>Aksi</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map((item) => `
           <tr>
-            <th>Tanggal</th>
-            <th>Tipe</th>
-            <th>Bank/Dompet</th>
-            <th>Kategori/Sumber</th>
-            <th>Nominal</th>
-            <th>Keterangan</th>
-            <th>Aksi</th>
+            <td>${item.tanggal || "-"}</td>
+            <td><span class="badge ${item.type}">${getTypeLabel(item.type)}</span></td>
+            <td>${item.bankText || "-"}</td>
+            <td>${item.kategoriText || "-"}</td>
+            <td>${formatRupiah(item.nominal)}</td>
+            <td>${item.keterangan || item.title || "-"}</td>
+            <td>${item.scanNote || "-"}</td>
+            <td>
+              <div class="row-actions">
+                <button class="small-btn" type="button" data-action="edit" data-type="${item.type}" data-id="${item.id}">Edit</button>
+                <button class="small-btn danger" type="button" data-action="delete" data-type="${item.type}" data-id="${item.id}">Hapus</button>
+              </div>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          ${rows.map((item) => `
-            <tr>
-              <td class="date-cell">${formatDateID(item.tanggal)}</td>
-              <td>${typeBadge(item.type)}</td>
-              <td><span class="badge badge-bank">${escapeHTML(item.bankName || "-")}</span></td>
-              <td>${escapeHTML(item.title)}</td>
-              <td>${amountDisplay(item)}</td>
-              <td class="note-cell">${escapeHTML(item.keterangan || "-")}</td>
-              <td>
-                <div class="row-actions">
-                  <button class="edit-small" data-type="${item.type}" data-id="${item.id}" type="button">Edit</button>
-                  <button class="delete-small" data-type="${item.type}" data-id="${item.id}" type="button">Hapus</button>
-                </div>
-              </td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
-    </div>
+        `).join("")}
+      </tbody>
+    </table>
   `;
+}
 
-  document.querySelectorAll(".delete-small").forEach((button) => {
-    button.addEventListener("click", () => deleteTransaction(button.dataset.type, button.dataset.id));
-  });
+function getTypeLabel(type) {
+  if (type === "income") return "Pemasukan";
+  if (type === "expense") return "Pengeluaran";
+  return "Transfer";
+}
 
-  document.querySelectorAll(".edit-small").forEach((button) => {
-    button.addEventListener("click", () => openEditModal(button.dataset.type, button.dataset.id));
-  });
+function getCollectionName(type) {
+  if (type === "income") return "incomes";
+  if (type === "expense") return "expenses";
+  return "transfers";
 }
 
 function findTransaction(type, id) {
   if (type === "income") return incomes.find((item) => item.id === id);
   if (type === "expense") return expenses.find((item) => item.id === id);
-  if (type === "transfer") return transfers.find((item) => item.id === id);
-  return null;
+  return transfers.find((item) => item.id === id);
 }
 
 function openEditModal(type, id) {
   const item = findTransaction(type, id);
-
-  if (!item) {
-    setNotice(transactionMessage, "error", "Data transaksi tidak ditemukan.");
-    return;
-  }
+  if (!item) return;
 
   editId.value = id;
   editType.value = type;
-  editTanggal.value = item.tanggal || "";
+  editTanggal.value = item.tanggal || formatDateLocal();
   editNominal.value = item.nominal || "";
   editKeterangan.value = item.keterangan || "";
+  editTitle.textContent = `Edit ${getTypeLabel(type)}`;
 
   editIncomeFields.classList.toggle("hidden", type !== "income");
   editExpenseFields.classList.toggle("hidden", type !== "expense");
   editTransferFields.classList.toggle("hidden", type !== "transfer");
 
   if (type === "income") {
-    editTitle.textContent = "Edit Pemasukan";
     editIncomeBank.value = item.bankName || "";
     editIncomeSource.value = item.sumber || "";
   }
 
   if (type === "expense") {
-    editTitle.textContent = "Edit Pengeluaran";
     editExpenseBank.value = item.bankName || "";
     editExpenseKategori.value = item.kategori || "Lainnya";
   }
 
   if (type === "transfer") {
-    editTitle.textContent = "Edit Transfer";
     editTransferFromBank.value = item.fromBankName || "";
     editTransferToBank.value = item.toBankName || "";
   }
 
-  setNotice(editMessage, "info", "Ubah data transaksi, lalu klik Simpan Perubahan.");
+  hideNotice(editMessage);
   editModal.classList.remove("hidden");
 }
 
 function closeModal() {
   editModal.classList.add("hidden");
-  editForm.reset();
 }
 
 async function saveEditedTransaction(event) {
   event.preventDefault();
+  hideNotice(editMessage);
 
-  const type = editType.value;
   const id = editId.value;
+  const type = editType.value;
   const tanggal = editTanggal.value;
   const nominal = Number(editNominal.value);
   const keterangan = cleanText(editKeterangan.value);
 
   if (!tanggal || !nominal || nominal <= 0) {
-    setNotice(editMessage, "error", "Tanggal dan nominal wajib diisi dengan benar.");
+    setNotice(editMessage, "error", "Tanggal dan nominal wajib diisi.");
     return;
   }
 
-  let payload = {
-    tanggal,
-    nominal,
-    keterangan,
-    updatedAt: serverTimestamp()
-  };
-
-  if (type === "income") {
-    const bank = normalizeBank(editIncomeBank.value);
-    const sumber = cleanText(editIncomeSource.value);
-
-    if (!bank.key || !sumber) {
-      setNotice(editMessage, "error", "Bank dan sumber pemasukan wajib diisi.");
-      return;
-    }
-
-    payload = {
-      ...payload,
-      bankKey: bank.key,
-      bankName: bank.display,
-      sumber
-    };
-  }
-
-  if (type === "expense") {
-    const bank = normalizeBank(editExpenseBank.value);
-    const kategori = editExpenseKategori.value;
-
-    if (!bank.key || !kategori) {
-      setNotice(editMessage, "error", "Bank dan kategori wajib diisi.");
-      return;
-    }
-
-    payload = {
-      ...payload,
-      bankKey: bank.key,
-      bankName: bank.display,
-      kategori
-    };
-  }
-
-  if (type === "transfer") {
-    const fromBank = normalizeBank(editTransferFromBank.value);
-    const toBank = normalizeBank(editTransferToBank.value);
-
-    if (!fromBank.key || !toBank.key) {
-      setNotice(editMessage, "error", "Bank asal dan bank tujuan wajib diisi.");
-      return;
-    }
-
-    if (fromBank.key === toBank.key) {
-      setNotice(editMessage, "error", "Bank asal dan tujuan terbaca sama.");
-      return;
-    }
-
-    payload = {
-      ...payload,
-      fromBankKey: fromBank.key,
-      fromBankName: fromBank.display,
-      toBankKey: toBank.key,
-      toBankName: toBank.display
-    };
-  }
-
-  const collectionName = {
-    income: "incomes",
-    expense: "expenses",
-    transfer: "transfers"
-  }[type];
-
-  saveEditButton.disabled = true;
-  saveEditButton.textContent = "Menyimpan...";
-
   try {
-    await updateDoc(doc(db, "users", currentUser.uid, collectionName, id), payload);
-    setNotice(transactionMessage, "success", "Transaksi berhasil diperbarui.");
+    const collectionName = getCollectionName(type);
+    let payload = {
+      tanggal,
+      nominal,
+      keterangan,
+      updatedAt: serverTimestamp()
+    };
+
+    if (type === "income") {
+      const bank = normalizeBank(editIncomeBank.value);
+      payload = {
+        ...payload,
+        bankKey: bank.key,
+        bankName: bank.display,
+        sumber: cleanText(editIncomeSource.value) || "Pemasukan"
+      };
+    }
+
+    if (type === "expense") {
+      const bank = normalizeBank(editExpenseBank.value);
+      payload = {
+        ...payload,
+        bankKey: bank.key,
+        bankName: bank.display,
+        kategori: editExpenseKategori.value || "Lainnya"
+      };
+    }
+
+    if (type === "transfer") {
+      const fromBank = normalizeBank(editTransferFromBank.value);
+      const toBank = normalizeBank(editTransferToBank.value);
+      payload = {
+        ...payload,
+        fromBankKey: fromBank.key,
+        fromBankName: fromBank.display,
+        toBankKey: toBank.key,
+        toBankName: toBank.display
+      };
+    }
+
+    await updateDoc(docRef(collectionName, id), payload);
     closeModal();
   } catch (error) {
-    setNotice(editMessage, "error", firebaseErrorMessage(error.code));
-  } finally {
-    saveEditButton.disabled = false;
-    saveEditButton.textContent = "Simpan Perubahan";
+    setNotice(editMessage, "error", getFirebaseAuthMessage(error));
   }
 }
 
 async function deleteTransaction(type, id) {
-  const confirmed = confirm("Yakin ingin menghapus transaksi ini?");
-  if (!confirmed) return;
-
-  const collectionName = {
-    income: "incomes",
-    expense: "expenses",
-    transfer: "transfers"
-  }[type];
+  const ok = confirm("Hapus transaksi ini?");
+  if (!ok) return;
 
   try {
-    await deleteDoc(doc(db, "users", currentUser.uid, collectionName, id));
-    setNotice(transactionMessage, "success", "Transaksi berhasil dihapus.");
+    await deleteDoc(docRef(getCollectionName(type), id));
   } catch (error) {
-    setNotice(transactionMessage, "error", firebaseErrorMessage(error.code));
+    alert(getFirebaseAuthMessage(error));
   }
 }
-
-function resetFilters() {
-  filterTanggal.value = "";
-  filterTipe.value = "Semua";
-  filterBank.value = "";
-  renderAll();
-}
-
-function downloadCSV() {
-  const data = getUnifiedTransactions();
-
-  if (data.length === 0) {
-    alert("Belum ada data yang bisa di-download.");
-    return;
-  }
-
-  let csv = "Tanggal,Tipe,Bank,Kategori/Sumber,Nominal,Keterangan\n";
-
-  data.forEach((item) => {
-    csv += [
-      escapeCSV(item.tanggal),
-      escapeCSV(item.type),
-      escapeCSV(item.bankName),
-      escapeCSV(item.title),
-      item.nominal,
-      escapeCSV(item.keterangan)
-    ].join(",") + "\n";
-  });
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = "budget_tracker.csv";
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
-function downloadExcel() {
-  const data = getUnifiedTransactions();
-
-  if (data.length === 0) {
-    alert("Belum ada data yang bisa di-download.");
-    return;
-  }
-
-  if (typeof XLSX === "undefined") {
-    alert("Library Excel belum terbaca. Pastikan koneksi internet aktif.");
-    return;
-  }
-
-  const workbook = XLSX.utils.book_new();
-
-  const summaryRows = getBankBalances().map((bank) => ({
-    Bank: bank.name,
-    Key: bank.key,
-    Saldo: bank.balance,
-    Pemasukan: bank.income,
-    Pengeluaran: bank.expense,
-    Transfer_Masuk: bank.transferIn,
-    Transfer_Keluar: bank.transferOut
-  }));
-
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(summaryRows), "Saldo Bank");
-
-  const transactionRows = data.map((item) => ({
-    Tanggal: item.tanggal,
-    Tipe: item.type,
-    Bank: item.bankName,
-    Kategori_Sumber: item.title,
-    Nominal: item.nominal,
-    Keterangan: item.keterangan
-  }));
-
-  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(transactionRows), "Semua Transaksi");
-
-  const groupedByDate = {};
-  transactionRows.forEach((item) => {
-    if (!groupedByDate[item.Tanggal]) groupedByDate[item.Tanggal] = [];
-    groupedByDate[item.Tanggal].push(item);
-  });
-
-  Object.keys(groupedByDate).sort().forEach((tanggal) => {
-    XLSX.utils.book_append_sheet(
-      workbook,
-      XLSX.utils.json_to_sheet(groupedByDate[tanggal]),
-      tanggal.replaceAll("-", "_")
-    );
-  });
-
-  XLSX.writeFile(workbook, "budget_tracker.xlsx");
-}
-
 
 function sanitizeFilePart(value) {
   return String(value || "unknown")
@@ -1288,57 +888,12 @@ function sanitizeFilePart(value) {
     .slice(0, 80) || "unknown";
 }
 
-function getFileExtension(file) {
-  const name = file?.name || "";
-  const match = name.match(/\.([a-zA-Z0-9]+)$/);
-  if (match) return match[1].toLowerCase();
-
-  const type = file?.type || "image/png";
-  if (type.includes("jpeg")) return "jpg";
-  if (type.includes("webp")) return "webp";
-  return "png";
-}
-
-function buildScreenshotFileName(tanggal, kategori, nominal, file) {
-  const datePart = sanitizeFilePart(tanggal || formatDateLocal(new Date()));
-  const categoryPart = sanitizeFilePart(kategori || "lainnya");
-  const amountPart = sanitizeFilePart(String(Number(nominal || 0)));
-  const ext = getFileExtension(file);
-  return `${datePart}-${categoryPart}-${amountPart}.${ext}`;
-}
-
 function buildScanNote(bank, tanggal, kategori, nominal) {
   const bankPart = cleanText(bank || "Bank tidak terbaca");
-  const datePart = tanggal || formatDateLocal(new Date());
+  const datePart = tanggal || formatDateLocal();
   const categoryPart = cleanText(kategori || "Lainnya");
   const amountPart = formatRupiah(Number(nominal || 0));
   return `${bankPart} | ${datePart} | ${categoryPart} | ${amountPart}`;
-}
-
-function readFileAsBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      const result = String(reader.result || "");
-      const base64 = result.includes(",") ? result.split(",")[1] : result;
-      resolve(base64);
-    };
-
-    reader.onerror = () => reject(new Error("Gagal membaca file."));
-    reader.readAsDataURL(file);
-  });
-}
-
-
-function setScanLoading(isLoading) {
-  scanScreenshotButton.disabled = isLoading;
-  scanScreenshotButton.textContent = isLoading ? "Membaca OCR..." : "Scan Screenshot";
-}
-
-function setAdviceLoading(isLoading) {
-  generateAdviceButton.disabled = isLoading;
-  generateAdviceButton.textContent = isLoading ? "Menganalisis..." : "Generate Advice";
 }
 
 function handleScreenshotPreview() {
@@ -1364,7 +919,12 @@ function handleScreenshotPreview() {
   const previewUrl = URL.createObjectURL(file);
   screenshotPreviewBox.className = "screenshot-preview";
   screenshotPreviewBox.innerHTML = `<img src="${previewUrl}" alt="Preview screenshot transaksi">`;
-  setNotice(scanMessage, "info", "Screenshot siap dipindai. Klik Scan Screenshot.");
+  setNotice(scanMessage, "info", "Screenshot siap discan. Klik Scan Screenshot.");
+}
+
+function setScanLoading(isLoading) {
+  scanScreenshotButton.disabled = isLoading;
+  scanScreenshotButton.textContent = isLoading ? "Membaca OCR..." : "Scan Screenshot";
 }
 
 async function scanScreenshotWithOcr() {
@@ -1379,7 +939,7 @@ async function scanScreenshotWithOcr() {
   }
 
   setScanLoading(true);
-  setNotice(scanMessage, "info", "OCR sedang membaca teks dari screenshot. Mohon tunggu.");
+  setNotice(scanMessage, "info", "OCR sedang membaca screenshot...");
 
   try {
     const result = await Tesseract.recognize(selectedScreenshotFile, "ind+eng", {
@@ -1398,7 +958,7 @@ async function scanScreenshotWithOcr() {
     fillScanReviewForm(transaction);
 
     if (transaction.confidence < 0.55) {
-      setNotice(scanMessage, "info", "OCR selesai, tapi confidence rendah. Mohon cek ulang tanggal, nominal, bank, kategori, dan merchant.");
+      setNotice(scanMessage, "info", "OCR selesai, tapi confidence rendah. Cek ulang semua field sebelum simpan.");
     } else {
       setNotice(scanMessage, "success", "OCR selesai. Review hasilnya sebelum disimpan.");
     }
@@ -1408,7 +968,6 @@ async function scanScreenshotWithOcr() {
     setScanLoading(false);
   }
 }
-
 
 function normalizeOcrText(text) {
   return String(text || "")
@@ -1462,20 +1021,11 @@ function extractNominalFromOcr(text) {
 
   if (!candidates.length) return 0;
 
-  const frequency = {};
-  candidates.forEach((value) => {
-    frequency[value] = (frequency[value] || 0) + 1;
-  });
-
-  return candidates.sort((a, b) => {
-    const freqDiff = (frequency[b] || 0) - (frequency[a] || 0);
-    if (freqDiff !== 0) return freqDiff;
-    return b - a;
-  })[0];
+  return candidates.sort((a, b) => b - a)[0];
 }
 
 function extractDateFromOcr(text) {
-  const today = formatDateLocal(new Date());
+  const today = formatDateLocal();
   const patterns = [
     /(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](20\d{2})/,
     /(20\d{2})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/
@@ -1485,11 +1035,18 @@ function extractDateFromOcr(text) {
     const match = text.match(pattern);
     if (!match) continue;
 
-    let year, month, day;
+    let year;
+    let month;
+    let day;
+
     if (match[1].length === 4) {
-      year = match[1]; month = match[2].padStart(2, "0"); day = match[3].padStart(2, "0");
+      year = match[1];
+      month = match[2].padStart(2, "0");
+      day = match[3].padStart(2, "0");
     } else {
-      day = match[1].padStart(2, "0"); month = match[2].padStart(2, "0"); year = match[3];
+      day = match[1].padStart(2, "0");
+      month = match[2].padStart(2, "0");
+      year = match[3];
     }
 
     if (Number(month) >= 1 && Number(month) <= 12 && Number(day) >= 1 && Number(day) <= 31) {
@@ -1512,7 +1069,8 @@ function extractDateFromOcr(text) {
     des: "12", desember: "12", dec: "12", december: "12"
   };
 
-  const monthMatch = text.toLowerCase().match(/(\d{1,2})\s+([a-zA-Z]+)\s+(20\d{2})/);
+  const lower = text.toLowerCase();
+  const monthMatch = lower.match(/(\d{1,2})\s+([a-zA-Z]+)\s+(20\d{2})/);
   if (monthMatch && monthMap[monthMatch[2]]) {
     return `${monthMatch[3]}-${monthMap[monthMatch[2]]}-${monthMatch[1].padStart(2, "0")}`;
   }
@@ -1548,38 +1106,58 @@ function extractBankFromOcr(text) {
 }
 
 function extractMerchantFromOcr(text, bank) {
-  const lines = normalizeOcrText(text).split("\n").map((line) => line.trim()).filter(Boolean);
-  const blocked = ["rp", "idr", "total", "jumlah", "amount", "nominal", "tanggal", "date", "waktu", "time", "berhasil", "sukses", "transaksi", "transfer", "qris", "receipt", "struk", "invoice", "bank", "rekening", "referensi", "ref"];
+  const lines = normalizeOcrText(text)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const blocked = [
+    "rp", "idr", "total", "jumlah", "amount", "nominal", "tanggal", "date",
+    "waktu", "time", "berhasil", "sukses", "transaksi", "transfer", "qris",
+    "receipt", "struk", "invoice", "bank", "rekening", "ref", "referensi"
+  ];
+
   const bankLower = String(bank || "").toLowerCase();
 
-  return lines.find((line) => {
+  const candidate = lines.find((line) => {
     const lower = line.toLowerCase();
     if (bankLower && lower.includes(bankLower)) return false;
     if (blocked.some((word) => lower.includes(word))) return false;
     if (/^\d+$/.test(lower)) return false;
     if (line.length < 3 || line.length > 42) return false;
     return /[a-zA-Z]/.test(line);
-  }) || "";
+  });
+
+  return candidate || "";
 }
 
 function inferCategoryFromOcr(text, merchant) {
   const full = `${text} ${merchant}`.toLowerCase();
+
   const rules = [
     ["Makan", ["kopi", "coffee", "cafe", "resto", "restaurant", "makan", "food", "burger", "ayam", "nasi", "mie", "bakso", "sate", "martabak", "pizza", "kfc", "mcd", "starbucks", "janji jiwa", "kopi kenangan"]],
     ["Transportasi", ["grab", "gojek", "gocar", "goride", "taxi", "taksi", "transjakarta", "kai", "kereta", "tol", "parkir", "parking", "pertamina", "shell", "bensin"]],
-    ["Belanja", ["tokopedia", "shopee", "lazada", "blibli", "zalora", "alfamart", "indomaret", "superindo", "hypermart", "guardian", "watsons", "miniso"]],
+    ["Belanja", ["tokopedia", "shopee", "lazada", "blibli", "zalora", "alfamart", "indomaret", "superindo", "hypermart", "guardian", "watsons"]],
     ["Tagihan", ["tagihan", "bill", "pln", "listrik", "pdam", "internet", "wifi", "telkom", "indihome", "bpjs", "pulsa", "data", "token"]],
-    ["Hiburan", ["cinema", "bioskop", "netflix", "spotify", "vidio", "disney", "game", "steam", "karaoke"]],
+    ["Hiburan", ["cinema", "bioskop", "netflix", "spotify", "vidio", "disney", "game", "steam"]],
     ["Kesehatan", ["apotek", "pharmacy", "klinik", "clinic", "rumah sakit", "hospital", "dokter", "obat"]]
   ];
+
   const found = rules.find(([, keywords]) => keywords.some((keyword) => full.includes(keyword)));
   return found ? found[0] : "Lainnya";
 }
 
 function inferTransactionTypeFromOcr(text) {
   const lower = text.toLowerCase();
-  if (/(transfer|kirim uang|pindah dana|rekening tujuan|to account|beneficiary)/.test(lower)) return "transfer";
-  if (/(uang masuk|dana masuk|incoming|receive|received|refund|cashback|gaji|salary)/.test(lower)) return "income";
+
+  if (/(transfer|kirim uang|pindah dana|rekening tujuan|beneficiary)/.test(lower)) {
+    return "transfer";
+  }
+
+  if (/(uang masuk|dana masuk|incoming|receive|received|refund|cashback|gaji|salary)/.test(lower)) {
+    return "income";
+  }
+
   return "expense";
 }
 
@@ -1599,8 +1177,9 @@ function parseOcrTransaction(rawText, file) {
   const nominal = extractNominalFromOcr(text);
   const bank = extractBankFromOcr(text);
   const merchant = extractMerchantFromOcr(text, bank);
+  const rawCategory = inferCategoryFromOcr(text, merchant);
   const type = inferTransactionTypeFromOcr(text);
-  const kategori = type === "transfer" ? "Transfer" : inferCategoryFromOcr(text, merchant);
+  const kategori = type === "transfer" ? "Transfer" : rawCategory;
   const confidence = calculateOcrConfidence({ nominal, bank, merchant, tanggal, kategori });
 
   return {
@@ -1619,37 +1198,25 @@ function parseOcrTransaction(rawText, file) {
 }
 
 function fillScanReviewForm(transaction) {
-  const type = transaction.type || transaction.tipe || "expense";
-  const tanggal = transaction.tanggal || formatDateLocal(new Date());
+  const type = transaction.type || "expense";
+  const tanggal = transaction.tanggal || formatDateLocal();
   const nominal = Number(transaction.nominal || 0);
   const kategori = transaction.kategori || (type === "transfer" ? "Transfer" : "Lainnya");
   const confidence = Number(transaction.confidence || 0);
 
   scanType.value = ["income", "expense", "transfer"].includes(type) ? type : "expense";
   scanTanggal.value = tanggal;
-  scanBank.value = transaction.bank || transaction.bankName || "";
-  scanToBank.value = transaction.toBank || transaction.toBankName || "";
-  scanMerchant.value = transaction.merchant || transaction.toko || transaction.sumber || "";
+  scanBank.value = transaction.bank || "";
+  scanToBank.value = transaction.toBank || "";
+  scanMerchant.value = transaction.merchant || "";
   scanKategori.value = kategori;
-  scanNominal.value = nominal;
+  scanNominal.value = nominal || "";
   scanKeterangan.value = transaction.keterangan || "";
   scanConfidenceBadge.textContent = `${Math.round(confidence * 100)}%`;
 
-  scanSuggestedFileName.value = buildScanNote(scanBank.value, tanggal, kategori, nominal);
-
+  refreshScanNote();
   toggleScanToBank();
   scanResultCard.classList.remove("hidden");
-}
-
-
-function refreshScanNote() {
-  if (!scanSuggestedFileName) return;
-  scanSuggestedFileName.value = buildScanNote(
-    scanBank.value,
-    scanTanggal.value,
-    scanKategori.value,
-    scanNominal.value
-  );
 }
 
 function toggleScanToBank() {
@@ -1657,15 +1224,15 @@ function toggleScanToBank() {
   if (scanType.value === "transfer") {
     scanKategori.value = "Transfer";
   }
+  refreshScanNote();
+}
+
+function refreshScanNote() {
+  scanNoteInput.value = buildScanNote(scanBank.value, scanTanggal.value, scanKategori.value, scanNominal.value);
 }
 
 async function saveScannedTransaction(event) {
   event.preventDefault();
-
-  if (!selectedScreenshotFile) {
-    setNotice(scanMessage, "error", "Screenshot tidak ditemukan.");
-    return;
-  }
 
   const type = scanType.value;
   const tanggal = scanTanggal.value;
@@ -1696,7 +1263,7 @@ async function saveScannedTransaction(event) {
         tanggal,
         bankKey: bank.key,
         bankName: bank.display,
-        sumber: merchant || "Pemasukan dari screenshot",
+        sumber: merchant || "Pemasukan dari OCR",
         nominal,
         keterangan,
         merchant,
@@ -1715,7 +1282,7 @@ async function saveScannedTransaction(event) {
         bankName: bank.display,
         kategori,
         nominal,
-        keterangan: keterangan || merchant || "Pengeluaran dari screenshot",
+        keterangan: keterangan || merchant || "Pengeluaran dari OCR",
         merchant,
         source: "ocr_screenshot",
         confidence: latestScanResult?.confidence || null,
@@ -1733,7 +1300,7 @@ async function saveScannedTransaction(event) {
         toBankKey: toBank.key,
         toBankName: toBank.display,
         nominal,
-        keterangan: keterangan || "Transfer dari screenshot",
+        keterangan: keterangan || "Transfer dari OCR",
         merchant,
         source: "ocr_screenshot",
         confidence: latestScanResult?.confidence || null,
@@ -1752,7 +1319,7 @@ async function saveScannedTransaction(event) {
     screenshotPreviewBox.className = "screenshot-preview empty-preview";
     screenshotPreviewBox.innerHTML = "<span>Preview screenshot akan muncul di sini.</span>";
   } catch (error) {
-    setNotice(scanMessage, "error", error.message || "Gagal menyimpan hasil scan.");
+    setNotice(scanMessage, "error", getFirebaseAuthMessage(error));
   } finally {
     saveScannedTransactionButton.disabled = false;
     saveScannedTransactionButton.textContent = "Simpan Hasil Scan";
@@ -1774,32 +1341,16 @@ function buildFinancialSummary() {
     .map(([category, amount]) => ({ category, amount }))
     .sort((a, b) => b.amount - a.amount);
 
-  const bankBalances = getBankBalances().map((bank) => ({
-    bank: bank.name,
-    balance: bank.balance,
-    income: bank.income,
-    expense: bank.expense,
-    transferIn: bank.transferIn,
-    transferOut: bank.transferOut
-  }));
-
   return {
-    currency: "IDR",
     totalIncome,
     totalExpense,
     remainingBalance,
     expenseByCategory,
-    bankBalances,
-    transactionCount: {
-      incomes: incomes.length,
-      expenses: expenses.length,
-      transfers: transfers.length
-    }
+    bankBalances: getBankBalances()
   };
 }
 
 function generateLocalFinancialAdvice(summary) {
-  const rupiah = (value) => formatRupiah(Number(value || 0));
   const totalIncome = Number(summary.totalIncome || 0);
   const totalExpense = Number(summary.totalExpense || 0);
   const remaining = Number(summary.remainingBalance || 0);
@@ -1816,142 +1367,174 @@ function generateLocalFinancialAdvice(summary) {
   lines.push(`Status Keuangan: ${status}`);
   lines.push("");
   lines.push("Ringkasan:");
-  lines.push(`- Total pemasukan: ${rupiah(totalIncome)}`);
-  lines.push(`- Total pengeluaran: ${rupiah(totalExpense)}`);
-  lines.push(`- Sisa uang: ${rupiah(remaining)}`);
-  if (topCategory) lines.push(`- Kategori pengeluaran terbesar: ${topCategory.category} (${rupiah(topCategory.amount)})`);
-  if (topBank) lines.push(`- Saldo terbesar saat ini: ${topBank.bank} (${rupiah(topBank.balance)})`);
+  lines.push(`- Total pemasukan: ${formatRupiah(totalIncome)}`);
+  lines.push(`- Total pengeluaran: ${formatRupiah(totalExpense)}`);
+  lines.push(`- Sisa uang: ${formatRupiah(remaining)}`);
+
+  if (topCategory) {
+    lines.push(`- Kategori pengeluaran terbesar: ${topCategory.category} (${formatRupiah(topCategory.amount)})`);
+  }
+
+  if (topBank) {
+    lines.push(`- Saldo terbesar: ${topBank.name} (${formatRupiah(topBank.balance)})`);
+  }
+
   lines.push("");
   lines.push("Rekomendasi:");
 
   if (remaining < 0) {
-    lines.push("1. Prioritaskan koreksi transaksi atau input pemasukan yang belum tercatat karena saldo masih minus.");
-    lines.push("2. Tunda pengeluaran non-prioritas sampai cashflow kembali positif.");
-    lines.push("3. Cek ulang kategori pengeluaran terbesar untuk mencari pos yang bisa dipangkas.");
+    lines.push("1. Cek ulang transaksi dan input pemasukan yang belum tercatat.");
+    lines.push("2. Tunda pengeluaran non-prioritas sampai saldo kembali positif.");
+    lines.push("3. Fokus pangkas kategori pengeluaran terbesar.");
   } else if (totalIncome === 0 && totalExpense > 0) {
-    lines.push("1. Input pemasukan terlebih dahulu agar dashboard bisa menilai kondisi cashflow dengan benar.");
-    lines.push("2. Pastikan setiap transaksi memakai bank/dompet yang benar.");
-    lines.push("3. Gunakan kategori konsisten supaya analisis pengeluaran lebih akurat.");
+    lines.push("1. Input pemasukan terlebih dahulu agar cashflow terbaca benar.");
+    lines.push("2. Pastikan setiap transaksi memakai bank/dompet yang tepat.");
+    lines.push("3. Gunakan kategori yang konsisten.");
   } else if (expenseRatio > 80) {
-    lines.push("1. Pengeluaran sudah cukup tinggi dibanding pemasukan. Tetapkan batas mingguan untuk kategori terbesar.");
-    lines.push("2. Sisihkan dana darurat di awal setelah pemasukan masuk, bukan menunggu sisa akhir bulan.");
-    lines.push("3. Review transaksi kecil yang berulang karena biasanya itu yang membuat pengeluaran membesar.");
+    lines.push("1. Pengeluaran sudah tinggi dibanding pemasukan.");
+    lines.push("2. Tetapkan limit mingguan untuk kategori terbesar.");
+    lines.push("3. Sisihkan dana darurat di awal saat pemasukan masuk.");
   } else {
-    lines.push("1. Cashflow masih positif. Pertahankan pengeluaran di bawah 70% dari pemasukan.");
-    lines.push("2. Sisihkan minimal 10–20% pemasukan untuk tabungan atau dana darurat.");
-    lines.push("3. Pantau kategori terbesar setiap minggu agar pengeluaran tidak naik tanpa sadar.");
+    lines.push("1. Cashflow masih positif. Pertahankan pengeluaran di bawah 70% pemasukan.");
+    lines.push("2. Sisihkan 10–20% pemasukan untuk tabungan atau dana darurat.");
+    lines.push("3. Review kategori terbesar tiap minggu.");
   }
 
-  return lines.join("
-");
+  return lines.join("\n");
 }
 
-async function generateFinancialAdvice() {
-  setAdviceLoading(true);
-  advisorOutput.textContent = "Menganalisis data keuangan lokal...";
+function generateFinancialAdvice() {
+  advisorOutput.textContent = generateLocalFinancialAdvice(buildFinancialSummary());
+}
 
-  try {
-    const summary = buildFinancialSummary();
-    advisorOutput.textContent = generateLocalFinancialAdvice(summary);
-  } catch (error) {
-    advisorOutput.textContent = error.message || "Gagal membuat financial advice.";
-  } finally {
-    setAdviceLoading(false);
+function downloadCSV() {
+  const rows = getAllTransactions().map((item) => ({
+    tanggal: item.tanggal || "",
+    tipe: getTypeLabel(item.type),
+    bank: item.bankText || "",
+    kategori: item.kategoriText || "",
+    nominal: item.nominal || 0,
+    keterangan: item.keterangan || item.title || "",
+    scanNote: item.scanNote || ""
+  }));
+
+  const header = Object.keys(rows[0] || {
+    tanggal: "",
+    tipe: "",
+    bank: "",
+    kategori: "",
+    nominal: "",
+    keterangan: "",
+    scanNote: ""
+  });
+
+  const csv = [
+    header.join(","),
+    ...rows.map((row) => header.map((key) => `"${String(row[key] ?? "").replaceAll('"', '""')}"`).join(","))
+  ].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `spendly-transactions-${formatDateLocal()}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadExcel() {
+  if (typeof XLSX === "undefined") {
+    alert("Library Excel belum termuat.");
+    return;
   }
-}
 
-function showAuth() {
-  authScreen.classList.remove("hidden");
-  appScreen.classList.add("hidden");
-  incomes = [];
-  expenses = [];
-  transfers = [];
-}
+  const workbook = XLSX.utils.book_new();
 
-function showApp(user) {
-  authScreen.classList.add("hidden");
-  appScreen.classList.remove("hidden");
+  const transactions = getAllTransactions().map((item) => ({
+    Tanggal: item.tanggal || "",
+    Tipe: getTypeLabel(item.type),
+    Bank: item.bankText || "",
+    Kategori: item.kategoriText || "",
+    Nominal: item.nominal || 0,
+    Keterangan: item.keterangan || item.title || "",
+    "Catatan Scan": item.scanNote || ""
+  }));
 
-  userEmail.textContent = user.email;
-  userInitial.textContent = user.email ? user.email[0].toUpperCase() : "U";
+  const balances = getBankBalances().map((bank) => ({
+    Bank: bank.name,
+    Pemasukan: bank.income,
+    Pengeluaran: bank.expense,
+    "Transfer Masuk": bank.transferIn,
+    "Transfer Keluar": bank.transferOut,
+    Saldo: bank.balance
+  }));
 
-  listenData();
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(transactions), "Transaksi");
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(balances), "Saldo Bank");
+  XLSX.writeFile(workbook, `spendly-report-${formatDateLocal()}.xlsx`);
 }
 
 onAuthStateChanged(auth, (user) => {
-  if (user) {
-    currentUser = user;
-    showApp(user);
-  } else {
-    currentUser = null;
-    unsubscribeAll();
+  currentUser = user;
+
+  if (!user) {
+    clearSubscriptions();
+    incomes = [];
+    expenses = [];
+    transfers = [];
     showAuth();
+    return;
   }
+
+  userEmail.textContent = user.email || "-";
+  showApp();
+  subscribeData();
 });
 
-loginTab.addEventListener("click", () => switchAuthMode("login"));
-registerTab.addEventListener("click", () => switchAuthMode("register"));
+loginTab.addEventListener("click", () => setAuthMode("login"));
+registerTab.addEventListener("click", () => setAuthMode("register"));
 authForm.addEventListener("submit", handleAuthSubmit);
+logoutButton.addEventListener("click", handleLogout);
 
-incomeTab.addEventListener("click", () => switchInputMode("income"));
-expenseTab.addEventListener("click", () => switchInputMode("expense"));
-transferTab.addEventListener("click", () => switchInputMode("transfer"));
+incomeTab.addEventListener("click", () => setTxMode("income"));
+expenseTab.addEventListener("click", () => setTxMode("expense"));
+transferTab.addEventListener("click", () => setTxMode("transfer"));
+transactionForm.addEventListener("submit", saveTransaction);
 
-incomeForm.addEventListener("submit", saveIncome);
-expenseForm.addEventListener("submit", saveExpense);
-transferForm.addEventListener("submit", saveTransfer);
+typeFilter.addEventListener("change", renderTable);
+searchInput.addEventListener("input", renderTable);
 
-logoutButton.addEventListener("click", async () => {
-  await signOut(auth);
+tableContainer.addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+
+  const action = button.dataset.action;
+  const type = button.dataset.type;
+  const id = button.dataset.id;
+
+  if (action === "edit") openEditModal(type, id);
+  if (action === "delete") deleteTransaction(type, id);
 });
-
-filterTanggal.addEventListener("change", renderAll);
-filterTipe.addEventListener("change", renderAll);
-filterBank.addEventListener("input", renderAll);
-resetFilterButton.addEventListener("click", resetFilters);
-downloadCsvButton.addEventListener("click", downloadCSV);
-downloadExcelButton.addEventListener("click", downloadExcel);
 
 closeEditModal.addEventListener("click", closeModal);
 cancelEditButton.addEventListener("click", closeModal);
 editForm.addEventListener("submit", saveEditedTransaction);
 
-editModal.addEventListener("click", (event) => {
-  if (event.target === editModal) {
-    closeModal();
-  }
-});
+downloadCSVButton.addEventListener("click", downloadCSV);
+downloadExcelButton.addEventListener("click", downloadExcel);
 
-
-if (screenshotInput) {
-  screenshotInput.addEventListener("change", handleScreenshotPreview);
-}
-
-if (scanScreenshotButton) {
-  scanScreenshotButton.addEventListener("click", scanScreenshotWithOcr);
-}
-
-if (scanReviewForm) {
-  scanReviewForm.addEventListener("submit", saveScannedTransaction);
-}
-
-if (scanType) {
-  scanType.addEventListener("change", () => {
-    toggleScanToBank();
-    refreshScanNote();
-  });
-}
+screenshotInput.addEventListener("change", handleScreenshotPreview);
+scanScreenshotButton.addEventListener("click", scanScreenshotWithOcr);
+scanReviewForm.addEventListener("submit", saveScannedTransaction);
+scanType.addEventListener("change", toggleScanToBank);
 
 [scanTanggal, scanBank, scanKategori, scanNominal].forEach((element) => {
-  if (element) {
-    element.addEventListener("input", refreshScanNote);
-    element.addEventListener("change", refreshScanNote);
-  }
+  element.addEventListener("input", refreshScanNote);
+  element.addEventListener("change", refreshScanNote);
 });
 
-if (generateAdviceButton) {
-  generateAdviceButton.addEventListener("click", generateFinancialAdvice);
-}
+generateAdviceButton.addEventListener("click", generateFinancialAdvice);
 
-
-setToday();
+tanggalInput.value = formatDateLocal();
+setAuthMode("login");
+setTxMode("income");

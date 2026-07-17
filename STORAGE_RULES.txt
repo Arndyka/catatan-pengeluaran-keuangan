@@ -1,1 +1,5 @@
-Firebase Storage tidak digunakan pada versi OCR lokal ini. Screenshot hanya diproses di browser dengan Tesseract.js dan file tidak disimpan. Hasil teks scan disimpan ke Firestore sebagai field scanNote.
+Firebase Storage tidak digunakan pada versi ini.
+
+Screenshot hanya diproses di browser memakai Tesseract.js.
+File screenshot tidak disimpan.
+Hasil teks scan disimpan ke Firestore sebagai field scanNote.
