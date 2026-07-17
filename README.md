@@ -1,95 +1,49 @@
-# Spendly AI Budget Tracker — No Storage Version
+# Spendly OCR Budget Tracker
 
-Versi ini menambahkan fitur AI tanpa Firebase Storage.
+Versi ini tidak memakai Azure OpenAI, tidak memakai backend, dan tidak memakai Firebase Storage.
 
-## Fitur
+## Fitur Baru
 
-- AI Screenshot Scanner
-- Preview screenshot
-- Scan screenshot via Azure Function
-- Hasil AI tampil dulu untuk review/edit
+- OCR Screenshot Scanner berbasis Tesseract.js
+- File screenshot hanya diproses di browser
 - File screenshot tidak disimpan
-- Hasil teks scan disimpan ke Firestore
-- Format catatan scan: `Bank | Tanggal | Kategori | Jumlah`
-- AI Financial Advisor
-- Azure Function backend agar Azure OpenAI API key tidak bocor
+- Hasil OCR tampil dulu untuk review/edit
+- Simpan transaksi ke Firestore
+- Catatan scan disimpan dengan format: `Bank | Tanggal | Kategori | Jumlah`
+- Financial Advisor lokal berbasis rule sederhana
 
-## Yang Perlu Diupload ke GitHub Pages
+## Upload ke GitHub Pages
+
+Upload/replace file ini:
 
 ```text
 index.html
 README.md
-FIRESTORE_RULES.txt
+STORAGE_RULES.txt
 assets/app.js
 assets/styles.css
 ```
 
-File ini opsional, hanya catatan:
+Folder `azure-function-api` tidak diperlukan lagi untuk versi ini.
 
-```text
-STORAGE_RULES.txt
-```
-
-Folder backend:
-
-```text
-azure-function-api/
-```
-
-Folder `azure-function-api` bukan bagian dari tampilan GitHub Pages. Folder ini dipakai untuk deploy backend ke Azure Function.
-
-## Tidak Perlu Firebase Storage
-
-Pada versi ini kamu tidak perlu upgrade Firebase ke Blaze hanya untuk menyimpan bukti transaksi.
-
-Alurnya:
+## Cara Kerja OCR
 
 ```text
 Upload screenshot
 ↓
-AI membaca screenshot
+Tesseract.js membaca teks di browser
 ↓
-Hasil muncul untuk review
+Rule parser mencari nominal, tanggal, bank, merchant, kategori
 ↓
-User klik Simpan
+Hasil tampil di form review
 ↓
-Data transaksi + catatan scan masuk Firestore
+User edit jika perlu
 ↓
-File screenshot tidak disimpan
+Klik Simpan Hasil Scan
+↓
+Data masuk Firestore
 ```
 
-## Field Firestore Tambahan
+## Catatan Akurasi
 
-Data hasil scan menyimpan field:
-
-```text
-source: "ai_screenshot"
-confidence: angka 0-1
-scanNote: "Mandiri | 2026-06-29 | Makan | Rp 25.000"
-merchant: "Nama toko/sumber jika terbaca"
-```
-
-## Backend URL
-
-Setelah Azure Function deploy, buka:
-
-```text
-assets/app.js
-```
-
-Cari:
-
-```js
-const AI_API_BASE_URL = "ISI_URL_AZURE_FUNCTION_KAMU";
-```
-
-Ganti dengan URL backend:
-
-```js
-const AI_API_BASE_URL = "https://NAMA_FUNCTION_APP.azurewebsites.net/api";
-```
-
-## Security
-
-Jangan taruh Azure OpenAI API key di frontend/GitHub Pages.
-Simpan key di Azure Function App Settings.
+OCR lokal tidak secerdas AI vision. Hasil tetap perlu dicek ulang, terutama nominal, tanggal, bank/dompet, kategori, dan merchant.

@@ -359,7 +359,7 @@
       <section id="ai-scanner" class="panel ai-scanner-section">
         <div class="panel-header table-header">
           <div>
-            <p class="section-label">AI Scanner</p>
+            <p class="section-label">OCR Scanner</p>
             <h2>Scan Screenshot Transaksi</h2>
           </div>
         </div>
@@ -380,7 +380,7 @@
             </button>
 
             <div id="scanMessage" class="notice info no-margin">
-              Bisa membaca QRIS, m-banking, e-wallet, struk toko, transfer receipt, dan email receipt. File tidak disimpan; hanya hasil teks scan yang disimpan.
+              Mode OCR lokal: membaca teks dari QRIS, m-banking, e-wallet, struk toko, transfer receipt, dan email receipt. File tidak disimpan; hasil tetap harus direview.
             </div>
           </div>
 
@@ -388,7 +388,7 @@
             <div class="result-header">
               <div>
                 <p class="section-label">Review Result</p>
-                <h3>Hasil Deteksi AI</h3>
+                <h3>Hasil Deteksi OCR</h3>
               </div>
               <span id="scanConfidenceBadge" class="confidence-badge">0%</span>
             </div>
@@ -463,7 +463,7 @@
       <section id="financial-advisor" class="panel advisor-section">
         <div class="panel-header table-header">
           <div>
-            <p class="section-label">AI Advisor</p>
+            <p class="section-label">Smart Advisor</p>
             <h2>Financial Advisor</h2>
           </div>
 
@@ -603,6 +603,7 @@
     </section>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
   <script type="module" src="assets/app.js"></script>
 </body>
 </html>

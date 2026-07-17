@@ -43,12 +43,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-/*
-  Ganti URL ini dengan URL Azure Function kamu setelah deploy.
-  Contoh:
-  const AI_API_BASE_URL = "https://spendly-ai-api.azurewebsites.net/api";
-*/
-const AI_API_BASE_URL = "ISI_URL_AZURE_FUNCTION_KAMU";
 
 let authMode = "login";
 let currentUser = null;
@@ -1324,13 +1318,10 @@ function readFileAsBase64(file) {
   });
 }
 
-function isAiApiConfigured() {
-  return AI_API_BASE_URL && !AI_API_BASE_URL.includes("ISI_URL_AZURE_FUNCTION_KAMU");
-}
 
 function setScanLoading(isLoading) {
   scanScreenshotButton.disabled = isLoading;
-  scanScreenshotButton.textContent = isLoading ? "Memindai screenshot..." : "Scan Screenshot";
+  scanScreenshotButton.textContent = isLoading ? "Membaca OCR..." : "Scan Screenshot";
 }
 
 function setAdviceLoading(isLoading) {
@@ -1364,59 +1355,255 @@ function handleScreenshotPreview() {
   setNotice(scanMessage, "info", "Screenshot siap dipindai. Klik Scan Screenshot.");
 }
 
-async function scanScreenshotWithAi() {
+async function scanScreenshotWithOcr() {
   if (!selectedScreenshotFile) {
     setNotice(scanMessage, "error", "Upload screenshot terlebih dahulu.");
     return;
   }
 
-  if (!isAiApiConfigured()) {
-    setNotice(scanMessage, "error", "AI_API_BASE_URL belum diisi. Deploy Azure Function dulu, lalu isi URL backend di assets/app.js.");
+  if (typeof Tesseract === "undefined") {
+    setNotice(scanMessage, "error", "Tesseract OCR belum termuat. Pastikan koneksi internet aktif lalu refresh halaman.");
     return;
   }
 
   setScanLoading(true);
-  setNotice(scanMessage, "info", "AI sedang membaca screenshot. Mohon tunggu.");
+  setNotice(scanMessage, "info", "OCR sedang membaca teks dari screenshot. Mohon tunggu.");
 
   try {
-    const imageBase64 = await readFileAsBase64(selectedScreenshotFile);
-
-    const response = await fetch(`${AI_API_BASE_URL}/scan-transaction`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        imageBase64,
-        fileType: selectedScreenshotFile.type || "image/png",
-        fileName: selectedScreenshotFile.name,
-        allowedCategories: [
-          "Makan",
-          "Transportasi",
-          "Belanja",
-          "Tagihan",
-          "Hiburan",
-          "Kesehatan",
-          "Transfer",
-          "Lainnya"
-        ]
-      })
+    const result = await Tesseract.recognize(selectedScreenshotFile, "ind+eng", {
+      logger: (progress) => {
+        if (progress.status === "recognizing text") {
+          const percent = Math.round((progress.progress || 0) * 100);
+          setNotice(scanMessage, "info", `OCR sedang membaca screenshot... ${percent}%`);
+        }
+      }
     });
 
-    const result = await response.json();
+    const rawText = result?.data?.text || "";
+    const transaction = parseOcrTransaction(rawText, selectedScreenshotFile);
 
-    if (!response.ok || !result.success || !result.transaction) {
-      throw new Error(result.message || "AI gagal membaca screenshot.");
+    latestScanResult = transaction;
+    fillScanReviewForm(transaction);
+
+    if (transaction.confidence < 0.55) {
+      setNotice(scanMessage, "info", "OCR selesai, tapi confidence rendah. Mohon cek ulang tanggal, nominal, bank, kategori, dan merchant.");
+    } else {
+      setNotice(scanMessage, "success", "OCR selesai. Review hasilnya sebelum disimpan.");
     }
-
-    latestScanResult = result.transaction;
-    fillScanReviewForm(result.transaction);
-    setNotice(scanMessage, "success", "Screenshot berhasil dibaca. Review hasilnya sebelum disimpan.");
   } catch (error) {
-    setNotice(scanMessage, "error", error.message || "Gagal memindai screenshot.");
+    setNotice(scanMessage, "error", error.message || "Gagal membaca screenshot dengan OCR.");
   } finally {
     setScanLoading(false);
   }
+}
+
+
+function normalizeOcrText(text) {
+  return String(text || "")
+    .replace(/\r/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
+function parseNumberCandidate(raw) {
+  if (!raw) return 0;
+
+  let value = String(raw)
+    .toLowerCase()
+    .replace(/rp/g, "")
+    .replace(/idr/g, "")
+    .replace(/[^\d,.]/g, "")
+    .trim();
+
+  if (!value) return 0;
+
+  if (value.includes(",") && value.includes(".")) {
+    value = value.replace(/\./g, "").replace(",", ".");
+  } else if (value.includes(".")) {
+    value = value.replace(/\./g, "");
+  } else if (value.includes(",")) {
+    value = value.replace(",", ".");
+  }
+
+  const number = Math.round(Number(value));
+  return Number.isFinite(number) ? number : 0;
+}
+
+function extractNominalFromOcr(text) {
+  const candidates = [];
+  const patterns = [
+    /(?:rp|idr)\s*([0-9][0-9.,]{2,})/gi,
+    /(?:total|jumlah|amount|nominal|bayar|pembayaran|paid|payment|subtotal)\D{0,25}([0-9][0-9.,]{2,})/gi,
+    /([0-9]{1,3}(?:[.,][0-9]{3})+(?:,[0-9]{2})?)/g
+  ];
+
+  patterns.forEach((pattern) => {
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const value = parseNumberCandidate(match[1]);
+      if (value >= 1000 && value <= 1000000000) {
+        candidates.push(value);
+      }
+    }
+  });
+
+  if (!candidates.length) return 0;
+
+  const frequency = {};
+  candidates.forEach((value) => {
+    frequency[value] = (frequency[value] || 0) + 1;
+  });
+
+  return candidates.sort((a, b) => {
+    const freqDiff = (frequency[b] || 0) - (frequency[a] || 0);
+    if (freqDiff !== 0) return freqDiff;
+    return b - a;
+  })[0];
+}
+
+function extractDateFromOcr(text) {
+  const today = formatDateLocal(new Date());
+  const patterns = [
+    /(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](20\d{2})/,
+    /(20\d{2})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (!match) continue;
+
+    let year, month, day;
+    if (match[1].length === 4) {
+      year = match[1]; month = match[2].padStart(2, "0"); day = match[3].padStart(2, "0");
+    } else {
+      day = match[1].padStart(2, "0"); month = match[2].padStart(2, "0"); year = match[3];
+    }
+
+    if (Number(month) >= 1 && Number(month) <= 12 && Number(day) >= 1 && Number(day) <= 31) {
+      return `${year}-${month}-${day}`;
+    }
+  }
+
+  const monthMap = {
+    jan: "01", januari: "01", january: "01",
+    feb: "02", februari: "02", february: "02",
+    mar: "03", maret: "03", march: "03",
+    apr: "04", april: "04",
+    mei: "05", may: "05",
+    jun: "06", juni: "06", june: "06",
+    jul: "07", juli: "07", july: "07",
+    agu: "08", agustus: "08", aug: "08", august: "08",
+    sep: "09", september: "09",
+    okt: "10", oktober: "10", oct: "10", october: "10",
+    nov: "11", november: "11",
+    des: "12", desember: "12", dec: "12", december: "12"
+  };
+
+  const monthMatch = text.toLowerCase().match(/(\d{1,2})\s+([a-zA-Z]+)\s+(20\d{2})/);
+  if (monthMatch && monthMap[monthMatch[2]]) {
+    return `${monthMatch[3]}-${monthMap[monthMatch[2]]}-${monthMatch[1].padStart(2, "0")}`;
+  }
+
+  return today;
+}
+
+function extractBankFromOcr(text) {
+  const upper = text.toUpperCase();
+  const bankRules = [
+    ["Mandiri", ["MANDIRI", "LIVIN"]],
+    ["BCA", ["BCA", "MYBCA", "KLIKBCA"]],
+    ["BRI", ["BRI", "BRIMO"]],
+    ["BNI", ["BNI"]],
+    ["BSI", ["BSI", "BANK SYARIAH INDONESIA"]],
+    ["CIMB", ["CIMB", "OCTO"]],
+    ["Permata", ["PERMATA"]],
+    ["Danamon", ["DANAMON"]],
+    ["Jago", ["JAGO"]],
+    ["Jenius", ["JENIUS"]],
+    ["SeaBank", ["SEABANK", "SEA BANK"]],
+    ["Krom", ["KROM"]],
+    ["DANA", ["DANA"]],
+    ["GoPay", ["GOPAY", "GO-PAY", "GOJEK"]],
+    ["OVO", ["OVO"]],
+    ["ShopeePay", ["SHOPEEPAY", "SHOPEE PAY"]],
+    ["LinkAja", ["LINKAJA", "LINK AJA"]],
+    ["Tunai", ["CASH", "TUNAI"]]
+  ];
+
+  const found = bankRules.find(([, keys]) => keys.some((key) => upper.includes(key)));
+  return found ? found[0] : "";
+}
+
+function extractMerchantFromOcr(text, bank) {
+  const lines = normalizeOcrText(text).split("\n").map((line) => line.trim()).filter(Boolean);
+  const blocked = ["rp", "idr", "total", "jumlah", "amount", "nominal", "tanggal", "date", "waktu", "time", "berhasil", "sukses", "transaksi", "transfer", "qris", "receipt", "struk", "invoice", "bank", "rekening", "referensi", "ref"];
+  const bankLower = String(bank || "").toLowerCase();
+
+  return lines.find((line) => {
+    const lower = line.toLowerCase();
+    if (bankLower && lower.includes(bankLower)) return false;
+    if (blocked.some((word) => lower.includes(word))) return false;
+    if (/^\d+$/.test(lower)) return false;
+    if (line.length < 3 || line.length > 42) return false;
+    return /[a-zA-Z]/.test(line);
+  }) || "";
+}
+
+function inferCategoryFromOcr(text, merchant) {
+  const full = `${text} ${merchant}`.toLowerCase();
+  const rules = [
+    ["Makan", ["kopi", "coffee", "cafe", "resto", "restaurant", "makan", "food", "burger", "ayam", "nasi", "mie", "bakso", "sate", "martabak", "pizza", "kfc", "mcd", "starbucks", "janji jiwa", "kopi kenangan"]],
+    ["Transportasi", ["grab", "gojek", "gocar", "goride", "taxi", "taksi", "transjakarta", "kai", "kereta", "tol", "parkir", "parking", "pertamina", "shell", "bensin"]],
+    ["Belanja", ["tokopedia", "shopee", "lazada", "blibli", "zalora", "alfamart", "indomaret", "superindo", "hypermart", "guardian", "watsons", "miniso"]],
+    ["Tagihan", ["tagihan", "bill", "pln", "listrik", "pdam", "internet", "wifi", "telkom", "indihome", "bpjs", "pulsa", "data", "token"]],
+    ["Hiburan", ["cinema", "bioskop", "netflix", "spotify", "vidio", "disney", "game", "steam", "karaoke"]],
+    ["Kesehatan", ["apotek", "pharmacy", "klinik", "clinic", "rumah sakit", "hospital", "dokter", "obat"]]
+  ];
+  const found = rules.find(([, keywords]) => keywords.some((keyword) => full.includes(keyword)));
+  return found ? found[0] : "Lainnya";
+}
+
+function inferTransactionTypeFromOcr(text) {
+  const lower = text.toLowerCase();
+  if (/(transfer|kirim uang|pindah dana|rekening tujuan|to account|beneficiary)/.test(lower)) return "transfer";
+  if (/(uang masuk|dana masuk|incoming|receive|received|refund|cashback|gaji|salary)/.test(lower)) return "income";
+  return "expense";
+}
+
+function calculateOcrConfidence({ nominal, bank, merchant, tanggal, kategori }) {
+  let score = 0.25;
+  if (nominal > 0) score += 0.3;
+  if (bank) score += 0.15;
+  if (merchant) score += 0.1;
+  if (tanggal) score += 0.1;
+  if (kategori && kategori !== "Lainnya") score += 0.1;
+  return Math.min(0.95, score);
+}
+
+function parseOcrTransaction(rawText, file) {
+  const text = normalizeOcrText(rawText);
+  const tanggal = extractDateFromOcr(text);
+  const nominal = extractNominalFromOcr(text);
+  const bank = extractBankFromOcr(text);
+  const merchant = extractMerchantFromOcr(text, bank);
+  const type = inferTransactionTypeFromOcr(text);
+  const kategori = type === "transfer" ? "Transfer" : inferCategoryFromOcr(text, merchant);
+  const confidence = calculateOcrConfidence({ nominal, bank, merchant, tanggal, kategori });
+
+  return {
+    type,
+    tanggal,
+    nominal,
+    bank,
+    toBank: "",
+    merchant,
+    kategori,
+    keterangan: merchant ? `OCR: ${merchant}` : `OCR dari ${file?.name || "screenshot"}`,
+    confidence,
+    rawText: text,
+    suggestedFileName: buildScanNote(bank, tanggal, kategori, nominal)
+  };
 }
 
 function fillScanReviewForm(transaction) {
@@ -1501,7 +1688,7 @@ async function saveScannedTransaction(event) {
         nominal,
         keterangan,
         merchant,
-        source: "ai_screenshot",
+        source: "ocr_screenshot",
         confidence: latestScanResult?.confidence || null,
         scanNote,
         createdAt: serverTimestamp(),
@@ -1518,7 +1705,7 @@ async function saveScannedTransaction(event) {
         nominal,
         keterangan: keterangan || merchant || "Pengeluaran dari screenshot",
         merchant,
-        source: "ai_screenshot",
+        source: "ocr_screenshot",
         confidence: latestScanResult?.confidence || null,
         scanNote,
         createdAt: serverTimestamp(),
@@ -1536,7 +1723,7 @@ async function saveScannedTransaction(event) {
         nominal,
         keterangan: keterangan || "Transfer dari screenshot",
         merchant,
-        source: "ai_screenshot",
+        source: "ocr_screenshot",
         confidence: latestScanResult?.confidence || null,
         scanNote,
         createdAt: serverTimestamp(),
@@ -1599,38 +1786,67 @@ function buildFinancialSummary() {
   };
 }
 
-async function generateFinancialAdvice() {
-  if (!isAiApiConfigured()) {
-    advisorOutput.textContent = "AI_API_BASE_URL belum diisi. Deploy Azure Function dulu, lalu isi URL backend di assets/app.js.";
-    return;
+function generateLocalFinancialAdvice(summary) {
+  const rupiah = (value) => formatRupiah(Number(value || 0));
+  const totalIncome = Number(summary.totalIncome || 0);
+  const totalExpense = Number(summary.totalExpense || 0);
+  const remaining = Number(summary.remainingBalance || 0);
+  const expenseRatio = totalIncome > 0 ? (totalExpense / totalIncome) * 100 : 0;
+  const topCategory = summary.expenseByCategory?.[0];
+  const topBank = [...(summary.bankBalances || [])].sort((a, b) => b.balance - a.balance)[0];
+
+  let status = "Aman";
+  if (remaining < 0) status = "Kritis";
+  else if (totalIncome === 0 && totalExpense > 0) status = "Perlu Diperhatikan";
+  else if (expenseRatio > 80) status = "Perlu Diperhatikan";
+
+  const lines = [];
+  lines.push(`Status Keuangan: ${status}`);
+  lines.push("");
+  lines.push("Ringkasan:");
+  lines.push(`- Total pemasukan: ${rupiah(totalIncome)}`);
+  lines.push(`- Total pengeluaran: ${rupiah(totalExpense)}`);
+  lines.push(`- Sisa uang: ${rupiah(remaining)}`);
+  if (topCategory) lines.push(`- Kategori pengeluaran terbesar: ${topCategory.category} (${rupiah(topCategory.amount)})`);
+  if (topBank) lines.push(`- Saldo terbesar saat ini: ${topBank.bank} (${rupiah(topBank.balance)})`);
+  lines.push("");
+  lines.push("Rekomendasi:");
+
+  if (remaining < 0) {
+    lines.push("1. Prioritaskan koreksi transaksi atau input pemasukan yang belum tercatat karena saldo masih minus.");
+    lines.push("2. Tunda pengeluaran non-prioritas sampai cashflow kembali positif.");
+    lines.push("3. Cek ulang kategori pengeluaran terbesar untuk mencari pos yang bisa dipangkas.");
+  } else if (totalIncome === 0 && totalExpense > 0) {
+    lines.push("1. Input pemasukan terlebih dahulu agar dashboard bisa menilai kondisi cashflow dengan benar.");
+    lines.push("2. Pastikan setiap transaksi memakai bank/dompet yang benar.");
+    lines.push("3. Gunakan kategori konsisten supaya analisis pengeluaran lebih akurat.");
+  } else if (expenseRatio > 80) {
+    lines.push("1. Pengeluaran sudah cukup tinggi dibanding pemasukan. Tetapkan batas mingguan untuk kategori terbesar.");
+    lines.push("2. Sisihkan dana darurat di awal setelah pemasukan masuk, bukan menunggu sisa akhir bulan.");
+    lines.push("3. Review transaksi kecil yang berulang karena biasanya itu yang membuat pengeluaran membesar.");
+  } else {
+    lines.push("1. Cashflow masih positif. Pertahankan pengeluaran di bawah 70% dari pemasukan.");
+    lines.push("2. Sisihkan minimal 10–20% pemasukan untuk tabungan atau dana darurat.");
+    lines.push("3. Pantau kategori terbesar setiap minggu agar pengeluaran tidak naik tanpa sadar.");
   }
 
+  return lines.join("
+");
+}
+
+async function generateFinancialAdvice() {
   setAdviceLoading(true);
-  advisorOutput.textContent = "AI sedang menganalisis kondisi keuangan kamu...";
+  advisorOutput.textContent = "Menganalisis data keuangan lokal...";
 
   try {
-    const response = await fetch(`${AI_API_BASE_URL}/financial-advice`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(buildFinancialSummary())
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || !result.success) {
-      throw new Error(result.message || "Gagal membuat financial advice.");
-    }
-
-    advisorOutput.textContent = result.advice || "Tidak ada saran yang dihasilkan.";
+    const summary = buildFinancialSummary();
+    advisorOutput.textContent = generateLocalFinancialAdvice(summary);
   } catch (error) {
     advisorOutput.textContent = error.message || "Gagal membuat financial advice.";
   } finally {
     setAdviceLoading(false);
   }
 }
-
 
 function showAuth() {
   authScreen.classList.remove("hidden");
@@ -1700,7 +1916,7 @@ if (screenshotInput) {
 }
 
 if (scanScreenshotButton) {
-  scanScreenshotButton.addEventListener("click", scanScreenshotWithAi);
+  scanScreenshotButton.addEventListener("click", scanScreenshotWithOcr);
 }
 
 if (scanReviewForm) {
