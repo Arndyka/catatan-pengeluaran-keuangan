@@ -1011,3 +1011,227 @@ button, input, select { font: inherit; }
 .balance-hidden .bank-card .details {
   color: var(--muted);
 }
+
+
+/* CREDIT CARD MANAGER */
+.credit-purchase-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--primary-soft);
+}
+
+.installment-preview {
+  grid-column: 1 / -1;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--primary);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.credit-panel-header {
+  align-items: center;
+}
+
+.credit-card-dashboard {
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+}
+
+.credit-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.credit-metric {
+  padding: 17px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--soft);
+}
+
+.credit-metric p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.credit-metric h3 {
+  margin: 10px 0 7px;
+  font-size: 22px;
+  letter-spacing: -0.04em;
+}
+
+.credit-metric span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.credit-cycle-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.credit-cycle-card,
+.credit-detail-card {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: #fff;
+}
+
+.credit-cycle-card h3,
+.credit-detail-card h3 {
+  margin: 0 0 7px;
+  letter-spacing: -0.04em;
+}
+
+.credit-cycle-card > p:last-child {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.credit-settings-panel {
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--soft);
+}
+
+.credit-settings-intro {
+  display: grid;
+  grid-template-columns: minmax(220px, .75fr) minmax(300px, 1.25fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.credit-settings-intro h3 {
+  margin: 0;
+}
+
+.credit-settings-intro > p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
+.credit-settings-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+}
+
+.credit-settings-form .btn {
+  min-height: 45px;
+}
+
+.credit-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(320px, .7fr);
+  gap: 16px;
+}
+
+.credit-detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.credit-installment-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.installment-row {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) repeat(3, minmax(100px, .55fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.installment-row h4 {
+  margin: 0 0 4px;
+}
+
+.installment-row p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.installment-value {
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.credit-guide-list {
+  margin: 12px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+  line-height: 1.65;
+  font-size: 13px;
+}
+
+.balance-hidden .credit-metric h3,
+.balance-hidden .installment-value {
+  letter-spacing: normal;
+}
+
+@media (max-width: 1280px) {
+  .credit-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .credit-settings-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .credit-detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 860px) {
+  .credit-cycle-grid,
+  .credit-settings-intro,
+  .credit-purchase-fields,
+  .installment-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .credit-metric-grid,
+  .credit-settings-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .credit-card-dashboard {
+    padding: 18px;
+  }
+
+  .credit-panel-header .btn {
+    width: 100%;
+  }
+}

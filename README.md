@@ -123,3 +123,37 @@ Perubahan:
 - Nominal pada kartu ringkasan dan saldo per bank disamarkan.
 - Grafik saldo dan cashflow ikut disembunyikan agar nilai tidak terlihat dari panjang bar atau skala sumbu.
 - Klik `Show Saldo` untuk menampilkan semua nominal dan grafik.
+
+
+## Credit Card Manager
+
+Modul Kartu Kredit Mandiri sekarang memiliki:
+- Total limit.
+- Limit terpakai.
+- Sisa limit.
+- Tagihan tercetak.
+- Tagihan berjalan.
+- Cicilan bulan ini.
+- Pembayaran minimum.
+- Estimasi denda terlambat dan biaya overlimit.
+- Tanggal cetak tagihan.
+- Periode billing.
+- Tanggal jatuh tempo.
+- Tanggal pengingat pembayaran.
+- Daftar cicilan aktif dan estimasi sisa jadwal.
+
+Default aplikasi:
+- Limit contoh: Rp10.000.000, wajib disesuaikan dengan kartu user.
+- Tanggal cetak: tanggal 7 setiap bulan.
+- Jatuh tempo: 20 hari setelah tanggal cetak.
+- Pengingat: H-5.
+- Pembayaran minimum: 5% atau Rp50.000, mana yang lebih besar.
+- Bunga retail: 1,75% per bulan.
+- Biaya terlambat: 1% dari tagihan, maksimal Rp100.000.
+- Biaya overlimit: Rp150.000.
+
+Catatan:
+- Tagihan tercetak aktual dapat diinput manual dari Livin'/e-billing.
+- Jika nilai aktual diisi 0, aplikasi memakai estimasi otomatis.
+- Tanggal resmi dan nominal resmi tetap harus dicocokkan dengan Livin'/e-billing.
+- Bunga/admin cicilan promo tidak dihitung otomatis.

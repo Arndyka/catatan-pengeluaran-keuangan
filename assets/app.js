@@ -60,6 +60,20 @@ let singleScanItem = null;
 let customBanks = [];
 let budgetPlans = [];
 let balanceHidden = true;
+let creditCardSettings = {
+  cardName: "Mandiri Credit Card",
+  limit: 10000000,
+  statementDay: 7,
+  dueDays: 20,
+  reminderDays: 5,
+  manualStatementAmount: 0,
+  minimumPaymentPercent: 5,
+  minimumPaymentFloor: 50000,
+  monthlyInterestPercent: 1.75,
+  lateFeePercent: 1,
+  lateFeeCap: 100000,
+  overLimitFee: 150000
+};
 
 const authScreen = $("authScreen");
 const appShell = $("appShell");
@@ -90,6 +104,11 @@ const categoryInput = $("categoryInput");
 const nominalInput = $("nominalInput");
 const keteranganInput = $("keteranganInput");
 const formMessage = $("formMessage");
+const creditPurchaseFields = $("creditPurchaseFields");
+const creditPurchaseType = $("creditPurchaseType");
+const installmentTenorWrap = $("installmentTenorWrap");
+const installmentTenor = $("installmentTenor");
+const installmentPreview = $("installmentPreview");
 
 const remainingBalanceEl = $("remainingBalance");
 const totalIncomeEl = $("totalIncome");
@@ -124,8 +143,35 @@ const saveBatchButton = $("saveBatchButton");
 
 const newBankInput = $("newBankInput");
 const addBankButton = $("addBankButton");
-const creditOutstanding = $("creditOutstanding");
-const creditStatus = $("creditStatus");
+const toggleCreditSettingsButton = $("toggleCreditSettingsButton");
+const creditSettingsPanel = $("creditSettingsPanel");
+const creditSettingsForm = $("creditSettingsForm");
+const creditLimitInput = $("creditLimitInput");
+const statementDayInput = $("statementDayInput");
+const dueDaysInput = $("dueDaysInput");
+const reminderDaysInput = $("reminderDaysInput");
+const manualStatementInput = $("manualStatementInput");
+const minimumPaymentPercentInput = $("minimumPaymentPercentInput");
+const minimumPaymentFloorInput = $("minimumPaymentFloorInput");
+const monthlyInterestInput = $("monthlyInterestInput");
+const creditSettingsMessage = $("creditSettingsMessage");
+
+const creditLimitValue = $("creditLimitValue");
+const creditUsedLimit = $("creditUsedLimit");
+const creditAvailableLimit = $("creditAvailableLimit");
+const creditLimitPercent = $("creditLimitPercent");
+const creditBilledAmount = $("creditBilledAmount");
+const creditUnbilledAmount = $("creditUnbilledAmount");
+const creditMonthlyInstallment = $("creditMonthlyInstallment");
+const creditInstallmentCount = $("creditInstallmentCount");
+const creditMinimumPayment = $("creditMinimumPayment");
+const creditRiskCost = $("creditRiskCost");
+const creditStatementDate = $("creditStatementDate");
+const creditCycleRange = $("creditCycleRange");
+const creditDueDate = $("creditDueDate");
+const creditDueStatus = $("creditDueStatus");
+const creditReminderDate = $("creditReminderDate");
+const creditInstallmentList = $("creditInstallmentList");
 const budgetPlanForm = $("budgetPlanForm");
 const budgetPlanName = $("budgetPlanName");
 const budgetPlanPercent = $("budgetPlanPercent");
@@ -230,6 +276,437 @@ function normalizeBank(value) {
     key: slug.replace(/\s+/g, "_"),
     display: raw.split(" ").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(" ")
   };
+}
+
+
+
+function getCreditSettingsStorageKey() {
+  return `spendly_credit_card_settings_${currentUser?.uid || "guest"}`;
+}
+
+function loadCreditCardSettings() {
+  const defaults = {
+    cardName: "Mandiri Credit Card",
+    limit: 10000000,
+    statementDay: 7,
+    dueDays: 20,
+    reminderDays: 5,
+    manualStatementAmount: 0,
+    minimumPaymentPercent: 5,
+    minimumPaymentFloor: 50000,
+    monthlyInterestPercent: 1.75,
+    lateFeePercent: 1,
+    lateFeeCap: 100000,
+    overLimitFee: 150000
+  };
+
+  try {
+    const saved = JSON.parse(localStorage.getItem(getCreditSettingsStorageKey()) || "{}");
+    creditCardSettings = { ...defaults, ...saved };
+  } catch (_) {
+    creditCardSettings = defaults;
+  }
+}
+
+function saveCreditCardSettings() {
+  localStorage.setItem(
+    getCreditSettingsStorageKey(),
+    JSON.stringify(creditCardSettings)
+  );
+}
+
+function fillCreditSettingsForm() {
+  if (!creditLimitInput) return;
+
+  creditLimitInput.value = Number(creditCardSettings.limit || 0);
+  statementDayInput.value = Number(creditCardSettings.statementDay || 7);
+  dueDaysInput.value = Number(creditCardSettings.dueDays || 20);
+  reminderDaysInput.value = Number(creditCardSettings.reminderDays || 5);
+  manualStatementInput.value = Number(creditCardSettings.manualStatementAmount || 0);
+  minimumPaymentPercentInput.value = Number(creditCardSettings.minimumPaymentPercent || 5);
+  minimumPaymentFloorInput.value = Number(creditCardSettings.minimumPaymentFloor || 50000);
+  monthlyInterestInput.value = Number(creditCardSettings.monthlyInterestPercent || 1.75);
+}
+
+function saveCreditSettingsFromForm(event) {
+  event.preventDefault();
+
+  const next = {
+    ...creditCardSettings,
+    limit: Number(creditLimitInput.value || 0),
+    statementDay: Math.min(28, Math.max(1, Number(statementDayInput.value || 7))),
+    dueDays: Math.min(40, Math.max(1, Number(dueDaysInput.value || 20))),
+    reminderDays: Math.min(15, Math.max(1, Number(reminderDaysInput.value || 5))),
+    manualStatementAmount: Math.max(0, Number(manualStatementInput.value || 0)),
+    minimumPaymentPercent: Math.max(1, Number(minimumPaymentPercentInput.value || 5)),
+    minimumPaymentFloor: Math.max(0, Number(minimumPaymentFloorInput.value || 50000)),
+    monthlyInterestPercent: Math.max(0, Number(monthlyInterestInput.value || 1.75))
+  };
+
+  if (next.limit <= 0) {
+    setNotice(creditSettingsMessage, "error", "Total limit kartu harus lebih dari 0.");
+    return;
+  }
+
+  creditCardSettings = next;
+  saveCreditCardSettings();
+  fillCreditSettingsForm();
+  renderCreditCardSummary();
+  setNotice(creditSettingsMessage, "success", "Pengaturan kartu kredit berhasil disimpan.");
+}
+
+function makeSafeDate(year, monthIndex, day) {
+  const maxDay = new Date(year, monthIndex + 1, 0).getDate();
+  return new Date(year, monthIndex, Math.min(day, maxDay));
+}
+
+function startOfDay(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + Number(days || 0));
+  return result;
+}
+
+function addMonths(date, months) {
+  const result = new Date(date);
+  const targetMonth = result.getMonth() + months;
+  return makeSafeDate(result.getFullYear(), targetMonth, result.getDate());
+}
+
+function parseLocalDate(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function formatIndonesianDate(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "-";
+
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric"
+  }).format(date);
+}
+
+function daysBetween(fromDate, toDate) {
+  const ms = startOfDay(toDate).getTime() - startOfDay(fromDate).getTime();
+  return Math.ceil(ms / 86400000);
+}
+
+function monthDifference(fromDate, toDate) {
+  return (
+    (toDate.getFullYear() - fromDate.getFullYear()) * 12 +
+    (toDate.getMonth() - fromDate.getMonth())
+  );
+}
+
+function getCreditCycle(referenceDate = new Date()) {
+  const today = startOfDay(referenceDate);
+  const statementDay = Number(creditCardSettings.statementDay || 7);
+
+  const thisMonthStatement = makeSafeDate(
+    today.getFullYear(),
+    today.getMonth(),
+    statementDay
+  );
+
+  const lastStatement =
+    today >= thisMonthStatement
+      ? thisMonthStatement
+      : makeSafeDate(today.getFullYear(), today.getMonth() - 1, statementDay);
+
+  const previousStatement = makeSafeDate(
+    lastStatement.getFullYear(),
+    lastStatement.getMonth() - 1,
+    statementDay
+  );
+
+  const nextStatement = makeSafeDate(
+    lastStatement.getFullYear(),
+    lastStatement.getMonth() + 1,
+    statementDay
+  );
+
+  const dueDate = addDays(lastStatement, Number(creditCardSettings.dueDays || 20));
+  const reminderDate = addDays(dueDate, -Number(creditCardSettings.reminderDays || 5));
+
+  return {
+    today,
+    previousStatement,
+    lastStatement,
+    nextStatement,
+    dueDate,
+    reminderDate,
+    cycleStart: addDays(previousStatement, 1),
+    cycleEnd: lastStatement,
+    runningCycleStart: addDays(lastStatement, 1),
+    runningCycleEnd: nextStatement
+  };
+}
+
+function getStatementDateForTransaction(transactionDate) {
+  const date = startOfDay(transactionDate);
+  const statementDay = Number(creditCardSettings.statementDay || 7);
+  const sameMonthStatement = makeSafeDate(
+    date.getFullYear(),
+    date.getMonth(),
+    statementDay
+  );
+
+  return date <= sameMonthStatement
+    ? sameMonthStatement
+    : makeSafeDate(date.getFullYear(), date.getMonth() + 1, statementDay);
+}
+
+function isMandiriCreditCardValue(value) {
+  return normalizeBank(value).key === normalizeBank(creditCardSettings.cardName).key;
+}
+
+function getCreditCardExpenses() {
+  const cardKey = normalizeBank(creditCardSettings.cardName).key;
+
+  return expenses.filter((item) =>
+    (item.bankKey || normalizeBank(item.bankName).key) === cardKey
+  );
+}
+
+function getCreditCardPayments() {
+  const cardKey = normalizeBank(creditCardSettings.cardName).key;
+
+  return transfers.filter((item) =>
+    (item.toBankKey || normalizeBank(item.toBankName).key) === cardKey
+  );
+}
+
+function getCreditCardCredits() {
+  const cardKey = normalizeBank(creditCardSettings.cardName).key;
+
+  return incomes.filter((item) =>
+    (item.bankKey || normalizeBank(item.bankName).key) === cardKey
+  );
+}
+
+function getInstallmentDetails(expense, statementDate = null) {
+  const tenor = Math.max(1, Number(expense.installmentTenor || 1));
+  const amount = Number(expense.nominal || 0);
+  const monthly = amount / tenor;
+  const transactionDate = parseLocalDate(expense.tanggal) || new Date();
+  const firstBillDate = expense.installmentFirstBillDate
+    ? parseLocalDate(expense.installmentFirstBillDate)
+    : getStatementDateForTransaction(transactionDate);
+
+  let billedCount = 0;
+
+  if (statementDate && statementDate >= firstBillDate) {
+    billedCount = Math.min(
+      tenor,
+      Math.max(0, monthDifference(firstBillDate, statementDate) + 1)
+    );
+  }
+
+  return {
+    tenor,
+    amount,
+    monthly,
+    firstBillDate,
+    billedCount,
+    remainingSchedules: Math.max(0, tenor - billedCount),
+    remainingPrincipal: Math.max(0, amount - monthly * billedCount)
+  };
+}
+
+function getCreditCardSnapshot() {
+  const cycle = getCreditCycle();
+  const cardExpenses = getCreditCardExpenses();
+  const cardPayments = getCreditCardPayments();
+  const cardCredits = getCreditCardCredits();
+
+  const totalExpenses = cardExpenses.reduce(
+    (sum, item) => sum + Number(item.nominal || 0),
+    0
+  );
+
+  const totalPayments = cardPayments.reduce(
+    (sum, item) => sum + Number(item.nominal || 0),
+    0
+  );
+
+  const totalCredits = cardCredits.reduce(
+    (sum, item) => sum + Number(item.nominal || 0),
+    0
+  );
+
+  const usedLimit = Math.max(0, totalExpenses - totalPayments - totalCredits);
+  const limit = Number(creditCardSettings.limit || 0);
+  const availableLimit = Math.max(0, limit - usedLimit);
+  const overLimit = Math.max(0, usedLimit - limit);
+
+  let autoBilledAmount = 0;
+  let unbilledAmount = 0;
+  let monthlyInstallment = 0;
+  const activeInstallments = [];
+
+  cardExpenses.forEach((item) => {
+    const transactionDate = parseLocalDate(item.tanggal);
+    if (!transactionDate) return;
+
+    const purchaseType = item.cardPurchaseType || "regular";
+
+    if (purchaseType === "installment") {
+      const current = getInstallmentDetails(item, cycle.lastStatement);
+      const next = getInstallmentDetails(item, cycle.nextStatement);
+
+      if (
+        current.billedCount > 0 &&
+        current.billedCount <= current.tenor
+      ) {
+        autoBilledAmount += current.monthly;
+        monthlyInstallment += current.monthly;
+      }
+
+      if (
+        next.billedCount > current.billedCount &&
+        next.billedCount <= next.tenor
+      ) {
+        unbilledAmount += next.monthly;
+      }
+
+      if (current.remainingSchedules > 0) {
+        activeInstallments.push({
+          ...item,
+          ...current
+        });
+      }
+
+      return;
+    }
+
+    if (
+      transactionDate > cycle.previousStatement &&
+      transactionDate <= cycle.lastStatement
+    ) {
+      autoBilledAmount += Number(item.nominal || 0);
+    } else if (
+      transactionDate > cycle.lastStatement &&
+      transactionDate <= cycle.nextStatement
+    ) {
+      unbilledAmount += Number(item.nominal || 0);
+    }
+  });
+
+  const paymentsAfterStatement = cardPayments
+    .filter((item) => {
+      const paymentDate = parseLocalDate(item.tanggal);
+      return paymentDate && paymentDate > cycle.lastStatement;
+    })
+    .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+
+  const creditsAfterStatement = cardCredits
+    .filter((item) => {
+      const creditDate = parseLocalDate(item.tanggal);
+      return creditDate && creditDate > cycle.lastStatement;
+    })
+    .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+
+  const grossBilledAmount =
+    Number(creditCardSettings.manualStatementAmount || 0) > 0
+      ? Number(creditCardSettings.manualStatementAmount)
+      : autoBilledAmount;
+
+  const billedAmount = Math.max(
+    0,
+    grossBilledAmount - paymentsAfterStatement - creditsAfterStatement
+  );
+
+  const minimumBase = Math.max(
+    Number(creditCardSettings.minimumPaymentFloor || 0),
+    billedAmount * Number(creditCardSettings.minimumPaymentPercent || 0) / 100
+  );
+
+  const minimumPayment =
+    billedAmount > 0
+      ? Math.min(billedAmount, minimumBase + overLimit)
+      : 0;
+
+  const daysToDue = daysBetween(cycle.today, cycle.dueDate);
+  const isLate = daysToDue < 0 && billedAmount > 0;
+
+  const lateFee = isLate
+    ? Math.min(
+        billedAmount * Number(creditCardSettings.lateFeePercent || 1) / 100,
+        Number(creditCardSettings.lateFeeCap || 100000)
+      )
+    : 0;
+
+  const overLimitFee =
+    overLimit > 0 ? Number(creditCardSettings.overLimitFee || 150000) : 0;
+
+  return {
+    cycle,
+    limit,
+    usedLimit,
+    availableLimit,
+    overLimit,
+    billedAmount,
+    autoBilledAmount,
+    unbilledAmount,
+    monthlyInstallment,
+    activeInstallments,
+    minimumPayment,
+    lateFee,
+    overLimitFee,
+    riskCost: lateFee + overLimitFee,
+    daysToDue,
+    paymentsAfterStatement
+  };
+}
+
+function updateCreditPurchaseFields() {
+  const isCreditExpense =
+    txMode === "expense" &&
+    isMandiriCreditCardValue(bankInput.value);
+
+  creditPurchaseFields.classList.toggle("hidden", !isCreditExpense);
+  installmentTenorWrap.classList.toggle(
+    "hidden",
+    creditPurchaseType.value !== "installment"
+  );
+
+  updateInstallmentPreview();
+}
+
+function updateInstallmentPreview() {
+  if (!installmentPreview) return;
+
+  const nominal = Number(nominalInput.value || 0);
+  const tenor = Math.max(1, Number(installmentTenor.value || 12));
+
+  if (
+    txMode !== "expense" ||
+    !isMandiriCreditCardValue(bankInput.value)
+  ) {
+    installmentPreview.textContent =
+      "Field ini hanya aktif saat sumber dana Mandiri Credit Card.";
+    return;
+  }
+
+  if (creditPurchaseType.value !== "installment") {
+    installmentPreview.textContent =
+      "Belanja biasa akan masuk penuh ke tagihan sesuai siklus cetak.";
+    return;
+  }
+
+  const monthly = nominal > 0 ? nominal / tenor : 0;
+
+  installmentPreview.textContent =
+    nominal > 0
+      ? `Estimasi pokok cicilan: ${formatRupiah(monthly)} per bulan × ${tenor} bulan. Bunga/admin program tidak dihitung otomatis.`
+      : "Masukkan nominal untuk melihat estimasi cicilan per bulan.";
 }
 
 
@@ -473,6 +950,7 @@ function setTxMode(mode) {
   incomeSourceWrap.classList.toggle("hidden", mode !== "income");
   expenseCategoryWrap.classList.toggle("hidden", mode !== "expense");
 
+  updateCreditPurchaseFields();
   hideNotice(formMessage);
 }
 
@@ -521,6 +999,18 @@ async function saveManualTransaction(event) {
 
       if (!bank.key) throw new Error("Bank/Dompet wajib diisi.");
 
+      const isCreditPurchase = isMandiriCreditCardValue(bank.display);
+      const purchaseType = isCreditPurchase
+        ? creditPurchaseType.value
+        : "regular";
+      const tenor = purchaseType === "installment"
+        ? Math.max(2, Number(installmentTenor.value || 12))
+        : 1;
+      const transactionDate = parseLocalDate(tanggal);
+      const firstBillDate = transactionDate
+        ? formatDateLocal(getStatementDateForTransaction(transactionDate))
+        : "";
+
       const payload = {
         tanggal,
         bankKey: bank.key,
@@ -528,6 +1018,12 @@ async function saveManualTransaction(event) {
         kategori,
         nominal,
         keterangan,
+        cardPurchaseType: purchaseType,
+        installmentTenor: tenor,
+        installmentMonthlyAmount:
+          purchaseType === "installment" ? nominal / tenor : 0,
+        installmentFirstBillDate:
+          purchaseType === "installment" ? firstBillDate : "",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -569,6 +1065,9 @@ async function saveManualTransaction(event) {
 
     transactionForm.reset();
     tanggalInput.value = formatDateLocal();
+    creditPurchaseType.value = "regular";
+    installmentTenor.value = "12";
+    updateCreditPurchaseFields();
     setNotice(formMessage, "success", "Transaksi berhasil disimpan.");
   } catch (error) {
     setNotice(formMessage, "error", error?.message || authErrorMessage(error));
@@ -1665,19 +2164,99 @@ function addBudgetPlan(event) {
 }
 
 function renderCreditCardSummary() {
-  if (!creditOutstanding) return;
+  if (!creditLimitValue) return;
 
-  const cardKey = normalizeBank("Mandiri Credit Card").key;
-  const bank = getBankBalances().find((item) => item.key === cardKey);
-  const balance = bank?.balance || 0;
-  const outstanding = Math.max(0, -balance);
+  const snapshot = getCreditCardSnapshot();
+  const {
+    cycle,
+    limit,
+    usedLimit,
+    availableLimit,
+    billedAmount,
+    unbilledAmount,
+    monthlyInstallment,
+    activeInstallments,
+    minimumPayment,
+    riskCost,
+    daysToDue,
+    overLimit
+  } = snapshot;
 
-  creditOutstanding.textContent = maskMoney(outstanding);
+  const usagePercent =
+    limit > 0 ? Math.min(999, usedLimit / limit * 100) : 0;
 
-  if (outstanding > 0) {
-    creditStatus.textContent = "Ada tagihan berjalan. Bayar dengan transfer ke Mandiri Credit Card.";
+  creditLimitValue.textContent = maskMoney(limit);
+  creditUsedLimit.textContent = maskMoney(usedLimit);
+  creditAvailableLimit.textContent = maskMoney(availableLimit);
+  creditBilledAmount.textContent = maskMoney(billedAmount);
+  creditUnbilledAmount.textContent = maskMoney(unbilledAmount);
+  creditMonthlyInstallment.textContent = maskMoney(monthlyInstallment);
+  creditMinimumPayment.textContent = maskMoney(minimumPayment);
+  creditRiskCost.textContent = maskMoney(riskCost);
+
+  creditLimitPercent.textContent =
+    overLimit > 0
+      ? `Over limit ${formatRupiah(overLimit)}`
+      : `${usagePercent.toFixed(1)}% terpakai`;
+
+  creditInstallmentCount.textContent =
+    `${activeInstallments.length} cicilan aktif`;
+
+  creditStatementDate.textContent =
+    formatIndonesianDate(cycle.lastStatement);
+
+  creditCycleRange.textContent =
+    `${formatIndonesianDate(cycle.cycleStart)} – ${formatIndonesianDate(cycle.cycleEnd)}`;
+
+  creditDueDate.textContent =
+    formatIndonesianDate(cycle.dueDate);
+
+  if (billedAmount <= 0) {
+    creditDueStatus.textContent =
+      "Belum ada sisa tagihan tercetak yang harus dibayar.";
+  } else if (daysToDue < 0) {
+    creditDueStatus.textContent =
+      `Terlambat ${Math.abs(daysToDue)} hari. Segera cocokkan dengan Livin’.`;
+  } else if (daysToDue === 0) {
+    creditDueStatus.textContent =
+      "Jatuh tempo hari ini.";
   } else {
-    creditStatus.textContent = "Belum ada outstanding atau tagihan sudah tertutup.";
+    creditDueStatus.textContent =
+      `${daysToDue} hari lagi menuju jatuh tempo.`;
+  }
+
+  creditReminderDate.textContent =
+    formatIndonesianDate(cycle.reminderDate);
+
+  if (!activeInstallments.length) {
+    creditInstallmentList.innerHTML =
+      `<div class="empty-state">Belum ada cicilan aktif.</div>`;
+  } else {
+    creditInstallmentList.innerHTML = activeInstallments
+      .map((item) => `
+        <article class="installment-row">
+          <div>
+            <h4>${item.keterangan || item.kategori || "Cicilan Kartu Kredit"}</h4>
+            <p>
+              Mulai tagihan ${formatIndonesianDate(item.firstBillDate)}
+              · tenor ${item.tenor} bulan
+            </p>
+          </div>
+          <div>
+            <p>Cicilan/bulan</p>
+            <div class="installment-value">${maskMoney(item.monthly)}</div>
+          </div>
+          <div>
+            <p>Sisa jadwal</p>
+            <div class="installment-value">${item.remainingSchedules} bulan</div>
+          </div>
+          <div>
+            <p>Sisa pokok estimasi</p>
+            <div class="installment-value">${maskMoney(item.remainingPrincipal)}</div>
+          </div>
+        </article>
+      `)
+      .join("");
   }
 }
 
@@ -1945,6 +2524,8 @@ onAuthStateChanged(auth, (user) => {
   showApp(user);
   loadCustomBanks();
   loadBudgetPlans();
+  loadCreditCardSettings();
+  fillCreditSettingsForm();
   populateBankSelects();
   subscribeData();
 });
@@ -1958,6 +2539,21 @@ incomeTab.addEventListener("click", () => setTxMode("income"));
 expenseTab.addEventListener("click", () => setTxMode("expense"));
 transferTab.addEventListener("click", () => setTxMode("transfer"));
 transactionForm.addEventListener("submit", saveManualTransaction);
+
+bankInput.addEventListener("change", updateCreditPurchaseFields);
+creditPurchaseType.addEventListener("change", updateCreditPurchaseFields);
+installmentTenor.addEventListener("change", updateInstallmentPreview);
+nominalInput.addEventListener("input", updateInstallmentPreview);
+
+toggleCreditSettingsButton.addEventListener("click", () => {
+  creditSettingsPanel.classList.toggle("hidden");
+  toggleCreditSettingsButton.textContent =
+    creditSettingsPanel.classList.contains("hidden")
+      ? "Pengaturan Kartu"
+      : "Tutup Pengaturan";
+});
+
+creditSettingsForm.addEventListener("submit", saveCreditSettingsFromForm);
 
 typeFilter.addEventListener("change", renderHistory);
 searchInput.addEventListener("input", renderHistory);
@@ -2009,6 +2605,7 @@ advisorButton.addEventListener("click", generateAdvice);
 toggleBalanceButton.addEventListener("click", () => {
   balanceHidden = !balanceHidden;
   updateBalanceVisibility();
+updateCreditPurchaseFields();
 });
 
 downloadCSVButton.addEventListener("click", downloadCSV);
@@ -2039,6 +2636,8 @@ setAuthMode("login");
 setTxMode("income");
 loadCustomBanks();
 loadBudgetPlans();
+loadCreditCardSettings();
+fillCreditSettingsForm();
 populateBankSelects();
 setupPages();
 updateBalanceVisibility();

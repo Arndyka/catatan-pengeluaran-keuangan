@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spendly Budget Tracker</title>
-  <link rel="stylesheet" href="assets/styles.css?v=default-hide-saldo-20260717" />
+  <link rel="stylesheet" href="assets/styles.css?v=credit-card-manager-20260717" />
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -166,6 +166,34 @@
               </select>
             </div>
 
+
+            <div id="creditPurchaseFields" class="credit-purchase-fields hidden">
+              <div class="field">
+                <label for="creditPurchaseType">Jenis Transaksi Kartu Kredit</label>
+                <select id="creditPurchaseType">
+                  <option value="regular">Belanja Biasa</option>
+                  <option value="installment">Cicilan</option>
+                </select>
+              </div>
+
+              <div id="installmentTenorWrap" class="field hidden">
+                <label for="installmentTenor">Tenor Cicilan</label>
+                <select id="installmentTenor">
+                  <option value="2">2 bulan</option>
+                  <option value="3">3 bulan</option>
+                  <option value="6">6 bulan</option>
+                  <option value="12" selected>12 bulan</option>
+                  <option value="18">18 bulan</option>
+                  <option value="24">24 bulan</option>
+                  <option value="36">36 bulan</option>
+                </select>
+              </div>
+
+              <div id="installmentPreview" class="installment-preview">
+                Pilih nominal untuk melihat estimasi cicilan per bulan.
+              </div>
+            </div>
+
             <div class="field">
               <label for="nominalInput">Nominal</label>
               <input id="nominalInput" type="number" min="1" placeholder="Contoh: 25000" required />
@@ -219,26 +247,167 @@
 
 
       <section id="creditCardSection" class="panel credit-card-section">
-        <div class="panel-header">
+        <div class="panel-header credit-panel-header">
           <div>
-            <p class="section-label">Credit Card</p>
+            <p class="section-label">Credit Card Manager</p>
             <h2>Kartu Kredit Mandiri</h2>
           </div>
+          <button id="toggleCreditSettingsButton" class="btn btn-light" type="button">Pengaturan Kartu</button>
         </div>
-        <div class="credit-card-body">
-          <article class="credit-card-summary">
-            <p>Outstanding Kartu Kredit</p>
-            <h3 id="creditOutstanding">Rp 0</h3>
-            <span id="creditStatus" class="credit-status">Belum ada transaksi kartu kredit.</span>
-          </article>
-          <article class="credit-card-guide">
-            <strong>Cara pakai:</strong>
-            <ol>
-              <li>Untuk belanja pakai kartu kredit, pilih sumber bank <b>Mandiri Credit Card</b>.</li>
-              <li>Untuk bayar tagihan kartu kredit, input sebagai <b>Transfer</b> dari Mandiri ke Mandiri Credit Card.</li>
-              <li>Outstanding akan berkurang saat ada transfer masuk ke Mandiri Credit Card.</li>
-            </ol>
-          </article>
+
+        <div class="credit-card-dashboard">
+          <div class="credit-metric-grid">
+            <article class="credit-metric">
+              <p>Total Limit</p>
+              <h3 id="creditLimitValue">Rp 0</h3>
+              <span>Limit yang diberikan bank</span>
+            </article>
+
+            <article class="credit-metric">
+              <p>Limit Terpakai</p>
+              <h3 id="creditUsedLimit">Rp 0</h3>
+              <span>Total pemakaian yang belum tertutup pembayaran</span>
+            </article>
+
+            <article class="credit-metric">
+              <p>Sisa Limit</p>
+              <h3 id="creditAvailableLimit">Rp 0</h3>
+              <span id="creditLimitPercent">0% terpakai</span>
+            </article>
+
+            <article class="credit-metric">
+              <p>Tagihan Tercetak</p>
+              <h3 id="creditBilledAmount">Rp 0</h3>
+              <span>Sudah masuk lembar tagihan</span>
+            </article>
+
+            <article class="credit-metric">
+              <p>Tagihan Berjalan</p>
+              <h3 id="creditUnbilledAmount">Rp 0</h3>
+              <span>Belum masuk lembar tagihan</span>
+            </article>
+
+            <article class="credit-metric">
+              <p>Cicilan Bulan Ini</p>
+              <h3 id="creditMonthlyInstallment">Rp 0</h3>
+              <span id="creditInstallmentCount">0 cicilan aktif</span>
+            </article>
+
+            <article class="credit-metric">
+              <p>Pembayaran Minimum</p>
+              <h3 id="creditMinimumPayment">Rp 0</h3>
+              <span>Estimasi minimum tagihan saat ini</span>
+            </article>
+
+            <article class="credit-metric">
+              <p>Estimasi Biaya Risiko</p>
+              <h3 id="creditRiskCost">Rp 0</h3>
+              <span>Denda terlambat/overlimit bila berlaku</span>
+            </article>
+          </div>
+
+          <div class="credit-cycle-grid">
+            <article class="credit-cycle-card">
+              <p class="section-label">Billing Cycle</p>
+              <h3 id="creditStatementDate">-</h3>
+              <p id="creditCycleRange">Periode transaksi belum tersedia.</p>
+            </article>
+
+            <article class="credit-cycle-card">
+              <p class="section-label">Payment Due</p>
+              <h3 id="creditDueDate">-</h3>
+              <p id="creditDueStatus">Belum ada status jatuh tempo.</p>
+            </article>
+
+            <article class="credit-cycle-card">
+              <p class="section-label">Reminder</p>
+              <h3 id="creditReminderDate">-</h3>
+              <p>Pengingat pembayaran sebelum jatuh tempo.</p>
+            </article>
+          </div>
+
+          <div id="creditSettingsPanel" class="credit-settings-panel hidden">
+            <div class="credit-settings-intro">
+              <div>
+                <p class="section-label">Default Setting</p>
+                <h3>Atur sesuai data di Livin’ atau e-billing</h3>
+              </div>
+              <p>
+                Default aplikasi: tanggal cetak setiap tanggal 7, jatuh tempo 20 hari setelah tanggal cetak,
+                dan pengingat 5 hari sebelum jatuh tempo. Semua nilai dapat diubah.
+              </p>
+            </div>
+
+            <form id="creditSettingsForm" class="credit-settings-form">
+              <div class="field">
+                <label for="creditLimitInput">Total Limit Kartu</label>
+                <input id="creditLimitInput" type="number" min="0" step="50000" />
+              </div>
+
+              <div class="field">
+                <label for="statementDayInput">Tanggal Cetak Tagihan</label>
+                <input id="statementDayInput" type="number" min="1" max="28" />
+              </div>
+
+              <div class="field">
+                <label for="dueDaysInput">Jarak ke Jatuh Tempo (hari)</label>
+                <input id="dueDaysInput" type="number" min="1" max="40" />
+              </div>
+
+              <div class="field">
+                <label for="reminderDaysInput">Pengingat H-</label>
+                <input id="reminderDaysInput" type="number" min="1" max="15" />
+              </div>
+
+              <div class="field">
+                <label for="manualStatementInput">Tagihan Tercetak Aktual (opsional)</label>
+                <input id="manualStatementInput" type="number" min="0" step="1000" placeholder="0 = hitung otomatis" />
+              </div>
+
+              <div class="field">
+                <label for="minimumPaymentPercentInput">Minimum Payment (%)</label>
+                <input id="minimumPaymentPercentInput" type="number" min="1" max="100" step="0.1" />
+              </div>
+
+              <div class="field">
+                <label for="minimumPaymentFloorInput">Minimum Nominal Pembayaran</label>
+                <input id="minimumPaymentFloorInput" type="number" min="0" step="10000" />
+              </div>
+
+              <div class="field">
+                <label for="monthlyInterestInput">Bunga Retail per Bulan (%)</label>
+                <input id="monthlyInterestInput" type="number" min="0" max="10" step="0.01" />
+              </div>
+
+              <button class="btn btn-primary" type="submit">Simpan Pengaturan</button>
+            </form>
+
+            <div id="creditSettingsMessage" class="notice hidden"></div>
+          </div>
+
+          <div class="credit-detail-grid">
+            <section class="credit-detail-card">
+              <div class="credit-detail-header">
+                <div>
+                  <p class="section-label">Installment</p>
+                  <h3>Daftar Cicilan Aktif</h3>
+                </div>
+              </div>
+              <div id="creditInstallmentList" class="credit-installment-list"></div>
+            </section>
+
+            <section class="credit-detail-card">
+              <p class="section-label">Cara Mencatat</p>
+              <h3>Alur Kartu Kredit</h3>
+              <ol class="credit-guide-list">
+                <li>Belanja biasa: pilih <b>Pengeluaran → Mandiri Credit Card → Belanja Biasa</b>.</li>
+                <li>Cicilan: pilih <b>Pengeluaran → Mandiri Credit Card → Cicilan</b>, lalu pilih tenor.</li>
+                <li>Bayar tagihan: pilih <b>Transfer</b> dari rekening sumber ke <b>Mandiri Credit Card</b>.</li>
+                <li>Limit terpakai berkurang setelah pembayaran dicatat sebagai transfer ke kartu kredit.</li>
+                <li>Cocokkan tagihan tercetak dan tanggal resmi dengan Livin’/e-billing.</li>
+              </ol>
+            </section>
+          </div>
         </div>
       </section>
 
@@ -485,6 +654,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/app.js?v=default-hide-saldo-20260717"></script>
+  <script type="module" src="assets/app.js?v=credit-card-manager-20260717"></script>
 </body>
 </html>
