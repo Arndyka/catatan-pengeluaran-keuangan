@@ -120,7 +120,7 @@ export function parseOcrTransactions(rawText, defaultAccountId) {
   return results;
 }
 
-export async function renderPdfPages(file) {
+export async function renderPdfPages(file, password = "") {
   if (!window.pdfjsLib) {
     throw new Error("PDF.js belum termuat.");
   }
@@ -128,9 +128,43 @@ export async function renderPdfPages(file) {
   window.pdfjsLib.GlobalWorkerOptions.workerSrc =
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
-  const pdf = await window.pdfjsLib.getDocument({
-    data: await file.arrayBuffer()
-  }).promise;
+  let pdf;
+
+  try {
+    const loadingTask = window.pdfjsLib.getDocument({
+      data: await file.arrayBuffer(),
+      password: password || undefined
+    });
+
+    pdf = await loadingTask.promise;
+  } catch (error) {
+    const message = String(error?.message || "");
+    const passwordError =
+      error?.name === "PasswordException" ||
+      error?.code === 1 ||
+      error?.code === 2 ||
+      /password/i.test(message);
+
+    if (passwordError) {
+      const incorrect =
+        error?.code === 2 ||
+        /incorrect|salah/i.test(message);
+
+      if (incorrect) {
+        throw new Error(
+          `Password PDF untuk "${file.name}" salah. Periksa password lalu scan ulang.`
+        );
+      }
+
+      throw new Error(
+        `PDF "${file.name}" dilindungi password. Isi kolom Password PDF lalu scan ulang.`
+      );
+    }
+
+    throw new Error(
+      `Gagal membuka PDF "${file.name}": ${message || "format PDF tidak dapat dibaca."}`
+    );
+  }
 
   const pages = [];
 

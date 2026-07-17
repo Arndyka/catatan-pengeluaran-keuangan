@@ -758,3 +758,41 @@ th {
     grid-column: auto;
   }
 }
+
+
+/* PASSWORD-PROTECTED PDF */
+.pdf-password-box {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--primary-soft);
+}
+
+.pdf-password-box p {
+  margin: 10px 0 0;
+  color: var(--primary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.password-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.password-input-row .btn {
+  width: auto;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .password-input-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .password-input-row .btn {
+    width: 100%;
+  }
+}

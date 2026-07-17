@@ -816,9 +816,17 @@ function setupEvents() {
 
   $("scanInput").addEventListener("change", () => {
     const files = [...($("scanInput").files || [])];
+    const hasPdf = files.some(
+      (file) =>
+        file.type === "application/pdf" ||
+        file.name.toLowerCase().endsWith(".pdf")
+    );
+
+    $("pdfPasswordWrap").classList.toggle("hidden", !hasPdf);
 
     if (!files.length) {
       $("scanPreview").textContent = "Preview file akan muncul di sini.";
+      $("pdfPasswordInput").value = "";
       return;
     }
 
@@ -827,8 +835,22 @@ function setupEvents() {
     if (first.type.startsWith("image/")) {
       $("scanPreview").innerHTML = `<img src="${URL.createObjectURL(first)}" alt="Preview">`;
     } else {
-      $("scanPreview").textContent = `${files.length} file PDF dipilih.`;
+      $("scanPreview").innerHTML = `
+        <div>
+          <strong>${files.length} file PDF dipilih.</strong><br>
+          <span>Jika e-Statement dilindungi, isi Password PDF sebelum scan.</span>
+        </div>
+      `;
     }
+  });
+
+  $("togglePdfPasswordButton").addEventListener("click", () => {
+    const passwordInput = $("pdfPasswordInput");
+    const showPassword = passwordInput.type === "password";
+
+    passwordInput.type = showPassword ? "text" : "password";
+    $("togglePdfPasswordButton").textContent =
+      showPassword ? "Sembunyikan" : "Tampilkan";
   });
 
   $("scanButton").addEventListener("click", scanFiles);
@@ -839,6 +861,7 @@ let scanCandidates = [];
 
 async function scanFiles() {
   const files = [...($("scanInput").files || [])];
+  const pdfPassword = $("pdfPasswordInput").value;
 
   if (!files.length) {
     setNotice($("scanMessage"), "error", "Pilih file terlebih dahulu.");
@@ -861,7 +884,7 @@ async function scanFiles() {
     for (const file of files) {
       const targets =
         file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
-          ? await renderPdfPages(file)
+          ? await renderPdfPages(file, pdfPassword)
           : [file];
 
       for (let index = 0; index < targets.length; index += 1) {
@@ -891,6 +914,11 @@ async function scanFiles() {
       "success",
       `${scanCandidates.length} kandidat transaksi ditemukan.`
     );
+
+    // Password tidak dipertahankan setelah PDF berhasil dibuka.
+    $("pdfPasswordInput").value = "";
+    $("pdfPasswordInput").type = "password";
+    $("togglePdfPasswordButton").textContent = "Tampilkan";
   } catch (error) {
     setNotice($("scanMessage"), "error", error.message);
   } finally {

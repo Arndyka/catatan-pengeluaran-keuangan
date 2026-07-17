@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spendly Accounting Pro</title>
-  <link rel="stylesheet" href="assets/styles.css?v=accounting-pro-20260717">
+  <link rel="stylesheet" href="assets/styles.css?v=pdf-password-20260717">
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -560,6 +560,28 @@
                 <label for="scanInput">Upload Screenshot / PDF</label>
                 <input id="scanInput" type="file" accept="image/*,.pdf,application/pdf" multiple>
               </div>
+
+              <div id="pdfPasswordWrap" class="pdf-password-box hidden">
+                <div class="field">
+                  <label for="pdfPasswordInput">Password PDF (opsional)</label>
+                  <div class="password-input-row">
+                    <input
+                      id="pdfPasswordInput"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="Masukkan password e-Statement"
+                    >
+                    <button id="togglePdfPasswordButton" class="btn btn-light" type="button">
+                      Tampilkan
+                    </button>
+                  </div>
+                </div>
+                <p>
+                  Password hanya digunakan di perangkat ini untuk membuka PDF.
+                  Password tidak disimpan atau dikirim ke Firestore.
+                </p>
+              </div>
+
               <div id="scanPreview" class="preview-box">Preview file akan muncul di sini.</div>
               <button id="scanButton" class="btn btn-primary" type="button">Scan File</button>
               <div id="scanMessage" class="notice info">File diproses di browser dan tidak disimpan.</div>
@@ -655,6 +677,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/js/app.js?v=accounting-pro-20260717"></script>
+  <script type="module" src="assets/js/app.js?v=pdf-password-20260717"></script>
 </body>
 </html>

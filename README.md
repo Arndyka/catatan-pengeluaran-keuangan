@@ -198,3 +198,16 @@ arndyka.github.io
 ## Catatan
 
 Aplikasi ini menerapkan prinsip dasar double-entry accounting untuk personal finance. Aplikasi bukan pengganti laporan resmi bank, konsultan pajak, atau software akuntansi tersertifikasi.
+
+
+## PDF e-Statement dengan Password
+
+Fitur tambahan:
+- Saat file PDF dipilih, muncul kolom `Password PDF (opsional)`.
+- Isi password e-Statement sebelum menekan `Scan File`.
+- Tombol `Tampilkan/Sembunyikan` tersedia untuk memeriksa password.
+- Password hanya digunakan oleh PDF.js di browser.
+- Password tidak disimpan ke Firestore, localStorage, GitHub, atau data transaksi.
+- Password otomatis dikosongkan setelah PDF berhasil dibuka.
+- Jika beberapa PDF dipilih sekaligus, satu password yang sama diterapkan ke semua PDF.
+- Jika PDF memiliki password berbeda, scan satu per satu.
