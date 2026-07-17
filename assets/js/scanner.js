@@ -722,12 +722,61 @@ function parseBcaMetadata(pageText, existing = {}) {
   return metadata;
 }
 
+function inferKnownBankAccount(
+  description,
+  accountMap,
+  statementBank
+) {
+  const text = String(description || "").toLowerCase();
+
+  const matches = [
+    {
+      bank: "mandiri",
+      matched:
+        /bank\s+mandiri|\bmandiri\b|livin/i.test(text)
+    },
+    {
+      bank: "bca",
+      matched:
+        /bank\s+central\s+asia|\bbca\b|blu\s+by\s+bca/i.test(text)
+    },
+    {
+      bank: "krom",
+      matched:
+        /krom\s+bank|bank\s+krom|\bkrom\b/i.test(text)
+    }
+  ];
+
+  const match = matches.find(
+    (item) =>
+      item.matched &&
+      item.bank !== statementBank
+  );
+
+  return match
+    ? accountMap[match.bank] || ""
+    : "";
+}
+
+function isOwnAccountName(description) {
+  return /arnoldus|gratio|darryl|andyka/i.test(
+    String(description || "")
+  );
+}
+
+function isTransferDescription(description) {
+  return /TRSF|TRANSFER|BI-FAST|BIF\s+TRANSFER/i.test(
+    String(description || "")
+  );
+}
+
 function parseBcaPage({
   tokens,
   pageWidth,
   pageHeight,
   pageNumber,
   accountId,
+  accountMap,
   merchantRules,
   metadata
 }) {
@@ -815,20 +864,74 @@ function parseBcaPage({
     const description = normalizeLine(`${titleText} ${detailText}`);
     const merchant = merchantFromDescription(description);
     const balanceInfo = parseIdrValue(balanceText);
+    const transferDescription =
+      isTransferDescription(description);
+    const ownAccountName =
+      isOwnAccountName(description);
     const possibleOwnTransfer =
-      isCredit &&
-      /BI-FAST|TRANSFER/i.test(description) &&
-      /arnoldus|darryl|andyka/i.test(description);
+      transferDescription && ownAccountName;
+
+    const inferredOtherBank =
+      inferKnownBankAccount(
+        description,
+        accountMap,
+        "bca"
+      );
+
+    const clearingAccount =
+      accountMap.clearing ||
+      "asset-transfer-clearing";
+
+    let transactionType =
+      signedAmount >= 0 ? "income" : "expense";
+    let sourceAccountId = accountId;
+    let destinationAccountId = "";
+    let category =
+      inferCategory(
+        description,
+        merchant,
+        merchantRules
+      );
+    let sourceInference = "";
+    let destinationInference = "";
+
+    // Transfer atas nama pemilik rekening dianggap transfer antar-akun,
+    // bukan pendapatan/beban.
+    if (possibleOwnTransfer) {
+      transactionType = "transfer";
+      category = "Transfer Antar Rekening";
+
+      if (signedAmount >= 0) {
+        sourceAccountId =
+          inferredOtherBank || clearingAccount;
+        destinationAccountId = accountId;
+        destinationInference =
+          "Tujuan otomatis BCA karena transaksi berada pada e-Statement BCA.";
+        sourceInference = inferredOtherBank
+          ? "Bank sumber dibaca dari keterangan transaksi."
+          : "Nama bank sumber tidak tercantum. Kode 501 adalah kode cabang/kolom CBG, bukan nama bank. Gunakan akun Transfer Belum Dipetakan sampai sumber dipilih.";
+      } else {
+        sourceAccountId = accountId;
+        destinationAccountId =
+          inferredOtherBank || clearingAccount;
+        sourceInference =
+          "Sumber otomatis BCA karena transaksi berada pada e-Statement BCA.";
+        destinationInference = inferredOtherBank
+          ? "Bank tujuan dibaca dari keterangan transaksi."
+          : "Nama bank tujuan tidak tercantum. Gunakan Transfer Belum Dipetakan sampai tujuan dipilih.";
+      }
+    }
 
     candidates.push(
       createBaseCandidate({
         bank: "bca",
-        type: signedAmount >= 0 ? "income" : "expense",
+        type: transactionType,
         date,
         amount: Math.abs(signedAmount),
         signedAmount,
-        sourceAccountId: accountId,
-        category: inferCategory(description, merchant, merchantRules),
+        sourceAccountId,
+        destinationAccountId,
+        category,
         merchant,
         description,
         balanceAfter: balanceInfo?.amount ?? null,
@@ -845,6 +948,22 @@ function parseBcaPage({
         possibleOwnTransfer
       })
     );
+
+    const candidate =
+      candidates[candidates.length - 1];
+
+    candidate.sourceInference =
+      sourceInference;
+    candidate.destinationInference =
+      destinationInference;
+    candidate.counterpartyRaw =
+      description;
+    candidate.transferNeedsMapping =
+      transactionType === "transfer" &&
+      (
+        sourceAccountId === clearingAccount ||
+        destinationAccountId === clearingAccount
+      );
   });
 
   return candidates;
@@ -1470,6 +1589,7 @@ function parseNativePage({
       pageHeight,
       pageNumber,
       accountId,
+      accountMap: bankAccountMap,
       merchantRules,
       metadata
     });

@@ -1,0 +1,10 @@
+Spendly Automatic Transfer Mapping
+
+Verified with uploaded BCA statement:
+- Incoming own-account BI-FAST transfers are classified as transfer.
+- Destination account is automatically BCA.
+- Source uses a detected bank when its name exists in the description.
+- If source bank is absent, source uses Transfer Belum Dipetakan.
+- Code CBG 501 is not treated as a source bank.
+- Transfer mapping can be learned after manual correction.
+- All JavaScript modules passed syntax validation.

@@ -29,6 +29,29 @@ const PAGE_META = {
   settings: ["Configuration", "Pengaturan"]
 };
 
+function transferRuleKey(candidate) {
+  const stableDescription =
+    cleanText(
+      candidate.counterpartyRaw ||
+      candidate.description ||
+      candidate.merchant ||
+      ""
+    )
+      .toLowerCase()
+      .replace(/\b\d{6,}\b/g, "#")
+      .replace(/\s+/g, " ");
+
+  return slugText(
+    [
+      candidate.bank || "generic",
+      candidate.signedAmount >= 0
+        ? "incoming"
+        : "outgoing",
+      stableDescription
+    ].join("|")
+  );
+}
+
 function money(value) {
   return state.hideBalances ? "Rp ••••••" : formatRupiah(value);
 }
@@ -965,6 +988,13 @@ async function scanFiles() {
       "Krom Bank",
       "Bank Krom"
     ]),
+    clearing:
+      state.settings.accounts.find(
+        (account) =>
+          account.id ===
+          "asset-transfer-clearing"
+      )?.id ||
+      "asset-transfer-clearing",
     generic: genericAsset
   };
 
@@ -1085,6 +1115,37 @@ async function scanFiles() {
           nextCandidate.destinationAccountId =
             nextCandidate.destinationAccountId ||
             detectedBankAccount;
+        }
+      }
+
+      if (nextCandidate.type === "transfer") {
+        const ruleKey =
+          transferRuleKey(nextCandidate);
+        const savedRule =
+          state.settings.transferAccountRules?.[
+            ruleKey
+          ];
+
+        nextCandidate.transferRuleKey =
+          ruleKey;
+
+        if (savedRule) {
+          nextCandidate.sourceAccountId =
+            savedRule.sourceAccountId ||
+            nextCandidate.sourceAccountId;
+
+          nextCandidate.destinationAccountId =
+            savedRule.destinationAccountId ||
+            nextCandidate.destinationAccountId;
+
+          nextCandidate.transferNeedsMapping =
+            false;
+
+          nextCandidate.sourceInference =
+            "Akun sumber dipelajari dari koreksi scan sebelumnya.";
+
+          nextCandidate.destinationInference =
+            "Akun tujuan dipelajari dari koreksi scan sebelumnya.";
         }
       }
 
@@ -1373,9 +1434,11 @@ function renderScanCandidates() {
                     </select>
 
                     ${
-                      item.possibleOwnTransfer
-                        ? `<div class="possible-transfer-warning">Cek transfer sendiri</div>`
-                        : ""
+                      item.transferNeedsMapping
+                        ? `<div class="possible-transfer-warning">Sumber/tujuan belum terbaca</div>`
+                        : item.possibleOwnTransfer
+                          ? `<div class="possible-transfer-warning">Transfer antar rekening sendiri</div>`
+                          : ""
                     }
                   </td>
 
@@ -1404,6 +1467,18 @@ function renderScanCandidates() {
                         </select>
                       </label>
                     </div>
+
+                    ${
+                      item.sourceInference
+                        ? `<div class="account-inference-note">${escapeHtml(item.sourceInference)}</div>`
+                        : ""
+                    }
+
+                    ${
+                      item.destinationInference
+                        ? `<div class="account-inference-note">${escapeHtml(item.destinationInference)}</div>`
+                        : ""
+                    }
                   </td>
 
                   <td>
@@ -1546,9 +1621,14 @@ async function handleScanReviewClick(event) {
   let created = 0;
   let duplicate = 0;
   let rulesChanged = false;
+  let transferRulesChanged = false;
 
   const merchantRules = {
     ...(state.settings.merchantCategoryRules || {})
+  };
+
+  const transferAccountRules = {
+    ...(state.settings.transferAccountRules || {})
   };
 
   for (
@@ -1589,6 +1669,38 @@ async function handleScanReviewClick(event) {
     }
 
     if (
+      item.type === "transfer" &&
+      item.sourceAccountId &&
+      item.destinationAccountId
+    ) {
+      const key =
+        item.transferRuleKey ||
+        transferRuleKey(item);
+
+      const nextRule = {
+        sourceAccountId:
+          item.sourceAccountId,
+        destinationAccountId:
+          item.destinationAccountId
+      };
+
+      const existingRule =
+        transferAccountRules[key];
+
+      if (
+        !existingRule ||
+        existingRule.sourceAccountId !==
+          nextRule.sourceAccountId ||
+        existingRule.destinationAccountId !==
+          nextRule.destinationAccountId
+      ) {
+        transferAccountRules[key] =
+          nextRule;
+        transferRulesChanged = true;
+      }
+    }
+
+    if (
       $("learnMerchantRules").checked &&
       cleanText(item.merchant) &&
       cleanText(item.category) &&
@@ -1603,10 +1715,16 @@ async function handleScanReviewClick(event) {
     }
   }
 
-  if (rulesChanged) {
+  if (
+    rulesChanged ||
+    transferRulesChanged
+  ) {
     state.settings = {
       ...state.settings,
-      merchantCategoryRules: merchantRules
+      merchantCategoryRules:
+        merchantRules,
+      transferAccountRules:
+        transferAccountRules
     };
 
     await saveProfileSettings(
@@ -1621,6 +1739,10 @@ async function handleScanReviewClick(event) {
     `${created} transaksi disimpan. ${duplicate} duplikat dilewati.${
       rulesChanged
         ? " Koreksi kategori merchant sudah dipelajari."
+        : ""
+    }${
+      transferRulesChanged
+        ? " Pemetaan akun transfer juga sudah dipelajari."
         : ""
     }`
   );

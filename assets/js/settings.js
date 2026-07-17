@@ -16,6 +16,34 @@ export async function loadUserSettings(uid) {
     ? profile.accounts
     : DEFAULT_SETTINGS.accounts;
 
+  profile.merchantCategoryRules =
+    profile.merchantCategoryRules || {};
+
+  profile.transferAccountRules =
+    profile.transferAccountRules || {};
+
+  const requiredSystemAccounts =
+    DEFAULT_SETTINGS.accounts.filter(
+      (account) => account.system === true
+    );
+
+  let profileChanged = false;
+
+  requiredSystemAccounts.forEach((requiredAccount) => {
+    const exists = profile.accounts.some(
+      (account) => account.id === requiredAccount.id
+    );
+
+    if (!exists) {
+      profile.accounts.push({ ...requiredAccount });
+      profileChanged = true;
+    }
+  });
+
+  if (profileChanged) {
+    await saveSettings(uid, "profile", profile);
+  }
+
   return { profile, credit };
 }
 

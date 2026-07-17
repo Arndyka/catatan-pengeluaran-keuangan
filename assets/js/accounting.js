@@ -14,6 +14,14 @@ export const DEFAULT_ACCOUNTS = [
   { id: "asset-cash", name: "Tunai", type: "asset", subtype: "cash", active: true },
   { id: "asset-dana", name: "DANA", type: "asset", subtype: "ewallet", active: true },
   { id: "asset-investment", name: "Investasi / Portofolio", type: "asset", subtype: "investment", active: true },
+  {
+    id: "asset-transfer-clearing",
+    name: "Transfer Belum Dipetakan",
+    type: "asset",
+    subtype: "clearing",
+    active: true,
+    system: true
+  },
   { id: "liability-mandiri-cc", name: "Mandiri Credit Card", type: "liability", subtype: "credit_card", active: true }
 ];
 
@@ -23,6 +31,7 @@ export const DEFAULT_SETTINGS = {
   currency: "IDR",
   accountingBasis: "hybrid-accrual",
   merchantCategoryRules: {},
+  transferAccountRules: {},
   updatedAt: null
 };
 

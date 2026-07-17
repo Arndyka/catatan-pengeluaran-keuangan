@@ -1347,3 +1347,19 @@ thead .sticky-col {
     flex: 1 1 145px;
   }
 }
+
+
+/* AUTOMATIC TRANSFER ACCOUNT MAPPING */
+.account-inference-note {
+  margin-top: 6px;
+  padding: 6px 7px;
+  border-radius: 8px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  font-size: 9px;
+  line-height: 1.35;
+}
+
+.account-pair select option[value="asset-transfer-clearing"] {
+  font-weight: 800;
+}

@@ -390,3 +390,41 @@ Outgoing ke BCA       → sumber Krom, tujuan BCA
 ### Compact Review
 
 Tabel review dipadatkan dari 18 menjadi 10 kolom utama. Bank, subrekening, halaman, merchant, keterangan, validasi, confidence, serta akun sumber/tujuan dikelompokkan secara logis.
+
+
+## Automatic Incoming/Outgoing Transfer Mapping
+
+### Transfer masuk pada e-Statement BCA
+
+```text
+Sumber  : bank lain yang terbaca dari keterangan
+Tujuan  : BCA
+```
+
+Jika nama bank sumber tidak ada pada e-Statement:
+
+```text
+Sumber  : Transfer Belum Dipetakan
+Tujuan  : BCA
+```
+
+Aplikasi tidak menebak bank hanya dari kode `501`, karena kode tersebut merupakan kode pada kolom CBG/cabang dan bukan identitas bank sumber.
+
+### Transfer keluar dari BCA
+
+```text
+Sumber  : BCA
+Tujuan  : bank yang terbaca dari keterangan
+```
+
+Jika bank tujuan tidak tercantum, tujuan memakai `Transfer Belum Dipetakan`.
+
+### Adaptive Transfer Learning
+
+Setelah user memilih akun sumber/tujuan yang benar dan menyimpan transaksi, pasangan tersebut disimpan di:
+
+```text
+users/{uid}/settings/profile.transferAccountRules
+```
+
+Scan berikutnya dengan pola keterangan yang sama akan mengisi akun sumber dan tujuan otomatis.
