@@ -38,17 +38,10 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
-import {
-  getStorage,
-  ref,
-  uploadBytes,
-  getDownloadURL
-} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app);
 
 /*
   Ganti URL ini dengan URL Azure Function kamu setelah deploy.
@@ -1308,6 +1301,14 @@ function buildScreenshotFileName(tanggal, kategori, nominal, file) {
   return `${datePart}-${categoryPart}-${amountPart}.${ext}`;
 }
 
+function buildScanNote(bank, tanggal, kategori, nominal) {
+  const bankPart = cleanText(bank || "Bank tidak terbaca");
+  const datePart = tanggal || formatDateLocal(new Date());
+  const categoryPart = cleanText(kategori || "Lainnya");
+  const amountPart = formatRupiah(Number(nominal || 0));
+  return `${bankPart} | ${datePart} | ${categoryPart} | ${amountPart}`;
+}
+
 function readFileAsBase64(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -1435,10 +1436,21 @@ function fillScanReviewForm(transaction) {
   scanKeterangan.value = transaction.keterangan || "";
   scanConfidenceBadge.textContent = `${Math.round(confidence * 100)}%`;
 
-  scanSuggestedFileName.value = transaction.suggestedFileName || buildScreenshotFileName(tanggal, kategori, nominal, selectedScreenshotFile);
+  scanSuggestedFileName.value = buildScanNote(scanBank.value, tanggal, kategori, nominal);
 
   toggleScanToBank();
   scanResultCard.classList.remove("hidden");
+}
+
+
+function refreshScanNote() {
+  if (!scanSuggestedFileName) return;
+  scanSuggestedFileName.value = buildScanNote(
+    scanBank.value,
+    scanTanggal.value,
+    scanKategori.value,
+    scanNominal.value
+  );
 }
 
 function toggleScanToBank() {
@@ -1446,28 +1458,6 @@ function toggleScanToBank() {
   if (scanType.value === "transfer") {
     scanKategori.value = "Transfer";
   }
-}
-
-async function uploadScreenshotToStorage(file, fileName) {
-  if (!currentUser) {
-    throw new Error("User belum login.");
-  }
-
-  const safeFileName = sanitizeFilePart(fileName.replace(/\.[^.]+$/, "")) + "." + getFileExtension(file);
-  const path = `users/${currentUser.uid}/screenshots/${safeFileName}`;
-  const storageReference = ref(storage, path);
-
-  await uploadBytes(storageReference, file, {
-    contentType: file.type || "image/png"
-  });
-
-  const url = await getDownloadURL(storageReference);
-
-  return {
-    path,
-    url,
-    fileName: safeFileName
-  };
 }
 
 async function saveScannedTransaction(event) {
@@ -1486,7 +1476,7 @@ async function saveScannedTransaction(event) {
   const merchant = cleanText(scanMerchant.value);
   const kategori = scanKategori.value;
   const keterangan = cleanText(scanKeterangan.value);
-  const suggestedFileName = buildScreenshotFileName(tanggal, kategori, nominal, selectedScreenshotFile);
+  const scanNote = buildScanNote(bank.display, tanggal, kategori, nominal);
 
   if (!tanggal || !nominal || nominal <= 0 || !bank.key) {
     setNotice(scanMessage, "error", "Tanggal, nominal, dan bank/dompet wajib diisi.");
@@ -1502,8 +1492,6 @@ async function saveScannedTransaction(event) {
   saveScannedTransactionButton.textContent = "Menyimpan...";
 
   try {
-    const screenshot = await uploadScreenshotToStorage(selectedScreenshotFile, suggestedFileName);
-
     if (type === "income") {
       await addDoc(collectionRef("incomes"), {
         tanggal,
@@ -1515,9 +1503,7 @@ async function saveScannedTransaction(event) {
         merchant,
         source: "ai_screenshot",
         confidence: latestScanResult?.confidence || null,
-        screenshotPath: screenshot.path,
-        screenshotUrl: screenshot.url,
-        screenshotFileName: screenshot.fileName,
+        scanNote,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -1534,9 +1520,7 @@ async function saveScannedTransaction(event) {
         merchant,
         source: "ai_screenshot",
         confidence: latestScanResult?.confidence || null,
-        screenshotPath: screenshot.path,
-        screenshotUrl: screenshot.url,
-        screenshotFileName: screenshot.fileName,
+        scanNote,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
@@ -1554,15 +1538,13 @@ async function saveScannedTransaction(event) {
         merchant,
         source: "ai_screenshot",
         confidence: latestScanResult?.confidence || null,
-        screenshotPath: screenshot.path,
-        screenshotUrl: screenshot.url,
-        screenshotFileName: screenshot.fileName,
+        scanNote,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
     }
 
-    setNotice(scanMessage, "success", `Transaksi berhasil disimpan. Screenshot: ${screenshot.fileName}`);
+    setNotice(scanMessage, "success", `Transaksi berhasil disimpan. Catatan scan: ${scanNote}`);
     scanReviewForm.reset();
     scanResultCard.classList.add("hidden");
     screenshotInput.value = "";
@@ -1726,8 +1708,18 @@ if (scanReviewForm) {
 }
 
 if (scanType) {
-  scanType.addEventListener("change", toggleScanToBank);
+  scanType.addEventListener("change", () => {
+    toggleScanToBank();
+    refreshScanNote();
+  });
 }
+
+[scanTanggal, scanBank, scanKategori, scanNominal].forEach((element) => {
+  if (element) {
+    element.addEventListener("input", refreshScanNote);
+    element.addEventListener("change", refreshScanNote);
+  }
+});
 
 if (generateAdviceButton) {
   generateAdviceButton.addEventListener("click", generateFinancialAdvice);
