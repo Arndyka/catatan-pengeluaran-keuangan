@@ -1,0 +1,37 @@
+Spendly Multi-Bank Statement Reader - Verified Test Report
+
+Tested directly against the three uploaded files:
+
+BCA
+- Pages: 2
+- Detected bank: BCA
+- Transactions parsed: 17
+- Incoming: Rp1.491.372
+- Outgoing: Rp1.136.382
+- Closing balance: Rp364.990
+- Reconciliation: PASS
+
+Krom
+- Pages: 9
+- Detected bank: Krom
+- Raw transactions parsed: 133
+- Review candidates after internal-transfer pairing: 120
+- Internal Krom movement pairs detected: 13
+- Incoming: Rp11.436.503
+- Outgoing: Rp12.078.090
+- Closing balance: Rp3.286.906
+- Reconciliation: PASS
+
+Mandiri
+- Pages: 11
+- Detected bank: Mandiri
+- Transactions parsed: 120
+- Incoming: Rp10.229.850
+- Outgoing: Rp9.926.185
+- Closing balance: Rp429.865
+- Running-balance reconciliation: PASS
+
+Security
+- The supplied PDF password was used only during local verification.
+- The password is not hardcoded in index.html or any JavaScript file.
+- Password input is cleared after a successful scan.

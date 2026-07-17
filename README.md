@@ -211,3 +211,143 @@ Fitur tambahan:
 - Password otomatis dikosongkan setelah PDF berhasil dibuka.
 - Jika beberapa PDF dipilih sekaligus, satu password yang sama diterapkan ke semua PDF.
 - Jika PDF memiliki password berbeda, scan satu per satu.
+
+
+## Hybrid Statement Reader
+
+Scanner e-Statement diperbarui menjadi sistem hybrid:
+
+### Native PDF Layout Reader
+
+Untuk PDF digital seperti e-Statement Mandiri:
+
+- membaca teks asli PDF dengan `getTextContent()`
+- memakai posisi X/Y untuk menentukan kolom:
+  - nomor
+  - tanggal dan waktu
+  - keterangan
+  - nominal
+  - saldo berjalan
+- tidak melakukan OCR ulang jika teks PDF tersedia
+- memproses semua halaman satu per satu
+- tidak memiliki batas halaman tetap di aplikasi
+
+### OCR Machine-Learning Fallback
+
+Tesseract hanya dipakai ketika:
+
+- halaman PDF tidak memiliki text layer
+- PDF merupakan hasil scan
+- file yang diunggah berupa gambar
+
+Worker OCR digunakan ulang untuk semua halaman agar lebih stabil dan hemat waktu.
+
+### Validasi Finansial
+
+Sistem memeriksa:
+
+```text
+Saldo sebelumnya + nominal transaksi = saldo setelah transaksi
+```
+
+Sistem juga merekonsiliasi:
+
+```text
+Saldo awal + total transaksi = saldo akhir
+```
+
+Baris dengan selisih ditandai untuk diperiksa.
+
+### Adaptive Merchant Learning
+
+Saat user mengoreksi kategori dan menyimpan transaksi:
+
+```text
+merchant → kategori
+```
+
+disimpan pada:
+
+```text
+users/{uid}/settings/profile.merchantCategoryRules
+```
+
+Scan berikutnya akan menggunakan kategori hasil koreksi tersebut.
+
+### Catatan Performa
+
+PDF 11 halaman tetap diproses seluruhnya. PDF teks biasanya jauh lebih cepat daripada OCR. PDF hasil scan tetap lebih lambat karena setiap halaman harus dirender dan diproses Tesseract.
+
+
+## Multi-Bank Statement Reader
+
+Versi ini diuji langsung menggunakan contoh:
+
+- BCA Tahapan Xpresi, 2 halaman, periode Mei 2026.
+- Krom e-Statement, 9 halaman, periode Juni 2026.
+- Mandiri e-Statement, 11 halaman, periode Juni 2026 dan dilindungi password.
+
+Password contoh hanya digunakan untuk pengujian lokal dan tidak ditanam di source code.
+
+### Mandiri
+
+Parser membaca:
+
+```text
+No
+Tanggal dan waktu
+Keterangan
+Nominal plus/minus
+Saldo berjalan
+```
+
+Validasi menggunakan saldo berjalan pada setiap transaksi.
+
+### BCA
+
+Parser memahami format:
+
+```text
+TANGGAL
+KETERANGAN
+CBG
+MUTASI
+SALDO
+```
+
+Deteksi debit/kredit memakai kode `DB`, `CR`, `TRANSAKSI DEBIT`, dan `BIAYA ADM`.
+
+### Krom
+
+Parser membaca:
+
+```text
+Tanggal & Waktu
+Detail Transaksi
+Tipe Transaksi
+Jumlah
+```
+
+Subrekening yang dapat dikenali:
+
+```text
+Tabungan Utama
+Dana Darurat
+Laundry
+Internet
+Uang Kos
+Listrik
+Bensin
+```
+
+Pemindahan saldo internal Krom dipasangkan berdasarkan reference ID. Pasangan tersebut tidak dipilih otomatis agar pemasukan dan pengeluaran tidak dihitung ganda.
+
+### OCR Machine-Learning
+
+Tesseract LSTM tetap menjadi fallback untuk:
+
+- screenshot;
+- PDF hasil scan;
+- halaman tanpa text layer.
+
+Untuk PDF digital ketiga bank, native text parser lebih diprioritaskan karena lebih akurat daripada OCR gambar.

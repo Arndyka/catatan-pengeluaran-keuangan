@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spendly Accounting Pro</title>
-  <link rel="stylesheet" href="assets/styles.css?v=pdf-password-20260717">
+  <link rel="stylesheet" href="assets/styles.css?v=multi-bank-reader-20260717">
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -554,10 +554,29 @@
             </div>
           </div>
 
+          <div class="statement-reader-info">
+            <article>
+              <strong>1. Auto Bank Detection</strong>
+              <span>Mendeteksi format Mandiri, BCA, atau Krom secara otomatis dari isi PDF.</span>
+            </article>
+            <article>
+              <strong>2. Bank-Specific Parser</strong>
+              <span>Setiap bank memakai aturan kolom, angka, tanggal, dan rekonsiliasi yang berbeda.</span>
+            </article>
+            <article>
+              <strong>3. OCR ML Fallback</strong>
+              <span>Tesseract LSTM hanya dipakai untuk halaman scan/gambar tanpa teks asli.</span>
+            </article>
+            <article>
+              <strong>4. Accounting Validation</strong>
+              <span>Total mutasi, saldo berjalan, dan transfer internal diperiksa sebelum disimpan.</span>
+            </article>
+          </div>
+
           <div class="scanner-grid">
             <div class="upload-card">
               <div class="field">
-                <label for="scanInput">Upload Screenshot / PDF</label>
+                <label for="scanInput">Upload Screenshot / PDF e-Statement</label>
                 <input id="scanInput" type="file" accept="image/*,.pdf,application/pdf" multiple>
               </div>
 
@@ -577,17 +596,39 @@
                   </div>
                 </div>
                 <p>
-                  Password hanya digunakan di perangkat ini untuk membuka PDF.
-                  Password tidak disimpan atau dikirim ke Firestore.
+                  Password hanya digunakan di browser untuk membuka PDF dan otomatis dikosongkan.
                 </p>
               </div>
 
+              <label class="learning-option">
+                <input id="learnMerchantRules" type="checkbox" checked>
+                <span>
+                  Pelajari koreksi kategori merchant dan gunakan otomatis pada scan berikutnya.
+                </span>
+              </label>
+
               <div id="scanPreview" class="preview-box">Preview file akan muncul di sini.</div>
-              <button id="scanButton" class="btn btn-primary" type="button">Scan File</button>
-              <div id="scanMessage" class="notice info">File diproses di browser dan tidak disimpan.</div>
+
+              <div id="scanProgressWrap" class="scan-progress-wrap hidden">
+                <div class="scan-progress-header">
+                  <strong id="scanProgressText">Menyiapkan dokumen...</strong>
+                  <span id="scanProgressPercent">0%</span>
+                </div>
+                <progress id="scanProgress" max="100" value="0"></progress>
+              </div>
+
+              <div class="scan-button-row">
+                <button id="scanButton" class="btn btn-primary" type="button">Baca Semua Halaman</button>
+                <button id="cancelScanButton" class="btn btn-light hidden" type="button">Batalkan</button>
+              </div>
+
+              <div id="scanMessage" class="notice info">
+                Mendukung e-Statement Mandiri, BCA, dan Krom. PDF digital dibaca langsung; OCR menjadi fallback.
+              </div>
             </div>
           </div>
 
+          <div id="statementSummaryContainer" class="statement-summary-container"></div>
           <div id="scanReviewContainer" class="scan-review"></div>
         </section>
       </section>
@@ -677,6 +718,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/js/app.js?v=pdf-password-20260717"></script>
+  <script type="module" src="assets/js/app.js?v=multi-bank-reader-20260717"></script>
 </body>
 </html>

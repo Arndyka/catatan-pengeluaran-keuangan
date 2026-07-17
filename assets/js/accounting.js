@@ -22,6 +22,7 @@ export const DEFAULT_SETTINGS = {
   hideBalanceDefault: true,
   currency: "IDR",
   accountingBasis: "hybrid-accrual",
+  merchantCategoryRules: {},
   updatedAt: null
 };
 
@@ -157,7 +158,17 @@ export async function buildTransaction(input, settings) {
     description: cleanText(input.description || ""),
     installmentTenor: Number(input.installmentTenor || 1),
     recurringRuleId: input.recurringRuleId || "",
-    origin: input.origin || "manual"
+    origin: input.origin || "manual",
+    sourceMeta: input.sourceMeta || null,
+    confidence:
+      input.confidence === null || input.confidence === undefined
+        ? null
+        : Number(input.confidence),
+    externalBalance:
+      input.externalBalance === null || input.externalBalance === undefined
+        ? null
+        : Number(input.externalBalance),
+    validationStatus: input.validationStatus || ""
   };
 
   const journal = buildJournal(normalized, settings);

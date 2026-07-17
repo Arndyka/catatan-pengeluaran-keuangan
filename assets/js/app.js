@@ -1,4 +1,4 @@
-import { $, cleanText, downloadText, escapeHtml, formatDateId, formatDateLocal, formatRupiah, hideNotice, monthKey, parseLocalDate, setNotice } from "./utils.js";
+import { $, cleanText, downloadText, escapeHtml, formatDateId, formatDateLocal, formatRupiah, hideNotice, monthKey, parseLocalDate, setNotice, slugText } from "./utils.js";
 import { setupAuth, observeAuth, logout } from "./auth.js";
 import { state, resetState } from "./state.js";
 import { DEFAULT_CREDIT_SETTINGS, DEFAULT_SETTINGS, balanceSheet, buildTransaction, deriveLedger, incomeStatement } from "./accounting.js";
@@ -9,7 +9,7 @@ import { dueOccurrences, postDueRules } from "./recurring.js";
 import { budgetAnalysis } from "./budget.js";
 import { creditCardSnapshot } from "./credit-card.js";
 import { buildMonthlyReport } from "./reports.js";
-import { parseOcrTransactions, renderPdfPages } from "./scanner.js";
+import { scanStatementFiles } from "./scanner.js";
 
 const authScreen = $("authScreen");
 const appShell = $("appShell");
@@ -854,10 +854,19 @@ function setupEvents() {
   });
 
   $("scanButton").addEventListener("click", scanFiles);
+
+  $("cancelScanButton").addEventListener("click", () => {
+    scanCancelled = true;
+    $("cancelScanButton").disabled = true;
+    $("cancelScanButton").textContent = "Membatalkan...";
+  });
+
   $("scanReviewContainer").addEventListener("click", handleScanReviewClick);
 }
 
 let scanCandidates = [];
+let scanStatements = [];
+let scanCancelled = false;
 
 async function scanFiles() {
   const files = [...($("scanInput").files || [])];
@@ -868,110 +877,505 @@ async function scanFiles() {
     return;
   }
 
-  if (typeof Tesseract === "undefined") {
-    setNotice($("scanMessage"), "error", "Tesseract belum termuat.");
+  const genericAsset =
+    state.settings.accounts.find(
+      (account) => account.type === "asset"
+    )?.id;
+
+  const findBankAccount = (pattern) =>
+    state.settings.accounts.find(
+      (account) =>
+        account.type === "asset" &&
+        pattern.test(account.name)
+    )?.id || genericAsset;
+
+  const bankAccountMap = {
+    mandiri: findBankAccount(/mandiri/i),
+    bca: findBankAccount(/bca|bank central asia/i),
+    krom: findBankAccount(/krom/i),
+    generic: genericAsset
+  };
+
+  if (!genericAsset) {
+    setNotice(
+      $("scanMessage"),
+      "error",
+      "Belum ada akun aset/rekening untuk menampung hasil scan."
+    );
     return;
   }
 
-  const defaultAsset = state.settings.accounts.find(
-    (account) => account.type === "asset"
-  )?.id;
-
   scanCandidates = [];
+  scanStatements = [];
+  scanCancelled = false;
+
   $("scanButton").disabled = true;
+  $("cancelScanButton").disabled = false;
+  $("cancelScanButton").textContent = "Batalkan";
+  $("cancelScanButton").classList.remove("hidden");
+  $("scanProgressWrap").classList.remove("hidden");
+  $("scanProgress").value = 0;
+  $("scanProgressPercent").textContent = "0%";
+  $("statementSummaryContainer").innerHTML = "";
+  $("scanReviewContainer").innerHTML = "";
 
   try {
-    for (const file of files) {
-      const targets =
-        file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")
-          ? await renderPdfPages(file, pdfPassword)
-          : [file];
-
-      for (let index = 0; index < targets.length; index += 1) {
-        setNotice(
-          $("scanMessage"),
-          "info",
-          `Membaca ${file.name} ${index + 1}/${targets.length}...`
+    const result = await scanStatementFiles({
+      files,
+      password: pdfPassword,
+      bankAccountMap,
+      merchantRules:
+        state.settings.merchantCategoryRules || {},
+      shouldCancel: () => scanCancelled,
+      onProgress(progress) {
+        const pageCount = Math.max(
+          1,
+          Number(progress.pageCount || 1)
         );
 
-        const result = await Tesseract.recognize(
-          targets[index],
-          "ind+eng"
+        const stagePart =
+          progress.stage === "native"
+            ? 0.45
+            : 0.45 + 0.55 * Number(progress.stageProgress || 0);
+
+        const pageFraction =
+          (
+            Number(progress.pageNumber || 1) -
+            1 +
+            stagePart
+          ) / pageCount;
+
+        const percent = Math.max(
+          0,
+          Math.min(100, Math.round(pageFraction * 100))
         );
 
-        scanCandidates.push(
-          ...parseOcrTransactions(
-            result?.data?.text || "",
-            defaultAsset
-          )
-        );
+        $("scanProgress").value = percent;
+        $("scanProgressPercent").textContent = `${percent}%`;
+
+        $("scanProgressText").textContent =
+          progress.stage === "native"
+            ? `Membaca ${progress.bank && progress.bank !== "generic" ? progress.bank.toUpperCase() : "PDF"} · ${progress.fileName} · halaman ${progress.pageNumber}/${pageCount}`
+            : `OCR machine-learning ${progress.fileName} · halaman ${progress.pageNumber}/${pageCount}`;
       }
-    }
+    });
 
+    scanCandidates = result.candidates;
+    scanStatements = result.statements;
+
+    renderStatementSummaries();
     renderScanCandidates();
+
+    const nativeCount = scanStatements.reduce(
+      (sum, item) => sum + Number(item.nativePages || 0),
+      0
+    );
+
+    const ocrCount = scanStatements.reduce(
+      (sum, item) => sum + Number(item.ocrPages || 0),
+      0
+    );
+
+    $("scanProgress").value = 100;
+    $("scanProgressPercent").textContent = "100%";
+    $("scanProgressText").textContent =
+      "Seluruh halaman selesai diproses.";
+
     setNotice(
       $("scanMessage"),
       "success",
-      `${scanCandidates.length} kandidat transaksi ditemukan.`
+      `${scanCandidates.length} transaksi ditemukan. ${nativeCount} halaman dibaca langsung dari PDF dan ${ocrCount} halaman memakai OCR fallback.`
     );
 
-    // Password tidak dipertahankan setelah PDF berhasil dibuka.
     $("pdfPasswordInput").value = "";
     $("pdfPasswordInput").type = "password";
     $("togglePdfPasswordButton").textContent = "Tampilkan";
   } catch (error) {
-    setNotice($("scanMessage"), "error", error.message);
+    setNotice(
+      $("scanMessage"),
+      scanCancelled ? "info" : "error",
+      error.message
+    );
   } finally {
     $("scanButton").disabled = false;
+    $("cancelScanButton").classList.add("hidden");
+    $("cancelScanButton").disabled = false;
+    $("cancelScanButton").textContent = "Batalkan";
   }
 }
 
+function renderStatementSummaries() {
+  $("statementSummaryContainer").innerHTML =
+    scanStatements.length
+      ? scanStatements.map((statement) => {
+          const metadata = statement.metadata || {};
+          const reconciliation =
+            statement.reconciliation || {};
+
+          const statusText =
+            reconciliation.balanced === true
+              ? "Rekonsiliasi sesuai"
+              : reconciliation.balanced === false
+                ? "Ada selisih"
+                : "Ringkasan belum lengkap";
+
+          const statusClass =
+            reconciliation.balanced === true
+              ? "validation-ok"
+              : reconciliation.balanced === false
+                ? "validation-error"
+                : "validation-warning";
+
+          return `
+            <article class="statement-summary-card">
+              <div class="statement-summary-header">
+                <div>
+                  <div class="bank-detection-badge ${statement.bank}">
+                    ${escapeHtml(statement.bankLabel || statement.bank)}
+                    · ${Math.round(Number(statement.bankConfidence || 0) * 100)}%
+                  </div>
+                  <h3>${escapeHtml(statement.fileName)}</h3>
+                  <p>
+                    ${statement.pageCount} halaman ·
+                    ${statement.nativePages} parser native ·
+                    ${statement.ocrPages} OCR ML fallback
+                  </p>
+                </div>
+                <span class="${statusClass}">
+                  ${statusText}
+                </span>
+              </div>
+
+              <div class="statement-summary-grid">
+                <div class="statement-summary-item">
+                  <p>Periode</p>
+                  <strong>
+                    ${escapeHtml(metadata.periodStart || "-")}
+                    s.d.
+                    ${escapeHtml(metadata.periodEnd || "-")}
+                  </strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Saldo Awal</p>
+                  <strong>${money(metadata.openingBalance || 0)}</strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Dana Masuk Terbaca</p>
+                  <strong>${money(reconciliation.totalIncoming || 0)}</strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Dana Keluar Terbaca</p>
+                  <strong>${money(reconciliation.totalOutgoing || 0)}</strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Saldo Akhir</p>
+                  <strong>${money(metadata.closingBalance || 0)}</strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Transaksi Mentah</p>
+                  <strong>${statement.rawTransactionCount || 0}</strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Kandidat Review</p>
+                  <strong>${statement.reviewCandidateCount || 0}</strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Selisih Saldo Akhir</p>
+                  <strong class="${statusClass}">
+                    ${
+                      reconciliation.closingDifference === null ||
+                      reconciliation.closingDifference === undefined
+                        ? "-"
+                        : money(reconciliation.closingDifference)
+                    }
+                  </strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Selisih Dana Masuk</p>
+                  <strong class="${
+                    reconciliation.incomingDifference &&
+                    Math.abs(reconciliation.incomingDifference) > 2
+                      ? "validation-error"
+                      : "validation-ok"
+                  }">
+                    ${
+                      reconciliation.incomingDifference === null ||
+                      reconciliation.incomingDifference === undefined
+                        ? "-"
+                        : money(reconciliation.incomingDifference)
+                    }
+                  </strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Selisih Dana Keluar</p>
+                  <strong class="${
+                    reconciliation.outgoingDifference &&
+                    Math.abs(reconciliation.outgoingDifference) > 2
+                      ? "validation-error"
+                      : "validation-ok"
+                  }">
+                    ${
+                      reconciliation.outgoingDifference === null ||
+                      reconciliation.outgoingDifference === undefined
+                        ? "-"
+                        : money(reconciliation.outgoingDifference)
+                    }
+                  </strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Transfer Internal Dipasangkan</p>
+                  <strong>${statement.internalPairCount || 0}</strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Halaman Gagal</p>
+                  <strong class="${
+                    statement.failedPages
+                      ? "validation-warning"
+                      : "validation-ok"
+                  }">
+                    ${statement.failedPages || 0}
+                  </strong>
+                </div>
+              </div>
+            </article>
+          `;
+        }).join("")
+      : "";
+}
+function confidenceClass(confidence) {
+  const value = Number(confidence || 0);
+
+  if (value >= 0.90) return "confidence-high";
+  if (value >= 0.75) return "confidence-medium";
+  return "confidence-low";
+}
+
+function validationLabel(item) {
+  if (item.validationStatus === "valid") {
+    return `<span class="validation-ok">Saldo cocok</span>`;
+  }
+
+  if (item.validationStatus === "mismatch") {
+    return `
+      <span class="validation-error">
+        Selisih ${formatRupiah(item.validationDifference || 0)}
+      </span>
+    `;
+  }
+
+  return `<span class="validation-warning">Belum divalidasi</span>`;
+}
+
 function renderScanCandidates() {
-  $("scanReviewContainer").innerHTML = scanCandidates.length
-    ? `
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>Pilih</th>
-              <th>Tanggal</th>
-              <th>Tipe</th>
-              <th>Akun</th>
-              <th>Kategori</th>
-              <th>Nominal</th>
-              <th>Merchant</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${scanCandidates.map((item, index) => `
-              <tr data-scan-index="${index}">
-                <td><input data-scan-field="selected" type="checkbox" ${item.selected ? "checked" : ""}></td>
-                <td><input data-scan-field="date" type="date" value="${item.date}"></td>
-                <td>
-                  <select data-scan-field="type">
-                    <option value="income" ${item.type === "income" ? "selected" : ""}>Pemasukan</option>
-                    <option value="expense" ${item.type === "expense" ? "selected" : ""}>Pengeluaran</option>
-                  </select>
-                </td>
-                <td><select data-scan-field="sourceAccountId">${accountOptionsHtml(item.sourceAccountId, { includeLiabilities: false })}</select></td>
-                <td><input data-scan-field="category" type="text" value="${escapeHtml(item.category)}"></td>
-                <td><input data-scan-field="amount" type="number" value="${item.amount}"></td>
-                <td><input data-scan-field="merchant" type="text" value="${escapeHtml(item.merchant)}"></td>
-                <td><button class="small-btn danger" data-remove-scan="${index}" type="button">Hapus</button></td>
+  $("scanReviewContainer").innerHTML =
+    scanCandidates.length
+      ? `
+        <div class="scan-save-toolbar">
+          <p>
+            Mandiri, BCA, dan Krom sudah dipetakan ke rekening masing-masing.
+            Transfer internal Krom tidak dipilih otomatis agar tidak dihitung ganda.
+          </p>
+          <button id="saveScanCandidates" class="btn btn-primary" type="button">
+            Simpan Kandidat Terpilih
+          </button>
+        </div>
+
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Pilih</th>
+                <th>Bank</th>
+                <th>Subrekening</th>
+                <th>Hal./No.</th>
+                <th>Tanggal</th>
+                <th>Waktu</th>
+                <th>Tipe</th>
+                <th>Akun Sumber</th>
+                <th>Akun Tujuan</th>
+                <th>Kategori</th>
+                <th>Nominal</th>
+                <th>Saldo Setelah</th>
+                <th>Merchant</th>
+                <th>Keterangan</th>
+                <th>Validasi</th>
+                <th>Confidence</th>
+                <th>Metode</th>
+                <th>Aksi</th>
               </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      </div>
-      <button id="saveScanCandidates" class="btn btn-primary" type="button">Simpan Kandidat Terpilih</button>
-    `
-    : `<div class="empty-state">Belum ada hasil OCR.</div>`;
+            </thead>
+            <tbody>
+              ${scanCandidates.map((item, index) => `
+                <tr
+                  data-scan-index="${index}"
+                  class="${item.internalMovement ? "internal-movement-row" : ""}"
+                >
+                  <td>
+                    <input
+                      data-scan-field="selected"
+                      type="checkbox"
+                      ${item.selected ? "checked" : ""}
+                    >
+                  </td>
+
+                  <td>
+                    <span class="bank-detection-badge ${item.bank}">
+                      ${escapeHtml(item.bankLabel || item.bank)}
+                    </span>
+                  </td>
+
+                  <td>
+                    <strong>${escapeHtml(item.statementAccountName || "-")}</strong>
+                    <div class="statement-subaccount">
+                      ${escapeHtml(item.statementAccountNumber || "")}
+                    </div>
+                  </td>
+
+                  <td>
+                    ${item.sourcePage || "-"} /
+                    ${item.sourceRow || "-"}
+                  </td>
+
+                  <td>
+                    <input
+                      data-scan-field="date"
+                      type="date"
+                      value="${item.date || ""}"
+                    >
+                  </td>
+
+                  <td>
+                    <input
+                      data-scan-field="time"
+                      type="time"
+                      step="1"
+                      value="${item.time || ""}"
+                    >
+                  </td>
+
+                  <td>
+                    <select data-scan-field="type">
+                      <option value="income" ${item.type === "income" ? "selected" : ""}>
+                        Pemasukan
+                      </option>
+                      <option value="expense" ${item.type === "expense" ? "selected" : ""}>
+                        Pengeluaran
+                      </option>
+                      <option value="transfer" ${item.type === "transfer" ? "selected" : ""}>
+                        Transfer
+                      </option>
+                    </select>
+                    ${
+                      item.possibleOwnTransfer
+                        ? `<div class="possible-transfer-warning">Kemungkinan transfer antar rekening sendiri</div>`
+                        : ""
+                    }
+                  </td>
+
+                  <td>
+                    <select data-scan-field="sourceAccountId">
+                      ${accountOptionsHtml(
+                        item.sourceAccountId,
+                        { includeLiabilities: false }
+                      )}
+                    </select>
+                  </td>
+
+                  <td>
+                    <select data-scan-field="destinationAccountId">
+                      ${accountOptionsHtml(
+                        item.destinationAccountId,
+                        { includeLiabilities: false }
+                      )}
+                    </select>
+                  </td>
+
+                  <td>
+                    <input
+                      data-scan-field="category"
+                      type="text"
+                      value="${escapeHtml(item.category || "Lainnya")}"
+                    >
+                  </td>
+
+                  <td>
+                    <input
+                      data-scan-field="amount"
+                      type="number"
+                      min="1"
+                      value="${item.amount || 0}"
+                    >
+                  </td>
+
+                  <td>
+                    ${
+                      item.balanceAfter === null ||
+                      item.balanceAfter === undefined
+                        ? "-"
+                        : money(item.balanceAfter)
+                    }
+                  </td>
+
+                  <td>
+                    <input
+                      data-scan-field="merchant"
+                      type="text"
+                      value="${escapeHtml(item.merchant || "")}"
+                    >
+                  </td>
+
+                  <td>
+                    <input
+                      class="scan-description-input"
+                      data-scan-field="description"
+                      type="text"
+                      value="${escapeHtml(item.description || "")}"
+                    >
+                  </td>
+
+                  <td>${validationLabel(item)}</td>
+
+                  <td>
+                    <span class="badge ${confidenceClass(item.confidence)}">
+                      ${Math.round(Number(item.confidence || 0) * 100)}%
+                    </span>
+                  </td>
+
+                  <td>${escapeHtml(item.extractionMethod || "-")}</td>
+
+                  <td>
+                    <button
+                      class="small-btn danger"
+                      data-remove-scan="${index}"
+                      type="button"
+                    >
+                      Hapus
+                    </button>
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      `
+      : `<div class="empty-state">Tidak ada transaksi yang berhasil dibaca.</div>`;
 }
 
 function syncScanCandidates() {
   document.querySelectorAll("[data-scan-index]").forEach((row) => {
-    const item = scanCandidates[Number(row.dataset.scanIndex)];
+    const item =
+      scanCandidates[Number(row.dataset.scanIndex)];
 
     row.querySelectorAll("[data-scan-field]").forEach((input) => {
       const field = input.dataset.scanField;
@@ -984,40 +1388,114 @@ function syncScanCandidates() {
         item[field] = input.value;
       }
     });
+
+    item.signedAmount =
+      item.type === "income"
+        ? Number(item.amount || 0)
+        : item.type === "expense"
+          ? -Number(item.amount || 0)
+          : 0;
   });
 }
-
 async function handleScanReviewClick(event) {
-  const removeButton = event.target.closest("[data-remove-scan]");
+  const removeButton =
+    event.target.closest("[data-remove-scan]");
 
   if (removeButton) {
-    scanCandidates.splice(Number(removeButton.dataset.removeScan), 1);
+    scanCandidates.splice(
+      Number(removeButton.dataset.removeScan),
+      1
+    );
     renderScanCandidates();
     return;
   }
 
-  if (event.target.id !== "saveScanCandidates") return;
+  if (event.target.id !== "saveScanCandidates") {
+    return;
+  }
 
   syncScanCandidates();
 
   let created = 0;
   let duplicate = 0;
+  let rulesChanged = false;
 
-  for (const item of scanCandidates.filter((candidate) => candidate.selected)) {
+  const merchantRules = {
+    ...(state.settings.merchantCategoryRules || {})
+  };
+
+  for (
+    const item of scanCandidates.filter(
+      (candidate) => candidate.selected
+    )
+  ) {
     const result = await saveTransaction(
       state.user.uid,
-      item,
+      {
+        ...item,
+        description:
+          item.time
+            ? `${item.description} · ${item.time}`
+            : item.description,
+        sourceMeta: {
+          fileName: item.sourceFile,
+          page: item.sourcePage,
+          row: item.sourceRow,
+          extractionMethod: item.extractionMethod,
+          bank: item.bank,
+          statementAccountName: item.statementAccountName,
+          statementAccountNumber: item.statementAccountNumber,
+          movementReference: item.movementReference,
+          internalMovement: item.internalMovement === true
+        },
+        externalBalance: item.balanceAfter,
+        validationStatus: item.validationStatus,
+        confidence: item.confidence
+      },
       state.settings
     );
 
-    if (result.created) created += 1;
-    else duplicate += 1;
+    if (result.created) {
+      created += 1;
+    } else {
+      duplicate += 1;
+    }
+
+    if (
+      $("learnMerchantRules").checked &&
+      cleanText(item.merchant) &&
+      cleanText(item.category) &&
+      item.type !== "transfer"
+    ) {
+      const key = slugText(item.merchant);
+
+      if (merchantRules[key] !== item.category) {
+        merchantRules[key] = item.category;
+        rulesChanged = true;
+      }
+    }
+  }
+
+  if (rulesChanged) {
+    state.settings = {
+      ...state.settings,
+      merchantCategoryRules: merchantRules
+    };
+
+    await saveProfileSettings(
+      state.user.uid,
+      state.settings
+    );
   }
 
   setNotice(
     $("scanMessage"),
     "success",
-    `${created} transaksi disimpan. ${duplicate} duplikat dilewati.`
+    `${created} transaksi disimpan. ${duplicate} duplikat dilewati.${
+      rulesChanged
+        ? " Koreksi kategori merchant sudah dipelajari."
+        : ""
+    }`
   );
 }
 

@@ -796,3 +796,311 @@ th {
     width: 100%;
   }
 }
+
+
+/* HYBRID STATEMENT READER */
+.statement-reader-info {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 20px 22px 0;
+}
+
+.statement-reader-info article {
+  display: grid;
+  gap: 6px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--soft);
+}
+
+.statement-reader-info strong {
+  font-size: 13px;
+}
+
+.statement-reader-info span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.learning-option {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.learning-option input {
+  margin-top: 2px;
+}
+
+.scan-progress-wrap {
+  display: grid;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.scan-progress-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #344054;
+  font-size: 13px;
+}
+
+.scan-progress-wrap progress {
+  width: 100%;
+  height: 12px;
+  accent-color: var(--primary);
+}
+
+.scan-button-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.scan-button-row .btn {
+  width: auto;
+  margin: 0;
+}
+
+.statement-summary-container {
+  display: grid;
+  gap: 14px;
+  padding: 0 22px 20px;
+}
+
+.statement-summary-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--soft);
+  overflow: hidden;
+}
+
+.statement-summary-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+
+.statement-summary-header h3 {
+  margin: 0;
+}
+
+.statement-summary-header p {
+  margin: 5px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.statement-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  padding: 16px;
+}
+
+.statement-summary-item {
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.statement-summary-item p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.statement-summary-item strong {
+  display: block;
+  margin-top: 7px;
+  font-size: 15px;
+}
+
+.validation-ok {
+  color: var(--success);
+}
+
+.validation-warning {
+  color: var(--warning);
+}
+
+.validation-error {
+  color: var(--danger);
+}
+
+.confidence-high {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.confidence-medium {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.confidence-low {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.scan-review .scan-save-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin: 14px 0;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+}
+
+.scan-review .scan-save-toolbar p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.scan-review table {
+  min-width: 1450px;
+}
+
+.scan-description-input {
+  min-width: 280px;
+}
+
+@media (max-width: 1280px) {
+  .statement-reader-info {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .statement-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .statement-reader-info,
+  .statement-summary-grid,
+  .scan-button-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scan-button-row .btn {
+    width: 100%;
+  }
+
+  .scan-save-toolbar,
+  .statement-summary-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+
+/* MULTI-BANK READER */
+.bank-detection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 900;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.bank-detection-badge.mandiri {
+  background: #e9f3ff;
+  color: #1357a6;
+}
+
+.bank-detection-badge.bca {
+  background: #e9f0ff;
+  color: #123f9c;
+}
+
+.bank-detection-badge.krom {
+  background: #f2eaff;
+  color: #6133b8;
+}
+
+.bank-detection-badge.generic {
+  background: var(--warning-soft);
+  color: var(--warning);
+}
+
+.bank-coverage-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  padding: 0 22px 20px;
+}
+
+.bank-coverage-card {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 15px;
+  background: #fff;
+}
+
+.bank-coverage-card strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.bank-coverage-card span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.internal-movement-row {
+  background: #fffaf0;
+}
+
+.possible-transfer-warning {
+  color: var(--warning);
+  font-weight: 800;
+  font-size: 12px;
+}
+
+.statement-subaccount {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.scan-review table {
+  min-width: 1750px;
+}
+
+@media (max-width: 900px) {
+  .bank-coverage-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
