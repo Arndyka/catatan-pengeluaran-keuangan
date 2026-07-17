@@ -139,6 +139,9 @@ const advisorOutput = $("advisorOutput");
 const typeFilter = $("typeFilter");
 const searchInput = $("searchInput");
 const historyContainer = $("historyContainer");
+const pageEyebrow = $("pageEyebrow");
+const pageTitle = $("pageTitle");
+const scannerGrid = $("scannerGrid");
 const toggleBalanceButton = $("toggleBalanceButton");
 const downloadCSVButton = $("downloadCSVButton");
 const downloadExcelButton = $("downloadExcelButton");
@@ -1141,12 +1144,25 @@ async function buildOcrTargets(files) {
   return targets;
 }
 
+
+function updateScannerLayout() {
+  if (!scannerGrid) return;
+
+  const singleVisible = !singleReviewCard.classList.contains("hidden");
+  const batchVisible = !batchReviewCard.classList.contains("hidden");
+
+  scannerGrid.classList.toggle("has-single-review", singleVisible && !batchVisible);
+  scannerGrid.classList.toggle("has-batch-review", batchVisible);
+}
+
 function previewFiles() {
   const files = [...(scanFileInput.files || [])];
+
   singleReviewCard.classList.add("hidden");
   batchReviewCard.classList.add("hidden");
   scannedItems = [];
   singleScanItem = null;
+  updateScannerLayout();
 
   if (!files.length) {
     scanPreviewBox.textContent = "Preview file akan muncul di sini.";
@@ -1179,6 +1195,7 @@ function fillSingleForm(item) {
   singleToBankWrap.classList.toggle("hidden", singleType.value !== "transfer");
   refreshSingleScanNote();
   singleReviewCard.classList.remove("hidden");
+  updateScannerLayout();
 }
 
 function refreshSingleScanNote() {
@@ -1188,6 +1205,7 @@ function refreshSingleScanNote() {
 function renderBatchTable() {
   if (!scannedItems.length) {
     batchReviewCard.classList.add("hidden");
+    updateScannerLayout();
     return;
   }
 
@@ -1228,7 +1246,7 @@ function renderBatchTable() {
             <td><input data-field="merchant" type="text" value="${item.merchant || ""}"></td>
             <td>
               <select data-field="kategori">
-                ${["Makan", "Transportasi", "Belanja", "Tagihan", "Hiburan", "Kesehatan", "Transfer", "Pemasukan", "Lainnya"].map((cat) =>
+                ${["Makan", "Transportasi", "Belanja", "Tagihan", "Hiburan", "Kesehatan", "Transfer", "Pemasukan", "Investasi", "Lainnya"].map((cat) =>
                   `<option value="${cat}" ${item.kategori === cat ? "selected" : ""}>${cat}</option>`
                 ).join("")}
               </select>
@@ -1242,6 +1260,8 @@ function renderBatchTable() {
       </tbody>
     </table>
   `;
+
+  updateScannerLayout();
 }
 
 function syncBatchFromTable() {
@@ -1431,6 +1451,7 @@ async function saveSingleScan(event) {
     const saved = await saveScannedItem(item);
     setNotice(scanMessage, saved ? "success" : "info", saved ? "Transaksi hasil scan berhasil disimpan." : "Data yang sama sudah ada, jadi tidak disimpan ulang.");
     singleReviewCard.classList.add("hidden");
+    updateScannerLayout();
     scanFileInput.value = "";
     scanPreviewBox.textContent = "Preview file akan muncul di sini.";
   } catch (error) {
@@ -1465,6 +1486,8 @@ async function saveSelectedBatch() {
     renderBatchTable();
     batchReviewCard.classList.add("hidden");
     singleReviewCard.classList.add("hidden");
+    updateScannerLayout();
+    updateScannerLayout();
     scanFileInput.value = "";
     scanPreviewBox.textContent = "Preview file akan muncul di sini.";
   } catch (error) {
@@ -1673,31 +1696,89 @@ function updateBalanceVisibility() {
 
 function setupPages() {
   const navLinks = document.querySelectorAll("[data-page]");
+  const mainGrid = document.querySelector(".main-grid");
+
+  const pageMeta = {
+    dashboard: {
+      eyebrow: "Overview",
+      title: "Budget Tracker"
+    },
+    input: {
+      eyebrow: "Transaction",
+      title: "Input & Scan Transaksi"
+    },
+    review: {
+      eyebrow: "Analysis",
+      title: "Review & Summary"
+    }
+  };
 
   function setPage(page) {
-    navLinks.forEach((button) => button.classList.toggle("active", button.dataset.page === page));
+    const activePage = pageMeta[page] ? page : "dashboard";
 
-    const dashboardItems = [$("dashboard"), $("saldo"), document.querySelector(".cashflow-section"), $("creditCardSection")];
-    const inputItems = [$("input"), $("scanner")];
-    const reviewItems = [$("advisor"), $("budgetPlanner"), $("riwayat")];
+    navLinks.forEach((button) => {
+      button.classList.toggle("active", button.dataset.page === activePage);
+    });
+
+    const dashboardItems = [
+      $("dashboard"),
+      $("saldo"),
+      document.querySelector(".cashflow-section"),
+      $("creditCardSection")
+    ];
+
+    const inputItems = [
+      $("input"),
+      $("scanner")
+    ];
+
+    const reviewItems = [
+      $("advisor"),
+      $("budgetPlanner"),
+      $("riwayat")
+    ];
 
     [...dashboardItems, ...inputItems, ...reviewItems].forEach((element) => {
       if (element) element.classList.add("page-hidden");
     });
 
-    const show = page === "input" ? inputItems : page === "review" ? reviewItems : dashboardItems;
-    show.forEach((element) => {
+    const visibleItems =
+      activePage === "input"
+        ? inputItems
+        : activePage === "review"
+          ? reviewItems
+          : dashboardItems;
+
+    visibleItems.forEach((element) => {
       if (element) element.classList.remove("page-hidden");
     });
 
-    const mainGrid = document.querySelector(".main-grid");
     if (mainGrid) {
-      mainGrid.classList.toggle("page-hidden", page === "review");
+      mainGrid.classList.remove("page-dashboard", "page-input", "page-review");
+      mainGrid.classList.add(`page-${activePage}`);
+      mainGrid.classList.toggle("page-hidden", activePage === "review");
     }
+
+    if (pageEyebrow) pageEyebrow.textContent = pageMeta[activePage].eyebrow;
+    if (pageTitle) pageTitle.textContent = pageMeta[activePage].title;
+
+    history.replaceState(null, "", `#${activePage}`);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    setTimeout(() => {
+      if (activePage === "dashboard") {
+        renderCharts();
+      }
+      updateScannerLayout();
+    }, 60);
   }
 
-  navLinks.forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
-  setPage("dashboard");
+  navLinks.forEach((button) => {
+    button.addEventListener("click", () => setPage(button.dataset.page));
+  });
+
+  const requestedPage = window.location.hash.replace("#", "");
+  setPage(pageMeta[requestedPage] ? requestedPage : "dashboard");
 }
 
 

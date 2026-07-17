@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spendly Budget Tracker</title>
-  <link rel="stylesheet" href="assets/styles.css?v=feature-upgrade-20260717" />
+  <link rel="stylesheet" href="assets/styles.css?v=adaptive-layout-20260717" />
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -70,8 +70,8 @@
     <main class="content">
       <header class="topbar">
         <div>
-          <p class="section-label">Overview</p>
-          <h1>Budget Tracker</h1>
+          <p id="pageEyebrow" class="section-label">Overview</p>
+          <h1 id="pageTitle">Budget Tracker</h1>
         </div>
         <div class="topbar-actions">
           <button id="toggleBalanceButton" class="btn btn-light" type="button">Hide Saldo</button>
@@ -250,7 +250,7 @@
           </div>
         </div>
 
-        <div class="scanner-grid">
+        <div id="scannerGrid" class="scanner-grid">
           <div class="upload-card">
             <div class="field">
               <label for="scanFileInput">Upload Screenshot / PDF</label>
@@ -482,6 +482,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/app.js?v=feature-upgrade-20260717"></script>
+  <script type="module" src="assets/app.js?v=adaptive-layout-20260717"></script>
 </body>
 </html>

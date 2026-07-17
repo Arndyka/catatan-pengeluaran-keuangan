@@ -87,3 +87,18 @@ Tambahan fitur:
 - Budget plan:
   - Bisa tambah target persentase dari pemasukan.
   - Default: Kebutuhan Pokok 70%, Investasi/Tabungan 30%.
+
+
+## Adaptive Layout Desktop
+
+Perbaikan:
+- Dashboard memakai lebar halaman penuh.
+- Panel saldo tidak lagi menyisakan kolom kosong.
+- Form input menjadi dua kolom pada desktop.
+- Form tetap satu kolom pada tablet dan HP.
+- Scanner memenuhi lebar halaman sebelum hasil review muncul.
+- Single OCR review menjadi dua kolom pada desktop.
+- Batch OCR review tetap full width.
+- Saldo per bank menjadi dua kolom pada layar besar.
+- Chart diperbesar agar proporsional di laptop.
+- Judul halaman berubah sesuai menu aktif.

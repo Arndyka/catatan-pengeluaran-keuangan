@@ -787,3 +787,171 @@ button, input, select { font: inherit; }
     grid-template-columns: 1fr;
   }
 }
+
+
+/* ADAPTIVE DESKTOP LAYOUT */
+.content {
+  width: 100%;
+  max-width: 1780px;
+  margin: 0 auto;
+}
+
+.main-grid.page-dashboard,
+.main-grid.page-input {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.main-grid.page-dashboard #saldo,
+.main-grid.page-input #input {
+  width: 100%;
+}
+
+.main-grid.page-dashboard .bank-layout {
+  grid-template-columns: minmax(340px, 0.95fr) minmax(520px, 1.45fr);
+}
+
+.main-grid.page-dashboard .bank-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: start;
+}
+
+.main-grid.page-dashboard .chart-wrap {
+  height: 330px;
+}
+
+.main-grid.page-input #input {
+  max-width: none;
+}
+
+.main-grid.page-input #input .padded-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.main-grid.page-input #input .padded-form > .field:last-of-type,
+.main-grid.page-input #input .padded-form > .btn,
+.main-grid.page-input #input .padded-form > .notice {
+  grid-column: 1 / -1;
+}
+
+.main-grid.page-input #input .padded-form > #transferBankWrap {
+  grid-column: 1 / -1;
+}
+
+.scanner-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.scanner-grid.has-single-review {
+  grid-template-columns: minmax(360px, 0.8fr) minmax(420px, 1.2fr);
+}
+
+.scanner-grid.has-batch-review {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.scanner-grid.has-batch-review .upload-card {
+  max-width: 720px;
+}
+
+.upload-card {
+  width: 100%;
+  max-width: none;
+}
+
+.preview-box {
+  min-height: 280px;
+}
+
+.review-card {
+  min-width: 0;
+}
+
+.cashflow-section .chart-wide {
+  padding: 20px;
+}
+
+.cashflow-section .cashflow-wrap {
+  height: 320px;
+}
+
+.credit-card-body {
+  grid-template-columns: minmax(320px, 0.8fr) minmax(480px, 1.2fr);
+}
+
+.history-section,
+.budget-planner-section,
+.advisor-section,
+.scanner-section,
+.cashflow-section,
+.credit-card-section {
+  width: 100%;
+}
+
+@media (min-width: 1500px) {
+  .content {
+    padding-left: 34px;
+    padding-right: 34px;
+  }
+
+  .stats-grid {
+    gap: 20px;
+  }
+
+  .main-grid,
+  .scanner-section,
+  .cashflow-section,
+  .credit-card-section,
+  .advisor-section,
+  .budget-planner-section,
+  .history-section {
+    margin-bottom: 26px;
+  }
+
+  .scanner-grid {
+    padding: 26px;
+  }
+
+  .main-grid.page-input #input .padded-form {
+    column-gap: 18px;
+    row-gap: 16px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .main-grid.page-dashboard .bank-layout,
+  .credit-card-body,
+  .scanner-grid.has-single-review {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .main-grid.page-dashboard .bank-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .main-grid.page-input #input .padded-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .main-grid.page-input #input .padded-form > * {
+    grid-column: auto !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .content {
+    max-width: none;
+  }
+
+  .main-grid.page-dashboard .bank-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .main-grid.page-dashboard .chart-wrap,
+  .cashflow-section .cashflow-wrap {
+    height: 240px;
+  }
+
+  .preview-box {
+    min-height: 220px;
+  }
+}
