@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Spendly Budget Tracker</title>
-  <link rel="stylesheet" href="assets/styles.css?v=stable-multi-ocr-20260717" />
+  <link rel="stylesheet" href="assets/styles.css?v=feature-upgrade-20260717" />
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -55,12 +55,9 @@
       </div>
 
       <nav class="nav">
-        <a href="#dashboard">Dashboard</a>
-        <a href="#input">Input</a>
-        <a href="#saldo">Saldo Bank</a>
-        <a href="#scanner">OCR/PDF Scanner</a>
-        <a href="#advisor">Advisor</a>
-        <a href="#riwayat">Riwayat</a>
+        <button class="nav-link active" data-page="dashboard" type="button">Dashboard</button>
+        <button class="nav-link" data-page="input" type="button">Input Transaksi</button>
+        <button class="nav-link" data-page="review" type="button">Review & Summary</button>
       </nav>
 
       <div class="sync-box">
@@ -77,6 +74,7 @@
           <h1>Budget Tracker</h1>
         </div>
         <div class="topbar-actions">
+          <button id="toggleBalanceButton" class="btn btn-light" type="button">Hide Saldo</button>
           <button id="downloadCSVButton" class="btn btn-light" type="button">CSV</button>
           <button id="downloadExcelButton" class="btn btn-light" type="button">Excel</button>
         </div>
@@ -116,6 +114,17 @@
             <button id="transferTab" class="tx-tab" type="button">Transfer</button>
           </div>
 
+          <div class="add-bank-box">
+            <div>
+              <p class="section-label">Bank Option</p>
+              <strong>Tambah Bank/Dompet</strong>
+            </div>
+            <div class="add-bank-actions">
+              <input id="newBankInput" type="text" placeholder="Contoh: Allo Bank, Blu, Mandiri Credit Card">
+              <button id="addBankButton" class="btn btn-light" type="button">Tambah</button>
+            </div>
+          </div>
+
           <form id="transactionForm" class="form-stack padded-form">
             <div class="field">
               <label for="tanggalInput">Tanggal</label>
@@ -124,17 +133,17 @@
 
             <div id="singleBankWrap" class="field">
               <label for="bankInput">Bank/Dompet</label>
-              <input id="bankInput" type="text" placeholder="Contoh: Mandiri, BCA, DANA" />
+              <select id="bankInput"></select>
             </div>
 
             <div id="transferBankWrap" class="grid-2 hidden">
               <div class="field">
                 <label for="fromBankInput">Dari Bank/Dompet</label>
-                <input id="fromBankInput" type="text" placeholder="Contoh: Mandiri" />
+                <select id="fromBankInput"></select>
               </div>
               <div class="field">
                 <label for="toBankInput">Ke Bank/Dompet</label>
-                <input id="toBankInput" type="text" placeholder="Contoh: BCA" />
+                <select id="toBankInput"></select>
               </div>
             </div>
 
@@ -152,6 +161,7 @@
                 <option value="Tagihan">Tagihan</option>
                 <option value="Hiburan">Hiburan</option>
                 <option value="Kesehatan">Kesehatan</option>
+                <option value="Investasi">Investasi</option>
                 <option value="Lainnya">Lainnya</option>
               </select>
             </div>
@@ -207,6 +217,31 @@
         </div>
       </section>
 
+
+      <section id="creditCardSection" class="panel credit-card-section">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">Credit Card</p>
+            <h2>Kartu Kredit Mandiri</h2>
+          </div>
+        </div>
+        <div class="credit-card-body">
+          <article class="credit-card-summary">
+            <p>Outstanding Kartu Kredit</p>
+            <h3 id="creditOutstanding">Rp 0</h3>
+            <span id="creditStatus" class="credit-status">Belum ada transaksi kartu kredit.</span>
+          </article>
+          <article class="credit-card-guide">
+            <strong>Cara pakai:</strong>
+            <ol>
+              <li>Untuk belanja pakai kartu kredit, pilih sumber bank <b>Mandiri Credit Card</b>.</li>
+              <li>Untuk bayar tagihan kartu kredit, input sebagai <b>Transfer</b> dari Mandiri ke Mandiri Credit Card.</li>
+              <li>Outstanding akan berkurang saat ada transfer masuk ke Mandiri Credit Card.</li>
+            </ol>
+          </article>
+        </div>
+      </section>
+
       <section id="scanner" class="panel scanner-section">
         <div class="panel-header">
           <div>
@@ -259,12 +294,12 @@
 
               <div class="field">
                 <label for="singleBank">Bank/Dompet</label>
-                <input id="singleBank" type="text" />
+                <select id="singleBank"></select>
               </div>
 
               <div id="singleToBankWrap" class="field hidden">
                 <label for="singleToBank">Bank Tujuan</label>
-                <input id="singleToBank" type="text" />
+                <select id="singleToBank"></select>
               </div>
 
               <div class="field">
@@ -283,6 +318,7 @@
                   <option value="Kesehatan">Kesehatan</option>
                   <option value="Transfer">Transfer</option>
                   <option value="Pemasukan">Pemasukan</option>
+                  <option value="Investasi">Investasi</option>
                   <option value="Lainnya">Lainnya</option>
                 </select>
               </div>
@@ -342,6 +378,31 @@
         </div>
       </section>
 
+      
+      <section id="budgetPlanner" class="panel budget-planner-section">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">Budget Plan</p>
+            <h2>Setting Keinginan Pengeluaran</h2>
+          </div>
+        </div>
+
+        <form id="budgetPlanForm" class="budget-form">
+          <div class="field">
+            <label for="budgetPlanName">Nama Pos</label>
+            <input id="budgetPlanName" type="text" placeholder="Contoh: Kebutuhan Pokok, Investasi">
+          </div>
+          <div class="field">
+            <label for="budgetPlanPercent">Persentase dari Pemasukan</label>
+            <input id="budgetPlanPercent" type="number" min="1" max="100" placeholder="Contoh: 70">
+          </div>
+          <button class="btn btn-primary" type="submit">Tambah Plan</button>
+        </form>
+
+        <div id="budgetPlanMessage" class="notice hidden"></div>
+        <div id="budgetPlanList" class="budget-plan-list"></div>
+      </section>
+
       <section id="riwayat" class="panel history-section">
         <div class="panel-header table-header">
           <div>
@@ -350,6 +411,7 @@
           </div>
 
           <div class="filters">
+            <button id="dedupeButton" class="btn btn-light" type="button">Bersihkan Duplikat</button>
             <select id="typeFilter">
               <option value="all">Semua Tipe</option>
               <option value="income">Pemasukan</option>
@@ -383,12 +445,12 @@
 
         <div class="field">
           <label for="editBank">Bank/Dompet</label>
-          <input id="editBank" type="text" required />
+          <select id="editBank" required></select>
         </div>
 
         <div id="editToBankWrap" class="field hidden">
           <label for="editToBank">Bank Tujuan</label>
-          <input id="editToBank" type="text" />
+          <select id="editToBank"></select>
         </div>
 
         <div class="field">
@@ -420,6 +482,6 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/app.js?v=stable-multi-ocr-20260717"></script>
+  <script type="module" src="assets/app.js?v=feature-upgrade-20260717"></script>
 </body>
 </html>

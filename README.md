@@ -68,3 +68,22 @@ Tidak memakai:
 - Azure OpenAI
 - Azure Function
 - Firebase Storage
+
+
+## Feature Upgrade
+
+Tambahan fitur:
+- Multi page: Dashboard, Input Transaksi, Review & Summary.
+- Data duplikat dicegah saat input manual dan saat simpan hasil OCR.
+- Tombol `Bersihkan Duplikat` untuk menghapus data lama yang sama.
+- Bank/Dompet memakai dropdown, bukan ketik manual.
+- Fitur tambah bank/dompet baru.
+- Default bank termasuk `Mandiri Credit Card`.
+- Fitur Hide/Show Saldo untuk menyamarkan nominal di dashboard.
+- Sistem Kartu Kredit Mandiri:
+  - Belanja pakai kartu kredit: pilih bank `Mandiri Credit Card`.
+  - Bayar tagihan: input Transfer dari bank sumber ke `Mandiri Credit Card`.
+  - Outstanding dihitung dari saldo negatif kartu kredit.
+- Budget plan:
+  - Bisa tambah target persentase dari pemasukan.
+  - Default: Kebutuhan Pokok 70%, Investasi/Tabungan 30%.

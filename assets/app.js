@@ -57,6 +57,9 @@ let bankChart = null;
 let cashflowChart = null;
 let scannedItems = [];
 let singleScanItem = null;
+let customBanks = [];
+let budgetPlans = [];
+let balanceHidden = false;
 
 const authScreen = $("authScreen");
 const appShell = $("appShell");
@@ -119,12 +122,24 @@ const batchTableContainer = $("batchTableContainer");
 const selectAllBatchButton = $("selectAllBatchButton");
 const saveBatchButton = $("saveBatchButton");
 
+const newBankInput = $("newBankInput");
+const addBankButton = $("addBankButton");
+const creditOutstanding = $("creditOutstanding");
+const creditStatus = $("creditStatus");
+const budgetPlanForm = $("budgetPlanForm");
+const budgetPlanName = $("budgetPlanName");
+const budgetPlanPercent = $("budgetPlanPercent");
+const budgetPlanMessage = $("budgetPlanMessage");
+const budgetPlanList = $("budgetPlanList");
+const dedupeButton = $("dedupeButton");
+
 const advisorButton = $("advisorButton");
 const advisorOutput = $("advisorOutput");
 
 const typeFilter = $("typeFilter");
 const searchInput = $("searchInput");
 const historyContainer = $("historyContainer");
+const toggleBalanceButton = $("toggleBalanceButton");
 const downloadCSVButton = $("downloadCSVButton");
 const downloadExcelButton = $("downloadExcelButton");
 
@@ -161,7 +176,8 @@ const BANK_ALIASES = {
   ovo: ["ovo"],
   shopeepay: ["shopeepay", "shopee pay"],
   linkaja: ["linkaja", "link aja"],
-  tunai: ["cash", "tunai"]
+  tunai: ["cash", "tunai"],
+  mandiri_credit_card: ["mandiri credit card", "kartu kredit mandiri", "kk mandiri", "mandiri kartu kredit"]
 };
 
 const BANK_DISPLAY = {
@@ -182,7 +198,8 @@ const BANK_DISPLAY = {
   ovo: "OVO",
   shopeepay: "ShopeePay",
   linkaja: "LinkAja",
-  tunai: "Tunai"
+  tunai: "Tunai",
+  mandiri_credit_card: "Mandiri Credit Card"
 };
 
 function cleanText(value) {
@@ -210,6 +227,106 @@ function normalizeBank(value) {
     display: raw.split(" ").filter(Boolean).map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()).join(" ")
   };
 }
+
+
+function getDefaultBankOptions() {
+  return [
+    "Mandiri",
+    "Mandiri Credit Card",
+    "BCA",
+    "BRI",
+    "BNI",
+    "BSI",
+    "CIMB Niaga",
+    "Permata",
+    "Danamon",
+    "Jago",
+    "Jenius",
+    "SeaBank",
+    "Krom",
+    "DANA",
+    "GoPay",
+    "OVO",
+    "ShopeePay",
+    "LinkAja",
+    "Tunai"
+  ];
+}
+
+function getBankStorageKey() {
+  return `spendly_custom_banks_${currentUser?.uid || "guest"}`;
+}
+
+function loadCustomBanks() {
+  try {
+    customBanks = JSON.parse(localStorage.getItem(getBankStorageKey()) || "[]");
+  } catch (_) {
+    customBanks = [];
+  }
+}
+
+function saveCustomBanks() {
+  localStorage.setItem(getBankStorageKey(), JSON.stringify(customBanks));
+}
+
+function getBankOptions() {
+  const all = [...getDefaultBankOptions(), ...customBanks];
+  const map = new Map();
+
+  all.forEach((name) => {
+    const normalized = normalizeBank(name);
+    if (normalized.key) map.set(normalized.key, normalized.display);
+  });
+
+  return [...map.entries()].map(([key, display]) => ({ key, display }));
+}
+
+function bankOptionsHtml(selectedValue = "") {
+  const selected = normalizeBank(selectedValue);
+  return [
+    `<option value="">Pilih Bank/Dompet</option>`,
+    ...getBankOptions().map((bank) => {
+      const isSelected = bank.key === selected.key || bank.display === selectedValue;
+      return `<option value="${bank.display}" ${isSelected ? "selected" : ""}>${bank.display}</option>`;
+    })
+  ].join("");
+}
+
+function populateBankSelects() {
+  const ids = [
+    "bankInput",
+    "fromBankInput",
+    "toBankInput",
+    "singleBank",
+    "singleToBank",
+    "editBank",
+    "editToBank"
+  ];
+
+  ids.forEach((id) => {
+    const element = $(id);
+    if (!element) return;
+    const previous = element.value;
+    element.innerHTML = bankOptionsHtml(previous);
+  });
+}
+
+function addCustomBank() {
+  const value = cleanText(newBankInput.value);
+  if (!value) return;
+
+  const normalized = normalizeBank(value);
+  const exists = getBankOptions().some((bank) => bank.key === normalized.key);
+
+  if (!exists) {
+    customBanks.push(normalized.display);
+    saveCustomBanks();
+  }
+
+  newBankInput.value = "";
+  populateBankSelects();
+}
+
 
 function formatRupiah(value) {
   return new Intl.NumberFormat("id-ID", {
@@ -375,7 +492,7 @@ async function saveManualTransaction(event) {
 
       if (!bank.key) throw new Error("Bank/Dompet wajib diisi.");
 
-      await addDoc(collectionRef("incomes"), {
+      const payload = {
         tanggal,
         bankKey: bank.key,
         bankName: bank.display,
@@ -384,7 +501,14 @@ async function saveManualTransaction(event) {
         keterangan,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
+      };
+
+      if (isDuplicateTransaction("income", payload)) {
+        setNotice(formMessage, "info", "Data yang sama sudah ada, jadi tidak disimpan ulang.");
+        return;
+      }
+
+      await addDoc(collectionRef("incomes"), payload);
     }
 
     if (txMode === "expense") {
@@ -393,7 +517,7 @@ async function saveManualTransaction(event) {
 
       if (!bank.key) throw new Error("Bank/Dompet wajib diisi.");
 
-      await addDoc(collectionRef("expenses"), {
+      const payload = {
         tanggal,
         bankKey: bank.key,
         bankName: bank.display,
@@ -402,7 +526,14 @@ async function saveManualTransaction(event) {
         keterangan,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
+      };
+
+      if (isDuplicateTransaction("expense", payload)) {
+        setNotice(formMessage, "info", "Data yang sama sudah ada, jadi tidak disimpan ulang.");
+        return;
+      }
+
+      await addDoc(collectionRef("expenses"), payload);
     }
 
     if (txMode === "transfer") {
@@ -412,7 +543,7 @@ async function saveManualTransaction(event) {
       if (!fromBank.key || !toBank.key) throw new Error("Bank asal dan tujuan wajib diisi.");
       if (fromBank.key === toBank.key) throw new Error("Bank asal dan tujuan tidak boleh sama.");
 
-      await addDoc(collectionRef("transfers"), {
+      const payload = {
         tanggal,
         fromBankKey: fromBank.key,
         fromBankName: fromBank.display,
@@ -422,7 +553,14 @@ async function saveManualTransaction(event) {
         keterangan,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
-      });
+      };
+
+      if (isDuplicateTransaction("transfer", payload)) {
+        setNotice(formMessage, "info", "Data yang sama sudah ada, jadi tidak disimpan ulang.");
+        return;
+      }
+
+      await addDoc(collectionRef("transfers"), payload);
     }
 
     transactionForm.reset();
@@ -479,6 +617,8 @@ function renderAll() {
   renderStats();
   renderBanks();
   renderCharts();
+  renderCreditCardSummary();
+  renderBudgetPlans();
   renderHistory();
 }
 
@@ -487,9 +627,9 @@ function renderStats() {
   const totalExpense = expenses.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
   const remaining = totalIncome - totalExpense;
 
-  totalIncomeEl.textContent = formatRupiah(totalIncome);
-  totalExpenseEl.textContent = formatRupiah(totalExpense);
-  remainingBalanceEl.textContent = formatRupiah(remaining);
+  totalIncomeEl.textContent = maskMoney(totalIncome);
+  totalExpenseEl.textContent = maskMoney(totalExpense);
+  remainingBalanceEl.textContent = maskMoney(remaining);
   bankCountEl.textContent = getBankBalances().length;
 }
 
@@ -504,12 +644,12 @@ function renderBanks() {
   bankBalanceGrid.innerHTML = banks.map((bank) => `
     <article class="bank-card">
       <h3>${bank.name}</h3>
-      <div class="balance">${formatRupiah(bank.balance)}</div>
+      <div class="balance">${maskMoney(bank.balance)}</div>
       <div class="details">
-        Masuk: ${formatRupiah(bank.income)}<br>
-        Keluar: ${formatRupiah(bank.expense)}<br>
-        Transfer in: ${formatRupiah(bank.transferIn)}<br>
-        Transfer out: ${formatRupiah(bank.transferOut)}
+        Masuk: ${maskMoney(bank.income)}<br>
+        Keluar: ${maskMoney(bank.expense)}<br>
+        Transfer in: ${maskMoney(bank.transferIn)}<br>
+        Transfer out: ${maskMoney(bank.transferOut)}
       </div>
     </article>
   `).join("");
@@ -1083,8 +1223,8 @@ function renderBatchTable() {
                 <option value="transfer" ${item.type === "transfer" ? "selected" : ""}>Transfer</option>
               </select>
             </td>
-            <td><input data-field="bank" type="text" value="${item.bank || ""}"></td>
-            <td><input data-field="toBank" type="text" value="${item.toBank || ""}"></td>
+            <td><select data-field="bank">${bankOptionsHtml(item.bank)}</select></td>
+            <td><select data-field="toBank">${bankOptionsHtml(item.toBank)}</select></td>
             <td><input data-field="merchant" type="text" value="${item.merchant || ""}"></td>
             <td>
               <select data-field="kategori">
@@ -1206,7 +1346,7 @@ async function saveScannedItem(item) {
 
   if (type === "transfer") {
     if (!toBank.key || toBank.key === bank.key) throw new Error(`Transfer perlu bank tujuan valid: ${scanNote}`);
-    await addDoc(collectionRef("transfers"), {
+    const payload = {
       tanggal,
       fromBankKey: bank.key,
       fromBankName: bank.display,
@@ -1220,12 +1360,16 @@ async function saveScannedItem(item) {
       scanNote,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
-    return;
+    };
+
+    if (isDuplicateTransaction("transfer", payload)) return false;
+
+    await addDoc(collectionRef("transfers"), payload);
+    return true;
   }
 
   if (type === "income") {
-    await addDoc(collectionRef("incomes"), {
+    const payload = {
       tanggal,
       bankKey: bank.key,
       bankName: bank.display,
@@ -1238,11 +1382,15 @@ async function saveScannedItem(item) {
       scanNote,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
-    return;
+    };
+
+    if (isDuplicateTransaction("income", payload)) return false;
+
+    await addDoc(collectionRef("incomes"), payload);
+    return true;
   }
 
-  await addDoc(collectionRef("expenses"), {
+  const payload = {
     tanggal,
     bankKey: bank.key,
     bankName: bank.display,
@@ -1255,7 +1403,12 @@ async function saveScannedItem(item) {
     scanNote,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp()
-  });
+  };
+
+  if (isDuplicateTransaction("expense", payload)) return false;
+
+  await addDoc(collectionRef("expenses"), payload);
+  return true;
 }
 
 async function saveSingleScan(event) {
@@ -1275,8 +1428,8 @@ async function saveSingleScan(event) {
   };
 
   try {
-    await saveScannedItem(item);
-    setNotice(scanMessage, "success", "Transaksi hasil scan berhasil disimpan.");
+    const saved = await saveScannedItem(item);
+    setNotice(scanMessage, saved ? "success" : "info", saved ? "Transaksi hasil scan berhasil disimpan." : "Data yang sama sudah ada, jadi tidak disimpan ulang.");
     singleReviewCard.classList.add("hidden");
     scanFileInput.value = "";
     scanPreviewBox.textContent = "Preview file akan muncul di sini.";
@@ -1298,11 +1451,16 @@ async function saveSelectedBatch() {
   saveBatchButton.textContent = "Menyimpan...";
 
   try {
+    let savedCount = 0;
+    let skippedCount = 0;
+
     for (const item of selected) {
-      await saveScannedItem(item);
+      const saved = await saveScannedItem(item);
+      if (saved) savedCount += 1;
+      else skippedCount += 1;
     }
 
-    setNotice(scanMessage, "success", `${selected.length} transaksi berhasil disimpan.`);
+    setNotice(scanMessage, "success", `${savedCount} transaksi berhasil disimpan. ${skippedCount} duplikat dilewati.`);
     scannedItems = [];
     renderBatchTable();
     batchReviewCard.classList.add("hidden");
@@ -1316,6 +1474,232 @@ async function saveSelectedBatch() {
     saveBatchButton.textContent = "Simpan Terpilih";
   }
 }
+
+
+function payloadSignature(type, data) {
+  const normalized = {
+    type,
+    tanggal: data.tanggal || "",
+    nominal: Number(data.nominal || 0),
+    bank: data.bankKey || normalizeBank(data.bankName || data.bank || data.fromBankName).key,
+    toBank: data.toBankKey || normalizeBank(data.toBankName || data.toBank).key,
+    kategori: slugText(data.kategori || data.sumber || data.categoryText || ""),
+    merchant: slugText(data.merchant || data.keterangan || data.title || "")
+  };
+
+  if (type === "transfer") {
+    return [normalized.type, normalized.tanggal, normalized.nominal, normalized.bank, normalized.toBank].join("|");
+  }
+
+  return [normalized.type, normalized.tanggal, normalized.nominal, normalized.bank, normalized.kategori, normalized.merchant].join("|");
+}
+
+function isDuplicateTransaction(type, payload) {
+  const signature = payloadSignature(type, payload);
+
+  if (type === "income") {
+    return incomes.some((item) => payloadSignature("income", item) === signature);
+  }
+
+  if (type === "expense") {
+    return expenses.some((item) => payloadSignature("expense", item) === signature);
+  }
+
+  return transfers.some((item) => payloadSignature("transfer", item) === signature);
+}
+
+async function dedupeExistingTransactions() {
+  const seen = new Set();
+  const deletions = [];
+
+  for (const item of incomes) {
+    const sig = payloadSignature("income", item);
+    if (seen.has(sig)) deletions.push(["incomes", item.id]);
+    else seen.add(sig);
+  }
+
+  for (const item of expenses) {
+    const sig = payloadSignature("expense", item);
+    if (seen.has(sig)) deletions.push(["expenses", item.id]);
+    else seen.add(sig);
+  }
+
+  for (const item of transfers) {
+    const sig = payloadSignature("transfer", item);
+    if (seen.has(sig)) deletions.push(["transfers", item.id]);
+    else seen.add(sig);
+  }
+
+  if (!deletions.length) {
+    alert("Tidak ada data duplikat yang ditemukan.");
+    return;
+  }
+
+  if (!confirm(`Ditemukan ${deletions.length} data duplikat. Hapus duplikat?`)) return;
+
+  for (const [collectionNameValue, id] of deletions) {
+    await deleteDoc(docRef(collectionNameValue, id));
+  }
+
+  alert(`${deletions.length} data duplikat berhasil dihapus.`);
+}
+
+function getBudgetStorageKey() {
+  return `spendly_budget_plans_${currentUser?.uid || "guest"}`;
+}
+
+function loadBudgetPlans() {
+  try {
+    budgetPlans = JSON.parse(localStorage.getItem(getBudgetStorageKey()) || "[]");
+  } catch (_) {
+    budgetPlans = [];
+  }
+
+  if (!budgetPlans.length) {
+    budgetPlans = [
+      { id: "needs", name: "Kebutuhan Pokok", percent: 70 },
+      { id: "investment", name: "Investasi / Tabungan", percent: 30 }
+    ];
+    saveBudgetPlans();
+  }
+}
+
+function saveBudgetPlans() {
+  localStorage.setItem(getBudgetStorageKey(), JSON.stringify(budgetPlans));
+}
+
+function expenseForBudgetPlan(name) {
+  const slug = slugText(name);
+
+  if (slug.includes("pokok") || slug.includes("kebutuhan")) {
+    return expenses
+      .filter((item) => ["Makan", "Transportasi", "Tagihan", "Kesehatan"].includes(item.kategori))
+      .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+  }
+
+  if (slug.includes("investasi") || slug.includes("tabungan")) {
+    return expenses
+      .filter((item) => ["Investasi"].includes(item.kategori))
+      .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+  }
+
+  return expenses
+    .filter((item) => slugText(item.kategori) === slug)
+    .reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+}
+
+function renderBudgetPlans() {
+  if (!budgetPlanList) return;
+
+  const totalIncome = incomes.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+
+  budgetPlanList.innerHTML = budgetPlans.map((plan) => {
+    const target = totalIncome * Number(plan.percent || 0) / 100;
+    const actual = expenseForBudgetPlan(plan.name);
+    const progress = target > 0 ? Math.min(150, (actual / target) * 100) : 0;
+    const over = actual > target && target > 0;
+
+    return `
+      <article class="budget-plan-card">
+        <div>
+          <h3>${plan.name}</h3>
+          <p>${plan.percent}% dari pemasukan</p>
+        </div>
+        <div>
+          <p>Target: ${formatRupiah(target)} · Aktual: ${formatRupiah(actual)}</p>
+          <div class="progress-track">
+            <div class="progress-fill ${over ? "over" : ""}" style="width:${Math.min(100, progress)}%"></div>
+          </div>
+        </div>
+        <button class="small-btn danger" data-delete-plan="${plan.id}" type="button">Hapus</button>
+      </article>
+    `;
+  }).join("");
+}
+
+function addBudgetPlan(event) {
+  event.preventDefault();
+
+  const name = cleanText(budgetPlanName.value);
+  const percent = Number(budgetPlanPercent.value);
+
+  if (!name || !percent || percent <= 0 || percent > 100) {
+    setNotice(budgetPlanMessage, "error", "Nama pos dan persentase 1-100 wajib diisi.");
+    return;
+  }
+
+  budgetPlans.push({
+    id: crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`,
+    name,
+    percent
+  });
+
+  saveBudgetPlans();
+  budgetPlanForm.reset();
+  setNotice(budgetPlanMessage, "success", "Budget plan berhasil ditambahkan.");
+  renderBudgetPlans();
+}
+
+function renderCreditCardSummary() {
+  if (!creditOutstanding) return;
+
+  const cardKey = normalizeBank("Mandiri Credit Card").key;
+  const bank = getBankBalances().find((item) => item.key === cardKey);
+  const balance = bank?.balance || 0;
+  const outstanding = Math.max(0, -balance);
+
+  creditOutstanding.textContent = maskMoney(outstanding);
+
+  if (outstanding > 0) {
+    creditStatus.textContent = "Ada tagihan berjalan. Bayar dengan transfer ke Mandiri Credit Card.";
+  } else {
+    creditStatus.textContent = "Belum ada outstanding atau tagihan sudah tertutup.";
+  }
+}
+
+
+function maskMoney(value) {
+  return balanceHidden ? "Rp ••••••" : formatRupiah(value);
+}
+
+function updateBalanceVisibility() {
+  toggleBalanceButton.textContent = balanceHidden ? "Show Saldo" : "Hide Saldo";
+  document.body.classList.toggle("balance-hidden", balanceHidden);
+  renderStats();
+  renderBanks();
+  renderCreditCardSummary();
+}
+
+
+function setupPages() {
+  const navLinks = document.querySelectorAll("[data-page]");
+
+  function setPage(page) {
+    navLinks.forEach((button) => button.classList.toggle("active", button.dataset.page === page));
+
+    const dashboardItems = [$("dashboard"), $("saldo"), document.querySelector(".cashflow-section"), $("creditCardSection")];
+    const inputItems = [$("input"), $("scanner")];
+    const reviewItems = [$("advisor"), $("budgetPlanner"), $("riwayat")];
+
+    [...dashboardItems, ...inputItems, ...reviewItems].forEach((element) => {
+      if (element) element.classList.add("page-hidden");
+    });
+
+    const show = page === "input" ? inputItems : page === "review" ? reviewItems : dashboardItems;
+    show.forEach((element) => {
+      if (element) element.classList.remove("page-hidden");
+    });
+
+    const mainGrid = document.querySelector(".main-grid");
+    if (mainGrid) {
+      mainGrid.classList.toggle("page-hidden", page === "review");
+    }
+  }
+
+  navLinks.forEach((button) => button.addEventListener("click", () => setPage(button.dataset.page)));
+  setPage("dashboard");
+}
+
 
 function buildSummary() {
   const totalIncome = incomes.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
@@ -1431,6 +1815,9 @@ onAuthStateChanged(auth, (user) => {
   }
 
   showApp(user);
+  loadCustomBanks();
+  loadBudgetPlans();
+  populateBankSelects();
   subscribeData();
 });
 
@@ -1491,9 +1878,37 @@ selectAllBatchButton.addEventListener("click", () => {
 
 saveBatchButton.addEventListener("click", saveSelectedBatch);
 advisorButton.addEventListener("click", generateAdvice);
+toggleBalanceButton.addEventListener("click", () => {
+  balanceHidden = !balanceHidden;
+  updateBalanceVisibility();
+});
+
 downloadCSVButton.addEventListener("click", downloadCSV);
 downloadExcelButton.addEventListener("click", downloadExcel);
+
+addBankButton.addEventListener("click", addCustomBank);
+newBankInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addCustomBank();
+  }
+});
+
+budgetPlanForm.addEventListener("submit", addBudgetPlan);
+budgetPlanList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-delete-plan]");
+  if (!button) return;
+  budgetPlans = budgetPlans.filter((plan) => plan.id !== button.dataset.deletePlan);
+  saveBudgetPlans();
+  renderBudgetPlans();
+});
+
+dedupeButton.addEventListener("click", dedupeExistingTransactions);
 
 tanggalInput.value = formatDateLocal();
 setAuthMode("login");
 setTxMode("income");
+loadCustomBanks();
+loadBudgetPlans();
+populateBankSelects();
+setupPages();
