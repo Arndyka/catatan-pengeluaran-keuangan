@@ -1353,3 +1353,125 @@ tr:last-child td {
     min-height: 200px !important;
   }
 }
+
+
+/* AI SCANNER + FINANCIAL ADVISOR */
+.ai-scanner-section,
+.advisor-section {
+  margin-bottom: 22px;
+}
+
+.ai-scanner-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.85fr) minmax(340px, 1.15fr);
+  gap: 18px;
+  padding: 22px;
+}
+
+.upload-card,
+.scan-result-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-soft);
+  padding: 18px;
+}
+
+.no-margin {
+  margin: 0 !important;
+}
+
+.screenshot-preview {
+  width: 100%;
+  min-height: 240px;
+  border: 1px dashed var(--line);
+  border-radius: 18px;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+.screenshot-preview img {
+  width: 100%;
+  height: 100%;
+  max-height: 360px;
+  object-fit: contain;
+  display: block;
+  background: #fff;
+}
+
+.empty-preview {
+  padding: 22px;
+}
+
+.upload-card .btn {
+  width: 100%;
+  margin-bottom: 14px;
+}
+
+.result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.result-header h3 {
+  margin: 5px 0 0;
+  letter-spacing: -0.04em;
+}
+
+.confidence-badge {
+  padding: 8px 11px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.advisor-body {
+  padding: 22px;
+}
+
+.advisor-output {
+  min-height: 130px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-soft);
+  color: var(--text);
+  line-height: 1.7;
+  white-space: pre-line;
+  font-size: 14px;
+}
+
+@media (max-width: 920px) {
+  .ai-scanner-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .ai-scanner-grid,
+  .advisor-body {
+    padding: 18px;
+  }
+
+  .screenshot-preview {
+    min-height: 200px;
+  }
+
+  .advisor-section .table-header {
+    align-items: stretch;
+  }
+
+  .advisor-section .table-header .btn {
+    width: 100%;
+  }
+}

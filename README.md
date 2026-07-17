@@ -1,87 +1,74 @@
-# Spendly Budget Tracker - With Edit Transaction
+# Spendly AI Budget Tracker
 
-Versi ini menambahkan fitur Edit Transaksi dan chart dashboard.
+Versi ini menambahkan:
 
-## Fitur Baru
+- AI Screenshot Scanner
+- Review hasil AI sebelum simpan transaksi
+- Upload screenshot ke Firebase Storage
+- Auto nama file screenshot: tanggal-kategori-nominal
+- AI Financial Advisor
+- Azure Function backend untuk menjaga Azure OpenAI API key tetap aman
 
-- Chart saldo per bank
-- Chart pemasukan vs pengeluaran
-- Edit pemasukan
-- Edit pengeluaran
-- Edit transfer
-- Memperbaiki transaksi lama yang bank-nya "Belum Dicatat"
-- Edit nominal, tanggal, bank, kategori/sumber, dan keterangan
-- Saldo bank otomatis dihitung ulang setelah edit
-
-## Struktur File
+## Struktur Project
 
 ```text
-budget_tracker_with_edit/
-├── index.html
-├── README.md
-├── FIRESTORE_RULES.txt
-└── assets/
-    ├── styles.css
-    └── app.js
+index.html
+assets/
+  app.js
+  styles.css
+FIRESTORE_RULES.txt
+STORAGE_RULES.txt
+azure-function-api/
+  package.json
+  host.json
+  local.settings.json.example
+  src/functions/scanTransaction.js
+  src/functions/financialAdvice.js
+  src/shared/azureOpenAI.js
 ```
 
-## Cara Update
+## Frontend
 
-1. Extract ZIP.
-2. Copy firebaseConfig lama kamu dari file `assets/app.js` versi GitHub.
-3. Paste firebaseConfig itu ke file baru `assets/app.js`.
-4. Upload ulang ke GitHub:
-   - index.html
-   - README.md
-   - FIRESTORE_RULES.txt
-   - assets/app.js
-   - assets/styles.css
-5. Commit changes.
-6. Pastikan Firestore Rules memakai rules berikut:
+Upload file berikut ke GitHub Pages:
+
+```text
+index.html
+assets/app.js
+assets/styles.css
+FIRESTORE_RULES.txt
+STORAGE_RULES.txt
+```
+
+## Backend
+
+Folder `azure-function-api` adalah backend Azure Function.
+
+Jangan taruh Azure OpenAI API key di frontend.
+
+## Firebase
+
+Firestore Rules: pakai `FIRESTORE_RULES.txt`.
+
+Storage Rules: pakai `STORAGE_RULES.txt`.
+
+Aktifkan Firebase Storage dulu dari Firebase Console.
+
+## Frontend AI Backend URL
+
+Setelah Azure Function deploy, buka:
+
+```text
+assets/app.js
+```
+
+Cari:
 
 ```js
-rules_version = '2';
-
-service cloud.firestore {
-  match /databases/{database}/documents {
-
-    match /users/{userId}/{document=**} {
-      allow read, create, update, delete: if request.auth != null
-        && request.auth.uid == userId;
-    }
-
-  }
-}
+const AI_API_BASE_URL = "ISI_URL_AZURE_FUNCTION_KAMU";
 ```
 
-7. Tunggu GitHub Pages update.
-8. Refresh website dengan Ctrl + F5.
+Ganti dengan URL Azure Function:
 
-## Catatan
-
-Fitur edit membutuhkan `updateDoc`, sehingga Firestore Rules harus mengizinkan `update`.
-
-
-## Chart
-
-Versi ini memakai Chart.js melalui CDN:
-
-```html
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+```js
+const AI_API_BASE_URL = "https://NAMA_FUNCTION_APP.azurewebsites.net/api";
 ```
-
-Chart yang ditambahkan:
-
-1. Chart Saldo per Bank
-2. Chart Pemasukan vs Pengeluaran
-
-Jika chart belum muncul, tekan Ctrl + F5 setelah GitHub Pages selesai deploy.
-
-
-## Revisi Final No Empty Space
-
-Perubahan:
-- Firebase config sudah dimasukkan langsung.
-- Chart Saldo per Bank diubah menjadi horizontal bar chart.
-- Saldo negatif tetap tampil di chart, jadi tidak kosong.
-- Layout Saldo per Bank dibuat lebih padat.

@@ -334,22 +334,149 @@
             </div>
           </div>
 
-          <div class="chart-card cashflow-card">
-            <div class="chart-header">
-              <div>
-                <p class="section-label">Cashflow</p>
-                <h3>Pemasukan vs Pengeluaran</h3>
-              </div>
-            </div>
-            <div class="chart-wrap short-chart">
-              <canvas id="cashflowChart"></canvas>
-            </div>
-          </div>
-
           <div class="summary-note">
             Total sisa uang dihitung dari seluruh saldo bank/dompet. Transfer antar bank tidak mengubah total uang, hanya memindahkan saldo.
           </div>
         </article>
+      </section>
+
+      <section class="cashflow-section panel">
+        <div class="panel-header">
+          <div>
+            <p class="section-label">Cashflow</p>
+            <h2>Pemasukan vs Pengeluaran</h2>
+          </div>
+        </div>
+
+        <div class="chart-card cashflow-card standalone-cashflow">
+          <div class="chart-wrap short-chart">
+            <canvas id="cashflowChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+
+      <section id="ai-scanner" class="panel ai-scanner-section">
+        <div class="panel-header table-header">
+          <div>
+            <p class="section-label">AI Scanner</p>
+            <h2>Scan Screenshot Transaksi</h2>
+          </div>
+        </div>
+
+        <div class="ai-scanner-grid">
+          <div class="upload-card">
+            <div class="field">
+              <label for="screenshotInput">Upload Screenshot</label>
+              <input id="screenshotInput" type="file" accept="image/*">
+            </div>
+
+            <div id="screenshotPreviewBox" class="screenshot-preview empty-preview">
+              <span>Preview screenshot akan muncul di sini.</span>
+            </div>
+
+            <button id="scanScreenshotButton" class="btn btn-primary" type="button">
+              Scan Screenshot
+            </button>
+
+            <div id="scanMessage" class="notice info no-margin">
+              Bisa membaca QRIS, m-banking, e-wallet, struk toko, transfer receipt, dan email receipt. Hasil AI wajib direview dulu sebelum disimpan.
+            </div>
+          </div>
+
+          <div id="scanResultCard" class="scan-result-card hidden">
+            <div class="result-header">
+              <div>
+                <p class="section-label">Review Result</p>
+                <h3>Hasil Deteksi AI</h3>
+              </div>
+              <span id="scanConfidenceBadge" class="confidence-badge">0%</span>
+            </div>
+
+            <form id="scanReviewForm" class="form-stack">
+              <div class="field">
+                <label for="scanType">Tipe Transaksi</label>
+                <select id="scanType">
+                  <option value="expense">Pengeluaran</option>
+                  <option value="income">Pemasukan</option>
+                  <option value="transfer">Transfer</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="scanTanggal">Tanggal</label>
+                <input id="scanTanggal" type="date">
+              </div>
+
+              <div class="field">
+                <label for="scanBank">Bank/Dompet</label>
+                <input id="scanBank" type="text" placeholder="Contoh: Mandiri">
+              </div>
+
+              <div id="scanToBankWrap" class="field hidden">
+                <label for="scanToBank">Bank/Dompet Tujuan</label>
+                <input id="scanToBank" type="text" placeholder="Khusus transfer">
+              </div>
+
+              <div class="field">
+                <label for="scanMerchant">Merchant / Sumber</label>
+                <input id="scanMerchant" type="text" placeholder="Contoh: Kopi Kenangan, Gaji">
+              </div>
+
+              <div class="field">
+                <label for="scanKategori">Kategori</label>
+                <select id="scanKategori">
+                  <option value="Makan">Makan</option>
+                  <option value="Transportasi">Transportasi</option>
+                  <option value="Belanja">Belanja</option>
+                  <option value="Tagihan">Tagihan</option>
+                  <option value="Hiburan">Hiburan</option>
+                  <option value="Kesehatan">Kesehatan</option>
+                  <option value="Transfer">Transfer</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="scanNominal">Nominal</label>
+                <input id="scanNominal" type="number" placeholder="Contoh: 25000">
+              </div>
+
+              <div class="field">
+                <label for="scanKeterangan">Keterangan</label>
+                <input id="scanKeterangan" type="text" placeholder="Keterangan transaksi">
+              </div>
+
+              <div class="field">
+                <label for="scanSuggestedFileName">Nama File Screenshot</label>
+                <input id="scanSuggestedFileName" type="text" readonly>
+              </div>
+
+              <button id="saveScannedTransactionButton" class="btn btn-primary" type="submit">
+                Simpan Hasil Scan
+              </button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section id="financial-advisor" class="panel advisor-section">
+        <div class="panel-header table-header">
+          <div>
+            <p class="section-label">AI Advisor</p>
+            <h2>Financial Advisor</h2>
+          </div>
+
+          <button id="generateAdviceButton" class="btn btn-primary" type="button">
+            Generate Advice
+          </button>
+        </div>
+
+        <div class="advisor-body">
+          <div id="advisorOutput" class="advisor-output">
+            Klik Generate Advice untuk mendapatkan analisis singkat dari pemasukan, pengeluaran, saldo bank, dan kategori pengeluaran.
+          </div>
+        </div>
       </section>
 
       <section id="data" class="panel data-panel full-panel">

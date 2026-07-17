@@ -38,9 +38,24 @@ import {
   serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
+import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.12.5/firebase-storage.js";
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app);
+
+/*
+  Ganti URL ini dengan URL Azure Function kamu setelah deploy.
+  Contoh:
+  const AI_API_BASE_URL = "https://spendly-ai-api.azurewebsites.net/api";
+*/
+const AI_API_BASE_URL = "ISI_URL_AZURE_FUNCTION_KAMU";
 
 let authMode = "login";
 let currentUser = null;
@@ -116,6 +131,32 @@ const filterBank = document.getElementById("filterBank");
 const resetFilterButton = document.getElementById("resetFilterButton");
 const downloadCsvButton = document.getElementById("downloadCsvButton");
 const downloadExcelButton = document.getElementById("downloadExcelButton");
+
+const screenshotInput = document.getElementById("screenshotInput");
+const screenshotPreviewBox = document.getElementById("screenshotPreviewBox");
+const scanScreenshotButton = document.getElementById("scanScreenshotButton");
+const scanMessage = document.getElementById("scanMessage");
+const scanResultCard = document.getElementById("scanResultCard");
+const scanReviewForm = document.getElementById("scanReviewForm");
+const scanConfidenceBadge = document.getElementById("scanConfidenceBadge");
+const scanType = document.getElementById("scanType");
+const scanTanggal = document.getElementById("scanTanggal");
+const scanBank = document.getElementById("scanBank");
+const scanToBankWrap = document.getElementById("scanToBankWrap");
+const scanToBank = document.getElementById("scanToBank");
+const scanMerchant = document.getElementById("scanMerchant");
+const scanKategori = document.getElementById("scanKategori");
+const scanNominal = document.getElementById("scanNominal");
+const scanKeterangan = document.getElementById("scanKeterangan");
+const scanSuggestedFileName = document.getElementById("scanSuggestedFileName");
+const saveScannedTransactionButton = document.getElementById("saveScannedTransactionButton");
+
+const generateAdviceButton = document.getElementById("generateAdviceButton");
+const advisorOutput = document.getElementById("advisorOutput");
+
+let selectedScreenshotFile = null;
+let latestScanResult = null;
+
 
 const editModal = document.getElementById("editModal");
 const closeEditModal = document.getElementById("closeEditModal");
@@ -1238,6 +1279,377 @@ function downloadExcel() {
   XLSX.writeFile(workbook, "budget_tracker.xlsx");
 }
 
+
+function sanitizeFilePart(value) {
+  return String(value || "unknown")
+    .toLowerCase()
+    .replace(/rp/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80) || "unknown";
+}
+
+function getFileExtension(file) {
+  const name = file?.name || "";
+  const match = name.match(/\.([a-zA-Z0-9]+)$/);
+  if (match) return match[1].toLowerCase();
+
+  const type = file?.type || "image/png";
+  if (type.includes("jpeg")) return "jpg";
+  if (type.includes("webp")) return "webp";
+  return "png";
+}
+
+function buildScreenshotFileName(tanggal, kategori, nominal, file) {
+  const datePart = sanitizeFilePart(tanggal || formatDateLocal(new Date()));
+  const categoryPart = sanitizeFilePart(kategori || "lainnya");
+  const amountPart = sanitizeFilePart(String(Number(nominal || 0)));
+  const ext = getFileExtension(file);
+  return `${datePart}-${categoryPart}-${amountPart}.${ext}`;
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+
+    reader.onerror = () => reject(new Error("Gagal membaca file."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isAiApiConfigured() {
+  return AI_API_BASE_URL && !AI_API_BASE_URL.includes("ISI_URL_AZURE_FUNCTION_KAMU");
+}
+
+function setScanLoading(isLoading) {
+  scanScreenshotButton.disabled = isLoading;
+  scanScreenshotButton.textContent = isLoading ? "Memindai screenshot..." : "Scan Screenshot";
+}
+
+function setAdviceLoading(isLoading) {
+  generateAdviceButton.disabled = isLoading;
+  generateAdviceButton.textContent = isLoading ? "Menganalisis..." : "Generate Advice";
+}
+
+function handleScreenshotPreview() {
+  const file = screenshotInput.files?.[0];
+
+  selectedScreenshotFile = file || null;
+  latestScanResult = null;
+  scanResultCard.classList.add("hidden");
+
+  if (!file) {
+    screenshotPreviewBox.className = "screenshot-preview empty-preview";
+    screenshotPreviewBox.innerHTML = "<span>Preview screenshot akan muncul di sini.</span>";
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    setNotice(scanMessage, "error", "File harus berupa gambar.");
+    screenshotInput.value = "";
+    selectedScreenshotFile = null;
+    return;
+  }
+
+  const previewUrl = URL.createObjectURL(file);
+  screenshotPreviewBox.className = "screenshot-preview";
+  screenshotPreviewBox.innerHTML = `<img src="${previewUrl}" alt="Preview screenshot transaksi">`;
+  setNotice(scanMessage, "info", "Screenshot siap dipindai. Klik Scan Screenshot.");
+}
+
+async function scanScreenshotWithAi() {
+  if (!selectedScreenshotFile) {
+    setNotice(scanMessage, "error", "Upload screenshot terlebih dahulu.");
+    return;
+  }
+
+  if (!isAiApiConfigured()) {
+    setNotice(scanMessage, "error", "AI_API_BASE_URL belum diisi. Deploy Azure Function dulu, lalu isi URL backend di assets/app.js.");
+    return;
+  }
+
+  setScanLoading(true);
+  setNotice(scanMessage, "info", "AI sedang membaca screenshot. Mohon tunggu.");
+
+  try {
+    const imageBase64 = await readFileAsBase64(selectedScreenshotFile);
+
+    const response = await fetch(`${AI_API_BASE_URL}/scan-transaction`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        imageBase64,
+        fileType: selectedScreenshotFile.type || "image/png",
+        fileName: selectedScreenshotFile.name,
+        allowedCategories: [
+          "Makan",
+          "Transportasi",
+          "Belanja",
+          "Tagihan",
+          "Hiburan",
+          "Kesehatan",
+          "Transfer",
+          "Lainnya"
+        ]
+      })
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success || !result.transaction) {
+      throw new Error(result.message || "AI gagal membaca screenshot.");
+    }
+
+    latestScanResult = result.transaction;
+    fillScanReviewForm(result.transaction);
+    setNotice(scanMessage, "success", "Screenshot berhasil dibaca. Review hasilnya sebelum disimpan.");
+  } catch (error) {
+    setNotice(scanMessage, "error", error.message || "Gagal memindai screenshot.");
+  } finally {
+    setScanLoading(false);
+  }
+}
+
+function fillScanReviewForm(transaction) {
+  const type = transaction.type || transaction.tipe || "expense";
+  const tanggal = transaction.tanggal || formatDateLocal(new Date());
+  const nominal = Number(transaction.nominal || 0);
+  const kategori = transaction.kategori || (type === "transfer" ? "Transfer" : "Lainnya");
+  const confidence = Number(transaction.confidence || 0);
+
+  scanType.value = ["income", "expense", "transfer"].includes(type) ? type : "expense";
+  scanTanggal.value = tanggal;
+  scanBank.value = transaction.bank || transaction.bankName || "";
+  scanToBank.value = transaction.toBank || transaction.toBankName || "";
+  scanMerchant.value = transaction.merchant || transaction.toko || transaction.sumber || "";
+  scanKategori.value = kategori;
+  scanNominal.value = nominal;
+  scanKeterangan.value = transaction.keterangan || "";
+  scanConfidenceBadge.textContent = `${Math.round(confidence * 100)}%`;
+
+  scanSuggestedFileName.value = transaction.suggestedFileName || buildScreenshotFileName(tanggal, kategori, nominal, selectedScreenshotFile);
+
+  toggleScanToBank();
+  scanResultCard.classList.remove("hidden");
+}
+
+function toggleScanToBank() {
+  scanToBankWrap.classList.toggle("hidden", scanType.value !== "transfer");
+  if (scanType.value === "transfer") {
+    scanKategori.value = "Transfer";
+  }
+}
+
+async function uploadScreenshotToStorage(file, fileName) {
+  if (!currentUser) {
+    throw new Error("User belum login.");
+  }
+
+  const safeFileName = sanitizeFilePart(fileName.replace(/\.[^.]+$/, "")) + "." + getFileExtension(file);
+  const path = `users/${currentUser.uid}/screenshots/${safeFileName}`;
+  const storageReference = ref(storage, path);
+
+  await uploadBytes(storageReference, file, {
+    contentType: file.type || "image/png"
+  });
+
+  const url = await getDownloadURL(storageReference);
+
+  return {
+    path,
+    url,
+    fileName: safeFileName
+  };
+}
+
+async function saveScannedTransaction(event) {
+  event.preventDefault();
+
+  if (!selectedScreenshotFile) {
+    setNotice(scanMessage, "error", "Screenshot tidak ditemukan.");
+    return;
+  }
+
+  const type = scanType.value;
+  const tanggal = scanTanggal.value;
+  const nominal = Number(scanNominal.value);
+  const bank = normalizeBank(scanBank.value);
+  const toBank = normalizeBank(scanToBank.value);
+  const merchant = cleanText(scanMerchant.value);
+  const kategori = scanKategori.value;
+  const keterangan = cleanText(scanKeterangan.value);
+  const suggestedFileName = buildScreenshotFileName(tanggal, kategori, nominal, selectedScreenshotFile);
+
+  if (!tanggal || !nominal || nominal <= 0 || !bank.key) {
+    setNotice(scanMessage, "error", "Tanggal, nominal, dan bank/dompet wajib diisi.");
+    return;
+  }
+
+  if (type === "transfer" && (!toBank.key || toBank.key === bank.key)) {
+    setNotice(scanMessage, "error", "Untuk transfer, bank tujuan wajib diisi dan harus berbeda dari bank asal.");
+    return;
+  }
+
+  saveScannedTransactionButton.disabled = true;
+  saveScannedTransactionButton.textContent = "Menyimpan...";
+
+  try {
+    const screenshot = await uploadScreenshotToStorage(selectedScreenshotFile, suggestedFileName);
+
+    if (type === "income") {
+      await addDoc(collectionRef("incomes"), {
+        tanggal,
+        bankKey: bank.key,
+        bankName: bank.display,
+        sumber: merchant || "Pemasukan dari screenshot",
+        nominal,
+        keterangan,
+        merchant,
+        source: "ai_screenshot",
+        confidence: latestScanResult?.confidence || null,
+        screenshotPath: screenshot.path,
+        screenshotUrl: screenshot.url,
+        screenshotFileName: screenshot.fileName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    if (type === "expense") {
+      await addDoc(collectionRef("expenses"), {
+        tanggal,
+        bankKey: bank.key,
+        bankName: bank.display,
+        kategori,
+        nominal,
+        keterangan: keterangan || merchant || "Pengeluaran dari screenshot",
+        merchant,
+        source: "ai_screenshot",
+        confidence: latestScanResult?.confidence || null,
+        screenshotPath: screenshot.path,
+        screenshotUrl: screenshot.url,
+        screenshotFileName: screenshot.fileName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    if (type === "transfer") {
+      await addDoc(collectionRef("transfers"), {
+        tanggal,
+        fromBankKey: bank.key,
+        fromBankName: bank.display,
+        toBankKey: toBank.key,
+        toBankName: toBank.display,
+        nominal,
+        keterangan: keterangan || "Transfer dari screenshot",
+        merchant,
+        source: "ai_screenshot",
+        confidence: latestScanResult?.confidence || null,
+        screenshotPath: screenshot.path,
+        screenshotUrl: screenshot.url,
+        screenshotFileName: screenshot.fileName,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+    }
+
+    setNotice(scanMessage, "success", `Transaksi berhasil disimpan. Screenshot: ${screenshot.fileName}`);
+    scanReviewForm.reset();
+    scanResultCard.classList.add("hidden");
+    screenshotInput.value = "";
+    selectedScreenshotFile = null;
+    latestScanResult = null;
+    screenshotPreviewBox.className = "screenshot-preview empty-preview";
+    screenshotPreviewBox.innerHTML = "<span>Preview screenshot akan muncul di sini.</span>";
+  } catch (error) {
+    setNotice(scanMessage, "error", error.message || "Gagal menyimpan hasil scan.");
+  } finally {
+    saveScannedTransactionButton.disabled = false;
+    saveScannedTransactionButton.textContent = "Simpan Hasil Scan";
+  }
+}
+
+function buildFinancialSummary() {
+  const totalIncome = incomes.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+  const totalExpense = expenses.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
+  const remainingBalance = totalIncome - totalExpense;
+
+  const expenseByCategoryMap = {};
+  expenses.forEach((item) => {
+    const category = item.kategori || "Lainnya";
+    expenseByCategoryMap[category] = (expenseByCategoryMap[category] || 0) + Number(item.nominal || 0);
+  });
+
+  const expenseByCategory = Object.entries(expenseByCategoryMap)
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const bankBalances = getBankBalances().map((bank) => ({
+    bank: bank.name,
+    balance: bank.balance,
+    income: bank.income,
+    expense: bank.expense,
+    transferIn: bank.transferIn,
+    transferOut: bank.transferOut
+  }));
+
+  return {
+    currency: "IDR",
+    totalIncome,
+    totalExpense,
+    remainingBalance,
+    expenseByCategory,
+    bankBalances,
+    transactionCount: {
+      incomes: incomes.length,
+      expenses: expenses.length,
+      transfers: transfers.length
+    }
+  };
+}
+
+async function generateFinancialAdvice() {
+  if (!isAiApiConfigured()) {
+    advisorOutput.textContent = "AI_API_BASE_URL belum diisi. Deploy Azure Function dulu, lalu isi URL backend di assets/app.js.";
+    return;
+  }
+
+  setAdviceLoading(true);
+  advisorOutput.textContent = "AI sedang menganalisis kondisi keuangan kamu...";
+
+  try {
+    const response = await fetch(`${AI_API_BASE_URL}/financial-advice`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(buildFinancialSummary())
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.success) {
+      throw new Error(result.message || "Gagal membuat financial advice.");
+    }
+
+    advisorOutput.textContent = result.advice || "Tidak ada saran yang dihasilkan.";
+  } catch (error) {
+    advisorOutput.textContent = error.message || "Gagal membuat financial advice.";
+  } finally {
+    setAdviceLoading(false);
+  }
+}
+
+
 function showAuth() {
   authScreen.classList.remove("hidden");
   appScreen.classList.add("hidden");
@@ -1299,5 +1711,27 @@ editModal.addEventListener("click", (event) => {
     closeModal();
   }
 });
+
+
+if (screenshotInput) {
+  screenshotInput.addEventListener("change", handleScreenshotPreview);
+}
+
+if (scanScreenshotButton) {
+  scanScreenshotButton.addEventListener("click", scanScreenshotWithAi);
+}
+
+if (scanReviewForm) {
+  scanReviewForm.addEventListener("submit", saveScannedTransaction);
+}
+
+if (scanType) {
+  scanType.addEventListener("change", toggleScanToBank);
+}
+
+if (generateAdviceButton) {
+  generateAdviceButton.addEventListener("click", generateFinancialAdvice);
+}
+
 
 setToday();
