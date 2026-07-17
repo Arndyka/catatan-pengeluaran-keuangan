@@ -1043,18 +1043,24 @@ function parseKromPage({
 
     if (isMovement) {
       type = "transfer";
+      sourceAccountId = accountId;
+      destinationAccountId = accountId;
     } else if (/Transfer Masuk|Incoming Transfer/i.test(transactionTypeText)) {
       const sourceBank =
         /mandiri/i.test(description)
           ? accountMap.mandiri
           : /bca|blu by bca/i.test(description)
             ? accountMap.bca
-            : "";
+            : /krom/i.test(description)
+              ? accountMap.krom
+              : "";
+
+      // Statement ini milik Krom, sehingga rekening penerima selalu Krom.
+      destinationAccountId = accountId;
 
       if (mentionsOwner && sourceBank) {
         type = "transfer";
         sourceAccountId = sourceBank;
-        destinationAccountId = accountId;
       } else {
         possibleOwnTransfer = mentionsOwner;
       }
@@ -1064,11 +1070,15 @@ function parseKromPage({
           ? accountMap.mandiri
           : /bca|blu by bca/i.test(description)
             ? accountMap.bca
-            : "";
+            : /krom/i.test(description)
+              ? accountMap.krom
+              : "";
+
+      // Statement ini milik Krom, sehingga rekening pengirim selalu Krom.
+      sourceAccountId = accountId;
 
       if (mentionsOwner && destinationBank) {
         type = "transfer";
-        sourceAccountId = accountId;
         destinationAccountId = destinationBank;
       } else {
         possibleOwnTransfer = mentionsOwner;
@@ -1651,6 +1661,37 @@ async function createOcrWorker(onProgress) {
   return worker;
 }
 
+function isExpectedTransactionPage(bank, pageText) {
+  const text = String(pageText || "");
+
+  if (bank === "mandiri") {
+    return (
+      /No\s+Tanggal\s+Keterangan/i.test(text) ||
+      /Nominal\s*\(IDR\).*Saldo\s*\(IDR\)/is.test(text)
+    );
+  }
+
+  if (bank === "bca") {
+    return (
+      /TANGGAL\s+KETERANGAN\s+CBG\s+MUTASI\s+SALDO/i.test(text) ||
+      /^\d{2}\/\d{2}\s+/m.test(text)
+    );
+  }
+
+  if (bank === "krom") {
+    return (
+      /Rincian Transaksi\s*\/Transaction History/i.test(text) ||
+      /Tanggal\s*&\s*Waktu.*Detail Transaksi.*Jumlah/is.test(text) ||
+      /^\d{2}\s+[A-Za-z]+\s+20\d{2}/m.test(text)
+    );
+  }
+
+  return (
+    /Tanggal|Date/i.test(text) &&
+    /Nominal|Amount|Mutasi/i.test(text)
+  );
+}
+
 function initialMetadata() {
   return {
     periodStart: "",
@@ -1683,6 +1724,9 @@ async function readPdfStatement({
   const fallbackPages = [];
   let nativePages = 0;
   let ocrPages = 0;
+  let informationalPages = 0;
+  let parserFailedPages = 0;
+  let ocrFailedPages = 0;
 
   for (
     let pageNumber = 1;
@@ -1754,8 +1798,20 @@ async function readPdfStatement({
     if (parsed.length) {
       nativePages += 1;
       rawCandidates.push(...parsed);
-    } else if (tokens.length < 35) {
-      fallbackPages.push(pageNumber);
+    } else {
+      const expectedTransactionPage =
+        isExpectedTransactionPage(bank, pageText);
+
+      if (tokens.length < 35) {
+        fallbackPages.push({
+          pageNumber,
+          expectedTransactionPage
+        });
+      } else if (expectedTransactionPage) {
+        parserFailedPages += 1;
+      } else {
+        informationalPages += 1;
+      }
     }
 
     page.cleanup();
@@ -1770,7 +1826,8 @@ async function readPdfStatement({
     });
   }
 
-  for (const pageNumber of fallbackPages) {
+  for (const fallbackPage of fallbackPages) {
+    const pageNumber = fallbackPage.pageNumber;
     if (shouldCancel()) {
       throw new Error("Proses scan dibatalkan.");
     }
@@ -1817,6 +1874,10 @@ async function readPdfStatement({
     if (parsed.length) {
       ocrPages += 1;
       rawCandidates.push(...parsed);
+    } else if (fallbackPage.expectedTransactionPage) {
+      ocrFailedPages += 1;
+    } else {
+      informationalPages += 1;
     }
 
     sourceCanvas.width = 0;
@@ -1856,8 +1917,10 @@ async function readPdfStatement({
       pageCount: pdf.numPages,
       nativePages,
       ocrPages,
-      failedPages:
-        pdf.numPages - nativePages - ocrPages,
+      informationalPages,
+      parserFailedPages,
+      ocrFailedPages,
+      failedPages: parserFailedPages + ocrFailedPages,
       rawTransactionCount: validated.candidates.length,
       reviewCandidateCount: saveCandidates.length,
       internalPairCount,
@@ -1923,7 +1986,10 @@ async function readImageStatement({
       bankConfidence: detection.confidence,
       pageCount: 1,
       nativePages: 0,
-      ocrPages: 1,
+      ocrPages: parsed.length ? 1 : 0,
+      informationalPages: 0,
+      parserFailedPages: 0,
+      ocrFailedPages: parsed.length ? 0 : 1,
       failedPages: parsed.length ? 0 : 1,
       rawTransactionCount: parsed.length,
       reviewCandidateCount: parsed.length,
@@ -2101,7 +2167,10 @@ export function parseStatementTokenPagesForTest({
       pageCount: pages.length,
       nativePages,
       ocrPages: 0,
-      failedPages: pages.length - nativePages,
+      informationalPages: Math.max(0, pages.length - nativePages),
+      parserFailedPages: 0,
+      ocrFailedPages: 0,
+      failedPages: 0,
       rawTransactionCount: validated.candidates.length,
       reviewCandidateCount: saveCandidates.length,
       internalPairCount,

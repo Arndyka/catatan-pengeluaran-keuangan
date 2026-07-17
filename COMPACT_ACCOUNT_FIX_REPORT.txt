@@ -1,0 +1,13 @@
+Spendly Compact Account Fix
+
+Verified changes:
+- Removed corrupted regex characters that caused Krom/BCA lookup to fall back to Mandiri.
+- Statement Krom maps to Krom account.
+- Statement BCA maps to BCA account.
+- Statement Mandiri maps to Mandiri account.
+- Incoming/outgoing Krom transfers infer source and destination accounts.
+- Informational pages are no longer labeled failed.
+- Review table reduced from 18 to 10 main columns.
+- All JavaScript modules passed syntax check.
+- Parser re-tested against the uploaded BCA, Krom, and Mandiri PDFs.
+- Supplied PDF password was used only during local testing and is not stored.

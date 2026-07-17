@@ -351,3 +351,42 @@ Tesseract LSTM tetap menjadi fallback untuk:
 - halaman tanpa text layer.
 
 Untuk PDF digital ketiga bank, native text parser lebih diprioritaskan karena lebih akurat daripada OCR gambar.
+
+
+## Account Mapping and Compact Review Fix
+
+### Halaman Informasi
+
+Halaman ringkasan, grafik, deposito kosong, disclaimer, atau halaman lain yang tidak berisi tabel transaksi tidak lagi disebut gagal.
+
+```text
+Halaman Informasi
+```
+
+### Halaman Benar-benar Gagal
+
+Hanya dihitung jika halaman diperkirakan berisi transaksi tetapi:
+
+- native parser tidak berhasil;
+- OCR fallback juga tidak berhasil.
+
+### Mapping Rekening
+
+Pemetaan memakai ID rekening aktual dari pengaturan user:
+
+```text
+Statement Krom    → Krom
+Statement BCA     → BCA
+Statement Mandiri → Mandiri
+```
+
+Transfer Krom:
+
+```text
+Incoming dari Mandiri → sumber Mandiri, tujuan Krom
+Outgoing ke BCA       → sumber Krom, tujuan BCA
+```
+
+### Compact Review
+
+Tabel review dipadatkan dari 18 menjadi 10 kolom utama. Bank, subrekening, halaman, merchant, keterangan, validasi, confidence, serta akun sumber/tujuan dikelompokkan secara logis.

@@ -862,6 +862,39 @@ function setupEvents() {
   });
 
   $("scanReviewContainer").addEventListener("click", handleScanReviewClick);
+
+  $("scanReviewContainer").addEventListener("change", (event) => {
+    if (event.target.dataset.scanField !== "type") {
+      return;
+    }
+
+    const row = event.target.closest("[data-scan-index]");
+
+    if (!row) {
+      return;
+    }
+
+    const index = Number(row.dataset.scanIndex);
+    const candidate = scanCandidates[index];
+    candidate.type = event.target.value;
+
+    const destinationSelect =
+      row.querySelector('[data-scan-field="destinationAccountId"]');
+    const destinationLabel =
+      destinationSelect?.closest("label");
+    const isTransfer = candidate.type === "transfer";
+
+    if (destinationSelect) {
+      destinationSelect.disabled = !isTransfer;
+    }
+
+    if (destinationLabel) {
+      destinationLabel.classList.toggle(
+        "destination-disabled",
+        !isTransfer
+      );
+    }
+  });
 }
 
 let scanCandidates = [];
@@ -877,22 +910,61 @@ async function scanFiles() {
     return;
   }
 
-  const genericAsset =
-    state.settings.accounts.find(
-      (account) => account.type === "asset"
-    )?.id;
+  const assetAccounts = state.settings.accounts.filter(
+    (account) =>
+      account.type === "asset" &&
+      account.active !== false
+  );
 
-  const findBankAccount = (pattern) =>
-    state.settings.accounts.find(
-      (account) =>
-        account.type === "asset" &&
-        pattern.test(account.name)
-    )?.id || genericAsset;
+  const normalizeAccountName = (value) =>
+    cleanText(value)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+  const genericAsset = assetAccounts[0]?.id;
+
+  const findBankAccount = (aliases) => {
+    const normalizedAliases =
+      aliases.map(normalizeAccountName);
+
+    const exact = assetAccounts.find((account) => {
+      const name = normalizeAccountName(account.name);
+      return normalizedAliases.includes(name);
+    });
+
+    if (exact) {
+      return exact.id;
+    }
+
+    const partial = assetAccounts.find((account) => {
+      const name = normalizeAccountName(account.name);
+
+      return normalizedAliases.some((alias) =>
+        name.includes(alias) ||
+        alias.includes(name)
+      );
+    });
+
+    return partial?.id || genericAsset;
+  };
 
   const bankAccountMap = {
-    mandiri: findBankAccount(/mandiri/i),
-    bca: findBankAccount(/bca|bank central asia/i),
-    krom: findBankAccount(/krom/i),
+    mandiri: findBankAccount([
+      "Mandiri",
+      "Bank Mandiri",
+      "Mandiri Tabungan"
+    ]),
+    bca: findBankAccount([
+      "BCA",
+      "Bank BCA",
+      "Bank Central Asia"
+    ]),
+    krom: findBankAccount([
+      "Krom",
+      "Krom Bank",
+      "Bank Krom"
+    ]),
     generic: genericAsset
   };
 
@@ -960,8 +1032,64 @@ async function scanFiles() {
       }
     });
 
-    scanCandidates = result.candidates;
     scanStatements = result.statements;
+
+    const statementBankByFile = new Map(
+      scanStatements.map((statement) => [
+        statement.fileName,
+        statement.bank
+      ])
+    );
+
+    scanCandidates = result.candidates.map((candidate) => {
+      const detectedBank =
+        candidate.bank ||
+        statementBankByFile.get(candidate.sourceFile) ||
+        "generic";
+
+      const detectedBankAccount =
+        bankAccountMap[detectedBank] ||
+        bankAccountMap.generic;
+
+      const nextCandidate = {
+        ...candidate
+      };
+
+      // Pengeluaran/pemasukan biasa selalu memakai rekening
+      // bank yang terdeteksi dari e-Statement.
+      if (nextCandidate.type !== "transfer") {
+        nextCandidate.sourceAccountId =
+          detectedBankAccount;
+        nextCandidate.destinationAccountId = "";
+      }
+
+      // Transfer mempertahankan hasil parser jika kedua sisinya jelas.
+      // Sisi yang pasti berasal dari statement diisi otomatis.
+      if (nextCandidate.type === "transfer") {
+        if (nextCandidate.signedAmount < 0) {
+          nextCandidate.sourceAccountId =
+            nextCandidate.sourceAccountId ||
+            detectedBankAccount;
+        }
+
+        if (nextCandidate.signedAmount > 0) {
+          nextCandidate.destinationAccountId =
+            nextCandidate.destinationAccountId ||
+            detectedBankAccount;
+        }
+
+        if (nextCandidate.internalMovement) {
+          nextCandidate.sourceAccountId =
+            nextCandidate.sourceAccountId ||
+            detectedBankAccount;
+          nextCandidate.destinationAccountId =
+            nextCandidate.destinationAccountId ||
+            detectedBankAccount;
+        }
+      }
+
+      return nextCandidate;
+    });
 
     renderStatementSummaries();
     renderScanCandidates();
@@ -1034,20 +1162,24 @@ function renderStatementSummaries() {
                     ${escapeHtml(statement.bankLabel || statement.bank)}
                     · ${Math.round(Number(statement.bankConfidence || 0) * 100)}%
                   </div>
+
                   <h3>${escapeHtml(statement.fileName)}</h3>
+
                   <p>
                     ${statement.pageCount} halaman ·
-                    ${statement.nativePages} parser native ·
-                    ${statement.ocrPages} OCR ML fallback
+                    ${statement.nativePages} halaman transaksi native ·
+                    ${statement.ocrPages} OCR fallback ·
+                    ${statement.informationalPages || 0} halaman informasi
                   </p>
                 </div>
+
                 <span class="${statusClass}">
                   ${statusText}
                 </span>
               </div>
 
-              <div class="statement-summary-grid">
-                <div class="statement-summary-item">
+              <div class="statement-summary-grid compact-summary-grid">
+                <div class="statement-summary-item summary-wide">
                   <p>Periode</p>
                   <strong>
                     ${escapeHtml(metadata.periodStart || "-")}
@@ -1062,12 +1194,12 @@ function renderStatementSummaries() {
                 </div>
 
                 <div class="statement-summary-item">
-                  <p>Dana Masuk Terbaca</p>
+                  <p>Dana Masuk</p>
                   <strong>${money(reconciliation.totalIncoming || 0)}</strong>
                 </div>
 
                 <div class="statement-summary-item">
-                  <p>Dana Keluar Terbaca</p>
+                  <p>Dana Keluar</p>
                   <strong>${money(reconciliation.totalOutgoing || 0)}</strong>
                 </div>
 
@@ -1087,61 +1219,20 @@ function renderStatementSummaries() {
                 </div>
 
                 <div class="statement-summary-item">
-                  <p>Selisih Saldo Akhir</p>
-                  <strong class="${statusClass}">
-                    ${
-                      reconciliation.closingDifference === null ||
-                      reconciliation.closingDifference === undefined
-                        ? "-"
-                        : money(reconciliation.closingDifference)
-                    }
-                  </strong>
-                </div>
-
-                <div class="statement-summary-item">
-                  <p>Selisih Dana Masuk</p>
-                  <strong class="${
-                    reconciliation.incomingDifference &&
-                    Math.abs(reconciliation.incomingDifference) > 2
-                      ? "validation-error"
-                      : "validation-ok"
-                  }">
-                    ${
-                      reconciliation.incomingDifference === null ||
-                      reconciliation.incomingDifference === undefined
-                        ? "-"
-                        : money(reconciliation.incomingDifference)
-                    }
-                  </strong>
-                </div>
-
-                <div class="statement-summary-item">
-                  <p>Selisih Dana Keluar</p>
-                  <strong class="${
-                    reconciliation.outgoingDifference &&
-                    Math.abs(reconciliation.outgoingDifference) > 2
-                      ? "validation-error"
-                      : "validation-ok"
-                  }">
-                    ${
-                      reconciliation.outgoingDifference === null ||
-                      reconciliation.outgoingDifference === undefined
-                        ? "-"
-                        : money(reconciliation.outgoingDifference)
-                    }
-                  </strong>
-                </div>
-
-                <div class="statement-summary-item">
-                  <p>Transfer Internal Dipasangkan</p>
+                  <p>Transfer Internal</p>
                   <strong>${statement.internalPairCount || 0}</strong>
                 </div>
 
                 <div class="statement-summary-item">
-                  <p>Halaman Gagal</p>
+                  <p>Halaman Informasi</p>
+                  <strong>${statement.informationalPages || 0}</strong>
+                </div>
+
+                <div class="statement-summary-item">
+                  <p>Halaman Benar-benar Gagal</p>
                   <strong class="${
                     statement.failedPages
-                      ? "validation-warning"
+                      ? "validation-error"
                       : "validation-ok"
                   }">
                     ${statement.failedPages || 0}
@@ -1181,47 +1272,54 @@ function renderScanCandidates() {
   $("scanReviewContainer").innerHTML =
     scanCandidates.length
       ? `
-        <div class="scan-save-toolbar">
-          <p>
-            Mandiri, BCA, dan Krom sudah dipetakan ke rekening masing-masing.
-            Transfer internal Krom tidak dipilih otomatis agar tidak dihitung ganda.
-          </p>
-          <button id="saveScanCandidates" class="btn btn-primary" type="button">
-            Simpan Kandidat Terpilih
-          </button>
+        <div class="scan-save-toolbar compact-toolbar">
+          <div>
+            <strong>${scanCandidates.length} kandidat transaksi</strong>
+            <p>
+              Akun mengikuti bank hasil deteksi. Transfer internal Krom
+              tidak dipilih otomatis agar tidak dihitung dua kali.
+            </p>
+          </div>
+
+          <div class="compact-toolbar-actions">
+            <button id="selectAllScanCandidates" class="btn btn-light" type="button">
+              Pilih Semua
+            </button>
+
+            <button id="clearAllScanCandidates" class="btn btn-light" type="button">
+              Kosongkan
+            </button>
+
+            <button id="saveScanCandidates" class="btn btn-primary" type="button">
+              Simpan Terpilih
+            </button>
+          </div>
         </div>
 
-        <div class="table-container">
+        <div class="table-container compact-review-table">
           <table>
             <thead>
               <tr>
-                <th>Pilih</th>
-                <th>Bank</th>
-                <th>Subrekening</th>
-                <th>Hal./No.</th>
-                <th>Tanggal</th>
-                <th>Waktu</th>
+                <th class="sticky-col sticky-col-1">Pilih</th>
+                <th class="sticky-col sticky-col-2">Bank & Sumber</th>
+                <th>Tanggal & Waktu</th>
                 <th>Tipe</th>
-                <th>Akun Sumber</th>
-                <th>Akun Tujuan</th>
+                <th>Akun</th>
                 <th>Kategori</th>
                 <th>Nominal</th>
-                <th>Saldo Setelah</th>
-                <th>Merchant</th>
-                <th>Keterangan</th>
-                <th>Validasi</th>
-                <th>Confidence</th>
-                <th>Metode</th>
+                <th>Merchant & Keterangan</th>
+                <th>Status</th>
                 <th>Aksi</th>
               </tr>
             </thead>
+
             <tbody>
               ${scanCandidates.map((item, index) => `
                 <tr
                   data-scan-index="${index}"
                   class="${item.internalMovement ? "internal-movement-row" : ""}"
                 >
-                  <td>
+                  <td class="sticky-col sticky-col-1">
                     <input
                       data-scan-field="selected"
                       type="checkbox"
@@ -1229,43 +1327,40 @@ function renderScanCandidates() {
                     >
                   </td>
 
-                  <td>
+                  <td class="sticky-col sticky-col-2">
                     <span class="bank-detection-badge ${item.bank}">
                       ${escapeHtml(item.bankLabel || item.bank)}
                     </span>
-                  </td>
 
-                  <td>
-                    <strong>${escapeHtml(item.statementAccountName || "-")}</strong>
-                    <div class="statement-subaccount">
-                      ${escapeHtml(item.statementAccountNumber || "")}
+                    <div class="compact-source-meta">
+                      <strong>
+                        ${escapeHtml(item.statementAccountName || "Rekening Utama")}
+                      </strong>
+                      <span>
+                        Hal. ${item.sourcePage || "-"} · No. ${item.sourceRow || "-"}
+                      </span>
                     </div>
                   </td>
 
                   <td>
-                    ${item.sourcePage || "-"} /
-                    ${item.sourceRow || "-"}
+                    <div class="compact-date-time">
+                      <input
+                        data-scan-field="date"
+                        type="date"
+                        value="${item.date || ""}"
+                      >
+
+                      <input
+                        data-scan-field="time"
+                        type="time"
+                        step="1"
+                        value="${item.time || ""}"
+                      >
+                    </div>
                   </td>
 
                   <td>
-                    <input
-                      data-scan-field="date"
-                      type="date"
-                      value="${item.date || ""}"
-                    >
-                  </td>
-
-                  <td>
-                    <input
-                      data-scan-field="time"
-                      type="time"
-                      step="1"
-                      value="${item.time || ""}"
-                    >
-                  </td>
-
-                  <td>
-                    <select data-scan-field="type">
+                    <select data-scan-field="type" class="compact-select">
                       <option value="income" ${item.type === "income" ? "selected" : ""}>
                         Pemasukan
                       </option>
@@ -1276,34 +1371,45 @@ function renderScanCandidates() {
                         Transfer
                       </option>
                     </select>
+
                     ${
                       item.possibleOwnTransfer
-                        ? `<div class="possible-transfer-warning">Kemungkinan transfer antar rekening sendiri</div>`
+                        ? `<div class="possible-transfer-warning">Cek transfer sendiri</div>`
                         : ""
                     }
                   </td>
 
                   <td>
-                    <select data-scan-field="sourceAccountId">
-                      ${accountOptionsHtml(
-                        item.sourceAccountId,
-                        { includeLiabilities: false }
-                      )}
-                    </select>
-                  </td>
+                    <div class="account-pair">
+                      <label>
+                        <span>Sumber</span>
+                        <select data-scan-field="sourceAccountId">
+                          ${accountOptionsHtml(
+                            item.sourceAccountId,
+                            { includeLiabilities: false }
+                          )}
+                        </select>
+                      </label>
 
-                  <td>
-                    <select data-scan-field="destinationAccountId">
-                      ${accountOptionsHtml(
-                        item.destinationAccountId,
-                        { includeLiabilities: false }
-                      )}
-                    </select>
+                      <label class="${item.type === "transfer" ? "" : "destination-disabled"}">
+                        <span>Tujuan</span>
+                        <select
+                          data-scan-field="destinationAccountId"
+                          ${item.type === "transfer" ? "" : "disabled"}
+                        >
+                          ${accountOptionsHtml(
+                            item.destinationAccountId,
+                            { includeLiabilities: false }
+                          )}
+                        </select>
+                      </label>
+                    </div>
                   </td>
 
                   <td>
                     <input
                       data-scan-field="category"
+                      class="compact-input"
                       type="text"
                       value="${escapeHtml(item.category || "Lainnya")}"
                     >
@@ -1312,47 +1418,51 @@ function renderScanCandidates() {
                   <td>
                     <input
                       data-scan-field="amount"
+                      class="compact-amount"
                       type="number"
                       min="1"
                       value="${item.amount || 0}"
                     >
-                  </td>
 
-                  <td>
                     ${
                       item.balanceAfter === null ||
                       item.balanceAfter === undefined
-                        ? "-"
-                        : money(item.balanceAfter)
+                        ? ""
+                        : `<div class="balance-after">Saldo ${money(item.balanceAfter)}</div>`
                     }
                   </td>
 
                   <td>
-                    <input
-                      data-scan-field="merchant"
-                      type="text"
-                      value="${escapeHtml(item.merchant || "")}"
-                    >
+                    <div class="merchant-description">
+                      <input
+                        data-scan-field="merchant"
+                        class="compact-input"
+                        type="text"
+                        value="${escapeHtml(item.merchant || "")}"
+                        placeholder="Merchant"
+                      >
+
+                      <textarea
+                        data-scan-field="description"
+                        rows="2"
+                        placeholder="Keterangan"
+                      >${escapeHtml(item.description || "")}</textarea>
+                    </div>
                   </td>
 
                   <td>
-                    <input
-                      class="scan-description-input"
-                      data-scan-field="description"
-                      type="text"
-                      value="${escapeHtml(item.description || "")}"
-                    >
+                    <div class="status-stack">
+                      ${validationLabel(item)}
+
+                      <span class="badge ${confidenceClass(item.confidence)}">
+                        ${Math.round(Number(item.confidence || 0) * 100)}%
+                      </span>
+
+                      <span class="method-label">
+                        ${escapeHtml(item.extractionMethod || "-")}
+                      </span>
+                    </div>
                   </td>
-
-                  <td>${validationLabel(item)}</td>
-
-                  <td>
-                    <span class="badge ${confidenceClass(item.confidence)}">
-                      ${Math.round(Number(item.confidence || 0) * 100)}%
-                    </span>
-                  </td>
-
-                  <td>${escapeHtml(item.extractionMethod || "-")}</td>
 
                   <td>
                     <button
@@ -1371,7 +1481,6 @@ function renderScanCandidates() {
       `
       : `<div class="empty-state">Tidak ada transaksi yang berhasil dibaca.</div>`;
 }
-
 function syncScanCandidates() {
   document.querySelectorAll("[data-scan-index]").forEach((row) => {
     const item =
@@ -1398,6 +1507,24 @@ function syncScanCandidates() {
   });
 }
 async function handleScanReviewClick(event) {
+  if (event.target.id === "selectAllScanCandidates") {
+    scanCandidates.forEach((item) => {
+      if (!item.internalMovement) {
+        item.selected = true;
+      }
+    });
+    renderScanCandidates();
+    return;
+  }
+
+  if (event.target.id === "clearAllScanCandidates") {
+    scanCandidates.forEach((item) => {
+      item.selected = false;
+    });
+    renderScanCandidates();
+    return;
+  }
+
   const removeButton =
     event.target.closest("[data-remove-scan]");
 

@@ -1104,3 +1104,246 @@ th {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+/* COMPACT ACCOUNT-MAPPED REVIEW */
+.compact-summary-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.compact-summary-grid .summary-wide {
+  grid-column: span 2;
+}
+
+.compact-toolbar {
+  position: sticky;
+  top: 8px;
+  z-index: 8;
+  padding: 12px 14px;
+  background: rgba(248, 250, 252, 0.96);
+  backdrop-filter: blur(10px);
+}
+
+.compact-toolbar > div:first-child {
+  min-width: 240px;
+}
+
+.compact-toolbar > div:first-child strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.compact-toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.compact-review-table {
+  max-height: 72vh;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.compact-review-table table {
+  width: 100%;
+  min-width: 1280px;
+  table-layout: fixed;
+}
+
+.compact-review-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  background: #fff;
+}
+
+.compact-review-table th,
+.compact-review-table td {
+  padding: 9px 8px;
+  vertical-align: top;
+}
+
+.compact-review-table th:nth-child(1),
+.compact-review-table td:nth-child(1) {
+  width: 54px;
+}
+
+.compact-review-table th:nth-child(2),
+.compact-review-table td:nth-child(2) {
+  width: 155px;
+}
+
+.compact-review-table th:nth-child(3),
+.compact-review-table td:nth-child(3) {
+  width: 160px;
+}
+
+.compact-review-table th:nth-child(4),
+.compact-review-table td:nth-child(4) {
+  width: 122px;
+}
+
+.compact-review-table th:nth-child(5),
+.compact-review-table td:nth-child(5) {
+  width: 200px;
+}
+
+.compact-review-table th:nth-child(6),
+.compact-review-table td:nth-child(6) {
+  width: 125px;
+}
+
+.compact-review-table th:nth-child(7),
+.compact-review-table td:nth-child(7) {
+  width: 125px;
+}
+
+.compact-review-table th:nth-child(8),
+.compact-review-table td:nth-child(8) {
+  width: 260px;
+}
+
+.compact-review-table th:nth-child(9),
+.compact-review-table td:nth-child(9) {
+  width: 125px;
+}
+
+.compact-review-table th:nth-child(10),
+.compact-review-table td:nth-child(10) {
+  width: 72px;
+}
+
+.sticky-col {
+  position: sticky;
+  z-index: 4;
+  background: #fff;
+}
+
+.sticky-col-1 {
+  left: 0;
+}
+
+.sticky-col-2 {
+  left: 54px;
+  box-shadow: 6px 0 10px rgba(16, 24, 40, 0.05);
+}
+
+thead .sticky-col {
+  z-index: 7;
+}
+
+.internal-movement-row .sticky-col {
+  background: #fffaf0;
+}
+
+.compact-source-meta {
+  display: grid;
+  gap: 3px;
+  margin-top: 7px;
+}
+
+.compact-source-meta strong {
+  font-size: 12px;
+}
+
+.compact-source-meta span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.compact-date-time,
+.account-pair,
+.merchant-description,
+.status-stack {
+  display: grid;
+  gap: 6px;
+}
+
+.compact-date-time input,
+.compact-input,
+.compact-amount,
+.compact-select,
+.account-pair select,
+.merchant-description textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 7px 8px;
+  background: #fff;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.merchant-description textarea {
+  resize: vertical;
+  line-height: 1.35;
+}
+
+.account-pair label {
+  display: grid;
+  gap: 3px;
+}
+
+.account-pair label > span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.destination-disabled {
+  opacity: 0.45;
+}
+
+.balance-after {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.method-label {
+  color: var(--muted);
+  font-size: 9px;
+  overflow-wrap: anywhere;
+}
+
+.status-stack {
+  justify-items: start;
+}
+
+@media (min-width: 1500px) {
+  .content {
+    max-width: 1550px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .compact-summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .compact-summary-grid .summary-wide {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 720px) {
+  .compact-summary-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .compact-toolbar {
+    position: static;
+  }
+
+  .compact-toolbar-actions {
+    width: 100%;
+  }
+
+  .compact-toolbar-actions .btn {
+    flex: 1 1 145px;
+  }
+}
