@@ -955,3 +955,59 @@ button, input, select { font: inherit; }
     min-height: 220px;
   }
 }
+
+
+/* DELETE ALL HISTORY */
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.btn-danger:hover {
+  filter: brightness(0.96);
+}
+
+.history-action-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 720px) {
+  .history-action-buttons {
+    width: 100%;
+  }
+
+  .history-action-buttons .btn {
+    width: 100%;
+  }
+}
+
+
+/* DEFAULT HIDE SALDO */
+.balance-hidden .chart-wrap {
+  position: relative;
+  min-height: 190px;
+}
+
+.balance-hidden .chart-wrap canvas {
+  visibility: hidden;
+}
+
+.balance-hidden .chart-wrap::after {
+  content: "Data grafik disembunyikan";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  background: var(--soft);
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 14px;
+}
+
+.balance-hidden .bank-card .details {
+  color: var(--muted);
+}

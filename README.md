@@ -102,3 +102,24 @@ Perbaikan:
 - Saldo per bank menjadi dua kolom pada layar besar.
 - Chart diperbesar agar proporsional di laptop.
 - Judul halaman berubah sesuai menu aktif.
+
+
+## Hapus Semua Transaksi
+
+Tambahan:
+- Tombol `Hapus Semua` tersedia pada halaman Review & Summary.
+- Menghapus seluruh pemasukan, pengeluaran, dan transfer milik user yang sedang login.
+- Memakai dua tahap konfirmasi:
+  1. Konfirmasi browser.
+  2. Ketik `HAPUS SEMUA`.
+- Penghapusan hanya berlaku untuk akun user yang sedang login.
+
+
+## Default Hide Saldo
+
+Perubahan:
+- Saldo otomatis tersembunyi saat website dibuka atau user login.
+- Tombol awal menjadi `Show Saldo`.
+- Nominal pada kartu ringkasan dan saldo per bank disamarkan.
+- Grafik saldo dan cashflow ikut disembunyikan agar nilai tidak terlihat dari panjang bar atau skala sumbu.
+- Klik `Show Saldo` untuk menampilkan semua nominal dan grafik.

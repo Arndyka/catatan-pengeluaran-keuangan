@@ -59,7 +59,7 @@ let scannedItems = [];
 let singleScanItem = null;
 let customBanks = [];
 let budgetPlans = [];
-let balanceHidden = false;
+let balanceHidden = true;
 
 const authScreen = $("authScreen");
 const appShell = $("appShell");
@@ -132,6 +132,7 @@ const budgetPlanPercent = $("budgetPlanPercent");
 const budgetPlanMessage = $("budgetPlanMessage");
 const budgetPlanList = $("budgetPlanList");
 const dedupeButton = $("dedupeButton");
+const deleteAllButton = $("deleteAllButton");
 
 const advisorButton = $("advisorButton");
 const advisorOutput = $("advisorOutput");
@@ -1782,6 +1783,52 @@ function setupPages() {
 }
 
 
+
+async function deleteAllTransactions() {
+  const total = incomes.length + expenses.length + transfers.length;
+
+  if (!total) {
+    alert("Belum ada transaksi untuk dihapus.");
+    return;
+  }
+
+  const firstConfirm = confirm(
+    `Hapus semua ${total} transaksi?\n\nTindakan ini akan menghapus seluruh pemasukan, pengeluaran, dan transfer dari akun ini.`
+  );
+
+  if (!firstConfirm) return;
+
+  const verification = prompt(
+    'Ketik HAPUS SEMUA untuk melanjutkan.\n\nTindakan ini tidak dapat dibatalkan.'
+  );
+
+  if (verification !== "HAPUS SEMUA") {
+    alert("Penghapusan dibatalkan karena teks konfirmasi tidak sesuai.");
+    return;
+  }
+
+  deleteAllButton.disabled = true;
+  deleteAllButton.textContent = "Menghapus...";
+
+  try {
+    const jobs = [
+      ...incomes.map((item) => deleteDoc(docRef("incomes", item.id))),
+      ...expenses.map((item) => deleteDoc(docRef("expenses", item.id))),
+      ...transfers.map((item) => deleteDoc(docRef("transfers", item.id)))
+    ];
+
+    await Promise.all(jobs);
+
+    alert(`${total} transaksi berhasil dihapus.`);
+  } catch (error) {
+    alert(error?.message || "Gagal menghapus semua transaksi.");
+  } finally {
+    deleteAllButton.disabled = false;
+    deleteAllButton.textContent = "Hapus Semua";
+  }
+}
+
+
 function buildSummary() {
   const totalIncome = incomes.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
   const totalExpense = expenses.reduce((sum, item) => sum + Number(item.nominal || 0), 0);
@@ -1985,6 +2032,7 @@ budgetPlanList.addEventListener("click", (event) => {
 });
 
 dedupeButton.addEventListener("click", dedupeExistingTransactions);
+deleteAllButton.addEventListener("click", deleteAllTransactions);
 
 tanggalInput.value = formatDateLocal();
 setAuthMode("login");
@@ -1993,3 +2041,4 @@ loadCustomBanks();
 loadBudgetPlans();
 populateBankSelects();
 setupPages();
+updateBalanceVisibility();
