@@ -1443,3 +1443,94 @@ thead .sticky-col {
     flex-direction: column;
   }
 }
+\n\n/* BCA READER V3 */\n.validation-calculated {\n  color: #175cd3;\n  font-weight: 800;\n  font-size: 11px;\n}\n\n.transaction-code-label {\n  display: inline-flex;\n  padding: 4px 6px;\n  border-radius: 7px;\n  background: #eef4ff;\n  color: #3538cd;\n  font-size: 8px;\n  font-weight: 900;\n  overflow-wrap: anywhere;\n}\n
+
+/* MULTI-BANK AI READER V4 */
+.supported-bank-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px 22px 0;
+}
+
+.supported-bank-card {
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fff;
+}
+
+.supported-bank-card.mandiri {
+  border-top: 4px solid #2b62b7;
+}
+
+.supported-bank-card.bca {
+  border-top: 4px solid #17479e;
+}
+
+.supported-bank-card.krom {
+  border-top: 4px solid #6a36c8;
+}
+
+.supported-bank-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.supported-bank-title strong {
+  font-size: 14px;
+}
+
+.supported-bank-title span {
+  display: inline-flex;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--success-soft);
+  color: var(--success);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.supported-bank-card p {
+  margin: 9px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.multi-bank-notice {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 14px 22px 0;
+  padding: 12px 14px;
+  border: 1px solid #cad8f6;
+  border-radius: 14px;
+  background: #f4f7ff;
+}
+
+.multi-bank-notice strong {
+  flex: 0 0 auto;
+  color: var(--primary);
+  font-size: 13px;
+}
+
+.multi-bank-notice span {
+  color: #475467;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 1000px) {
+  .supported-bank-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .multi-bank-notice {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

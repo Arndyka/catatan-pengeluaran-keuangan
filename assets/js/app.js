@@ -1499,6 +1499,11 @@ function renderStatementSummaries() {
                 </div>
 
                 <div class="statement-summary-item">
+                  <p>Saldo Antarbaris Dihitung</p>
+                  <strong>${statement.reconciliation?.calculatedBalanceCount || 0}</strong>
+                </div>
+
+                <div class="statement-summary-item">
                   <p>Halaman Informasi</p>
                   <strong>${statement.informationalPages || 0}</strong>
                 </div>
@@ -1529,7 +1534,11 @@ function confidenceClass(confidence) {
 
 function validationLabel(item) {
   if (item.validationStatus === "valid") {
-    return `<span class="validation-ok">Saldo cocok</span>`;
+    return `<span class="validation-ok">Saldo tercetak cocok</span>`;
+  }
+
+  if (item.validationStatus === "calculated") {
+    return `<span class="validation-calculated">Saldo dihitung dari mutasi</span>`;
   }
 
   if (item.validationStatus === "mismatch") {
@@ -1721,7 +1730,10 @@ function renderScanCandidates() {
                       item.balanceAfter === null ||
                       item.balanceAfter === undefined
                         ? ""
-                        : `<div class="balance-after">Saldo ${money(item.balanceAfter)}</div>`
+                        : `<div class="balance-after">
+                            ${item.balanceSource === "calculated" ? "Saldo hitung" : "Saldo cetak"}
+                            ${money(item.balanceAfter)}
+                          </div>`
                     }
                   </td>
 
@@ -1750,6 +1762,12 @@ function renderScanCandidates() {
                       <span class="badge ${confidenceClass(item.confidence)}">
                         ${Math.round(Number(item.confidence || 0) * 100)}%
                       </span>
+
+                      ${
+                        item.transactionCode
+                          ? `<span class="transaction-code-label">${escapeHtml(item.transactionCode)}</span>`
+                          : ""
+                      }
 
                       <span class="method-label">
                         ${escapeHtml(item.extractionMethod || "-")}

@@ -681,13 +681,16 @@ function parseMandiriPage({
 
 function parseBcaMetadata(pageText, existing = {}) {
   const metadata = { ...existing };
+  const text = String(pageText || "");
 
-  const period = String(pageText || "").match(
+  const period = text.match(
     /PERIODE\s*:?\s*([A-Z]+)\s+(20\d{2})/i
   );
 
   if (period) {
-    const month = MONTHS[period[1].toLowerCase()] || MONTHS[period[1].slice(0, 3).toLowerCase()];
+    const month =
+      MONTHS[period[1].toLowerCase()] ||
+      MONTHS[period[1].slice(0, 3).toLowerCase()];
 
     if (month) {
       metadata.periodStart = `${period[2]}-${month}-01`;
@@ -696,12 +699,37 @@ function parseBcaMetadata(pageText, existing = {}) {
     }
   }
 
-  const account = String(pageText || "").match(
+  const account = text.match(
     /NO\.\s*REKENING\s*:?\s*(\d{8,})/i
   );
 
   if (account) {
     metadata.accountMasked = account[1];
+  }
+
+  const lines = text
+    .split(/\r?\n/)
+    .map(normalizeLine)
+    .filter(Boolean);
+
+  if (!metadata.ownerName) {
+    const accountTypeIndex = lines.findIndex((line) =>
+      /REKENING\s+TAHAPAN/i.test(line)
+    );
+
+    if (accountTypeIndex >= 0) {
+      const owner = lines
+        .slice(accountTypeIndex + 1, accountTypeIndex + 6)
+        .find((line) =>
+          /^[A-Z][A-Z .'-]{5,}$/.test(line) &&
+          !/^(KCU|KCP|CABANG|BRANCH)\b/i.test(line) &&
+          !/\b(JALAN|JL\.|BLOK|NO\.|RT\d|RW\d|KOTA|INDONESIA)\b/i.test(line)
+        );
+
+      if (owner) {
+        metadata.ownerName = cleanText(owner);
+      }
+    }
   }
 
   const summaryPatterns = {
@@ -712,10 +740,12 @@ function parseBcaMetadata(pageText, existing = {}) {
   };
 
   Object.entries(summaryPatterns).forEach(([key, pattern]) => {
-    const match = String(pageText || "").match(pattern);
+    const match = text.match(pattern);
 
     if (match) {
-      metadata[key] = Math.abs(parseIdrValue(match[1])?.signedAmount ?? 0);
+      metadata[key] = Math.abs(
+        parseIdrValue(match[1])?.signedAmount ?? 0
+      );
     }
   });
 
@@ -770,6 +800,254 @@ function isTransferDescription(description) {
   );
 }
 
+function normalizeComparableName(value) {
+  return cleanText(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(?:dr|bapak|ibu|sdr|sdri)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isSamePersonName(description, ownerName) {
+  const owner = normalizeComparableName(ownerName);
+  const other = normalizeComparableName(description);
+
+  if (!owner || !other) {
+    return false;
+  }
+
+  const ownerTokens = owner
+    .split(" ")
+    .filter((token) => token.length >= 3);
+
+  const matched = ownerTokens.filter((token) =>
+    other.includes(token)
+  );
+
+  return matched.length >= Math.min(2, ownerTokens.length);
+}
+
+function canonicalBcaMerchant(description, transactionCode) {
+  const text = normalizeLine(description);
+  const upper = text.toUpperCase();
+
+  if (/BIAYA\s+ADM/i.test(text)) {
+    return "Biaya Administrasi BCA";
+  }
+
+  if (/GOOGLE\s+YOUTUBEPREM/i.test(upper)) {
+    return "Google YouTube Premium";
+  }
+
+  if (/\bSPOTIFY\b/i.test(upper)) {
+    return "Spotify";
+  }
+
+  if (/\bALFAMART\b/i.test(upper)) {
+    return "Alfamart";
+  }
+
+  if (/\bSHOPEEPAY\b/i.test(upper)) {
+    return "ShopeePay";
+  }
+
+  if (/\bGOPAY\b/i.test(upper)) {
+    return "GoPay";
+  }
+
+  if (/\bDANA\b/i.test(upper)) {
+    return "DANA";
+  }
+
+  if (/QPON\s+DIGITAL\s+INDON/i.test(upper)) {
+    return "QPON Digital Indonesia";
+  }
+
+  const afterZeroAmount = text.match(
+    /00000\.00\s*([A-Za-z][A-Za-z0-9 .&'-]+)/i
+  );
+
+  if (afterZeroAmount) {
+    return cleanText(
+      afterZeroAmount[1]
+        .replace(/\s+R$/i, "")
+    );
+  }
+
+  if (/^BI_FAST_/i.test(transactionCode)) {
+    const transferName = text.match(
+      /\b\d{3}\s+([A-Za-z][A-Za-z .'-]{3,})$/i
+    );
+
+    if (transferName) {
+      return cleanText(transferName[1]);
+    }
+  }
+
+  if (/^TRSF_EBANKING_/i.test(transactionCode)) {
+    const cleaned = text
+      .replace(/^TRSF\s+E-BANKING\s+(?:CR|DB)\s*/i, "")
+      .replace(/\b\d{4}\/[A-Z]+\/[A-Z0-9]+\b/gi, " ")
+      .replace(/\b\d+(?:\.\d+)?\/(?:DANA|GOPAY|SHOPEEPAY)\b/gi, " ")
+      .replace(/\b\d{8,}\b/g, " ")
+      .replace(/\bCOMM\b/gi, " ")
+      .replace(/\b\d{2}\/\d{2}\/\d{4}\b/g, " ")
+      .replace(/(?:^|\s)-(?=\s|$)/g, " ")
+      .replace(/\b\d+(?:\.\d+)?\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (cleaned) {
+      return cleanText(cleaned);
+    }
+  }
+
+  return merchantFromDescription(text);
+}
+
+function detectBcaTransactionCode(titleText) {
+  const upper = normalizeLine(titleText).toUpperCase();
+
+  if (/^TRSF\s+E-BANKING\s+CR\b/.test(upper)) {
+    return "TRSF_EBANKING_CR";
+  }
+
+  if (/^TRSF\s+E-BANKING\s+DB\b/.test(upper)) {
+    return "TRSF_EBANKING_DB";
+  }
+
+  if (/^BI-FAST\s+CR\b/.test(upper)) {
+    return "BI_FAST_CR";
+  }
+
+  if (/^BI-FAST\s+DB\b/.test(upper)) {
+    return "BI_FAST_DB";
+  }
+
+  if (/^DB\s+INTERCHANGE\b/.test(upper)) {
+    return "CARD_INTERCHANGE_DB";
+  }
+
+  if (/^TRANSAKSI\s+DEBIT\b/.test(upper)) {
+    return "DEBIT_CARD_DB";
+  }
+
+  if (/^BIAYA\s+ADM\b/.test(upper)) {
+    return "ADMIN_FEE_DB";
+  }
+
+  return "BCA_OTHER";
+}
+
+function extractBcaReference(description) {
+  const text = normalizeLine(description);
+
+  return (
+    text.match(/\b\d{4}\/[A-Z]+\/[A-Z0-9]+\b/i)?.[0] ||
+    text.match(/\bBIF\s+TRANSFER\s+(?:DR|CR)\s+\d+\b/i)?.[0] ||
+    ""
+  );
+}
+
+function inferBcaCategory({
+  transactionCode,
+  description,
+  merchant,
+  type,
+  ownTransfer,
+  merchantRules
+}) {
+  if (ownTransfer) {
+    return "Transfer Antar Rekening";
+  }
+
+  if (transactionCode === "ADMIN_FEE_DB") {
+    return "Biaya Bank";
+  }
+
+  if (/\b(?:DANA|GOPAY|SHOPEEPAY|OVO|LINKAJA)\b/i.test(description)) {
+    return "Top Up E-Wallet";
+  }
+
+  if (/GOOGLE\s+YOUTUBEPREM|SPOTIFY|NETFLIX/i.test(description)) {
+    return "Hiburan";
+  }
+
+  if (/ALFAMART|INDOMARET|FAMILYMART/i.test(description)) {
+    return "Belanja";
+  }
+
+  if (
+    type === "income" &&
+    /TRSF_EBANKING_CR|BI_FAST_CR/.test(transactionCode)
+  ) {
+    return "Pemasukan Lainnya";
+  }
+
+  if (
+    type === "expense" &&
+    /TRSF_EBANKING_DB|BI_FAST_DB/.test(transactionCode)
+  ) {
+    return "Transfer Keluar";
+  }
+
+  return inferCategory(
+    description,
+    merchant,
+    merchantRules
+  );
+}
+
+function reconstructBcaBalances(candidates, metadata) {
+  const sorted = [...candidates].sort((a, b) => {
+    if ((a.sourcePage || 0) !== (b.sourcePage || 0)) {
+      return (a.sourcePage || 0) - (b.sourcePage || 0);
+    }
+
+    return (a.sourceRow || 0) - (b.sourceRow || 0);
+  });
+
+  let running = Number.isFinite(metadata.openingBalance)
+    ? Number(metadata.openingBalance)
+    : null;
+
+  sorted.forEach((candidate) => {
+    candidate.printedBalanceAfter = Number.isFinite(candidate.balanceAfter)
+      ? Number(candidate.balanceAfter)
+      : null;
+
+    if (running === null) {
+      candidate.balanceSource = candidate.printedBalanceAfter !== null
+        ? "printed"
+        : "unavailable";
+
+      if (candidate.printedBalanceAfter !== null) {
+        running = candidate.printedBalanceAfter;
+      }
+
+      return;
+    }
+
+    const calculated =
+      running + Number(candidate.signedAmount || 0);
+
+    candidate.calculatedBalanceAfter = calculated;
+
+    if (candidate.printedBalanceAfter !== null) {
+      candidate.balanceAfter = candidate.printedBalanceAfter;
+      candidate.balanceSource = "printed";
+    } else {
+      candidate.balanceAfter = calculated;
+      candidate.balanceSource = "calculated";
+    }
+
+    running = calculated;
+  });
+
+  return sorted;
+}
+
 function parseBcaPage({
   tokens,
   pageWidth,
@@ -780,8 +1058,10 @@ function parseBcaPage({
   merchantRules,
   metadata
 }) {
-  const lines = tokensToLines(tokens);
-  const year = metadata.periodYear || Number(metadata.periodStart?.slice(0, 4)) || new Date().getFullYear();
+  const year =
+    metadata.periodYear ||
+    Number(metadata.periodStart?.slice(0, 4)) ||
+    new Date().getFullYear();
 
   const rowStarts = tokens
     .filter((token) =>
@@ -801,11 +1081,11 @@ function parseBcaPage({
   rowStarts.forEach((start, index) => {
     const nextY =
       rowStarts[index + 1]?.y ??
-      Math.max(pageHeight * 0.08, start.y - 70);
+      Math.max(pageHeight * 0.08, start.y - 78);
 
     const lowerBound = Math.max(
       nextY + 2,
-      start.y - 70,
+      start.y - 78,
       pageHeight * 0.07
     );
 
@@ -851,9 +1131,18 @@ function parseBcaPage({
       return;
     }
 
-    const isCredit = /\bCR\b/i.test(titleText);
+    const transactionCode =
+      detectBcaTransactionCode(titleText);
+
+    const isCredit =
+      /_CR$/.test(transactionCode) ||
+      /\bCR\b/i.test(titleText);
+
     const isDebit =
-      /\bDB\b|DEBIT|BIAYA ADM/i.test(`${titleText} ${amountText}`);
+      /_DB$/.test(transactionCode) ||
+      /\bDB\b|DEBIT|BIAYA ADM/i.test(
+        `${titleText} ${amountText}`
+      );
 
     const signedAmount =
       isDebit && !isCredit
@@ -861,15 +1150,21 @@ function parseBcaPage({
         : Math.abs(amountInfo.amount);
 
     const date = parseDateFromText(start.text, year);
-    const description = normalizeLine(`${titleText} ${detailText}`);
-    const merchant = merchantFromDescription(description);
+    const description = normalizeLine(
+      `${titleText} ${detailText}`
+    );
+    const reference = extractBcaReference(description);
+    const merchant = canonicalBcaMerchant(
+      description,
+      transactionCode
+    );
     const balanceInfo = parseIdrValue(balanceText);
-    const transferDescription =
-      isTransferDescription(description);
-    const ownAccountName =
-      isOwnAccountName(description);
-    const possibleOwnTransfer =
-      transferDescription && ownAccountName;
+    const ownTransfer =
+      isTransferDescription(description) &&
+      isSamePersonName(
+        `${merchant} ${description}`,
+        metadata.ownerName
+      );
 
     const inferredOtherBank =
       inferKnownBankAccount(
@@ -886,84 +1181,80 @@ function parseBcaPage({
       signedAmount >= 0 ? "income" : "expense";
     let sourceAccountId = accountId;
     let destinationAccountId = "";
-    let category =
-      inferCategory(
-        description,
-        merchant,
-        merchantRules
-      );
     let sourceInference = "";
     let destinationInference = "";
 
-    // Transfer atas nama pemilik rekening dianggap transfer antar-akun,
-    // bukan pendapatan/beban.
-    if (possibleOwnTransfer) {
+    if (ownTransfer) {
       transactionType = "transfer";
-      category = "Transfer Antar Rekening";
 
       if (signedAmount >= 0) {
         sourceAccountId =
           inferredOtherBank || clearingAccount;
         destinationAccountId = accountId;
         destinationInference =
-          "Tujuan otomatis BCA karena transaksi berada pada e-Statement BCA.";
+          "Tujuan otomatis BCA karena dana masuk tercatat pada e-Statement BCA.";
         sourceInference = inferredOtherBank
           ? "Bank sumber dibaca dari keterangan transaksi."
-          : "Nama bank sumber tidak tercantum. Kode 501 adalah kode cabang/kolom CBG, bukan nama bank. Gunakan akun Transfer Belum Dipetakan sampai sumber dipilih.";
+          : "Nama bank sumber tidak tercantum pada e-Statement. Sumber sementara memakai Transfer Belum Dipetakan.";
       } else {
         sourceAccountId = accountId;
         destinationAccountId =
           inferredOtherBank || clearingAccount;
         sourceInference =
-          "Sumber otomatis BCA karena transaksi berada pada e-Statement BCA.";
+          "Sumber otomatis BCA karena dana keluar tercatat pada e-Statement BCA.";
         destinationInference = inferredOtherBank
           ? "Bank tujuan dibaca dari keterangan transaksi."
-          : "Nama bank tujuan tidak tercantum. Gunakan Transfer Belum Dipetakan sampai tujuan dipilih.";
+          : "Nama bank tujuan tidak tercantum pada e-Statement. Tujuan sementara memakai Transfer Belum Dipetakan.";
       }
     }
 
-    candidates.push(
-      createBaseCandidate({
-        bank: "bca",
-        type: transactionType,
-        date,
-        amount: Math.abs(signedAmount),
-        signedAmount,
-        sourceAccountId,
-        destinationAccountId,
-        category,
-        merchant,
-        description,
-        balanceAfter: balanceInfo?.amount ?? null,
-        pageNumber,
-        rowNumber: candidates.length + 1,
-        method: "bca-native-layout",
-        confidence: Math.min(
-          0.98,
-          0.83 +
-          (balanceInfo ? 0.05 : 0) +
-          (/\b(?:CR|DB)\b/i.test(`${titleText} ${amountText}`) ? 0.05 : 0) +
-          (description.length > 8 ? 0.03 : 0)
-        ),
-        possibleOwnTransfer
-      })
-    );
+    const category = inferBcaCategory({
+      transactionCode,
+      description,
+      merchant,
+      type: transactionType,
+      ownTransfer,
+      merchantRules
+    });
 
-    const candidate =
-      candidates[candidates.length - 1];
+    const candidate = createBaseCandidate({
+      bank: "bca",
+      type: transactionType,
+      date,
+      amount: Math.abs(signedAmount),
+      signedAmount,
+      sourceAccountId,
+      destinationAccountId,
+      category,
+      merchant,
+      description,
+      balanceAfter: balanceInfo?.amount ?? null,
+      pageNumber,
+      rowNumber: candidates.length + 1,
+      method: "bca-native-layout-v3",
+      confidence: Math.min(
+        0.99,
+        0.88 +
+        (balanceInfo ? 0.03 : 0) +
+        (transactionCode !== "BCA_OTHER" ? 0.04 : 0) +
+        (merchant ? 0.02 : 0)
+      ),
+      possibleOwnTransfer: ownTransfer
+    });
 
-    candidate.sourceInference =
-      sourceInference;
-    candidate.destinationInference =
-      destinationInference;
-    candidate.counterpartyRaw =
-      description;
+    candidate.transactionCode = transactionCode;
+    candidate.reference = reference;
+    candidate.counterpartyRaw = merchant;
+    candidate.sourceInference = sourceInference;
+    candidate.destinationInference = destinationInference;
     candidate.transferNeedsMapping =
       transactionType === "transfer" &&
       (
         sourceAccountId === clearingAccount ||
         destinationAccountId === clearingAccount
       );
+
+    candidates.push(candidate);
   });
 
   return candidates;
@@ -1402,12 +1693,20 @@ function validateRunningBalances(candidates, metadata) {
       Number(candidate.balanceAfter) - expected;
 
     candidate.validationDifference = difference;
-    candidate.validationStatus =
-      Math.abs(difference) <= 1
-        ? "valid"
-        : "mismatch";
 
-    previous = Number(candidate.balanceAfter);
+    if (candidate.balanceSource === "calculated") {
+      candidate.validationStatus =
+        Math.abs(difference) <= 1
+          ? "calculated"
+          : "mismatch";
+    } else {
+      candidate.validationStatus =
+        Math.abs(difference) <= 1
+          ? "valid"
+          : "mismatch";
+    }
+
+    previous = expected;
   });
 
   const totalIncoming = sorted
@@ -1462,6 +1761,9 @@ function validateRunningBalances(candidates, metadata) {
           : summaryBalanced,
       rowMismatchCount: sorted.filter(
         (item) => item.validationStatus === "mismatch"
+      ).length,
+      calculatedBalanceCount: sorted.filter(
+        (item) => item.balanceSource === "calculated"
       ).length
     }
   };
@@ -2007,8 +2309,16 @@ async function readPdfStatement({
     page.cleanup();
   }
 
+  const candidatesForValidation =
+    bank === "bca"
+      ? reconstructBcaBalances(
+          rawCandidates,
+          metadata
+        )
+      : rawCandidates;
+
   const validated = validateRunningBalances(
-    rawCandidates,
+    candidatesForValidation,
     metadata
   );
 
@@ -2257,8 +2567,16 @@ export function parseStatementTokenPagesForTest({
     }
   });
 
+  const candidatesForValidation =
+    bank === "bca"
+      ? reconstructBcaBalances(
+          rawCandidates,
+          metadata
+        )
+      : rawCandidates;
+
   const validated = validateRunningBalances(
-    rawCandidates,
+    candidatesForValidation,
     metadata
   );
 

@@ -1,4 +1,4 @@
-# Spendly Accounting Pro
+# Spendly Multi-Bank AI Reader V4
 
 Major upgrade dari Spendly Budget Tracker.
 
@@ -456,3 +456,44 @@ nvidia/nemotron-nano-12b-v2-vl
 API key tidak boleh diletakkan pada frontend. Deploy folder
 `backend_nvidia`, simpan key sebagai environment variable, lalu masukkan
 URL backend pada halaman OCR/PDF Spendly.
+\n\n## BCA Native Reader V3\n\nPerbaikan khusus BCA:\n\n- membaca 17 transaksi dari mutasi Tahapan Xpresi;\n- mendeteksi kode transaksi BCA (TRSF E-BANKING, BI-FAST, DB INTERCHANGE, TRANSAKSI DEBIT, BIAYA ADM);\n- menormalisasi merchant YouTube Premium, Spotify, Alfamart, DANA, ShopeePay, GoPay, dan QPON;\n- mendeteksi transfer antar rekening memakai nama pemilik rekening dari header PDF, bukan nama hardcoded;\n- merekonstruksi saldo yang tidak dicetak pada setiap baris;\n- hanya membandingkan saldo tercetak pada baris yang memang memiliki saldo;\n- menghilangkan false warning seperti selisih Rp50.000 akibat saldo antara yang tidak dicetak BCA.\n
+
+## Multi-Bank AI Reader V4
+
+Versi ini bukan aplikasi khusus BCA. Sistem berisi tiga parser native
+dalam satu aplikasi:
+
+### Mandiri Native Reader
+
+- PDF e-Statement dengan atau tanpa password;
+- tanggal dan waktu;
+- nominal masuk/keluar;
+- saldo berjalan;
+- merchant dan kategori;
+- rekonsiliasi saldo awal sampai saldo akhir.
+
+### BCA Native Reader V3
+
+- kode transaksi `CR` dan `DB`;
+- BI-FAST;
+- transfer e-banking;
+- transaksi debit;
+- biaya administrasi;
+- normalisasi merchant;
+- rekonstruksi saldo antarbaris yang tidak dicetak.
+
+### Krom Native Reader
+
+- Tabungan Utama;
+- seluruh kantong;
+- QRIS;
+- transfer masuk/keluar;
+- cashback;
+- bunga dan pajak;
+- pemindahan saldo internal berdasarkan reference ID.
+
+### NVIDIA AI Optimizer
+
+NVIDIA AI digunakan sebagai tahap validasi setelah parser lokal.
+AI tidak menggantikan ketiga parser bank dan tidak diizinkan mengubah
+tanggal atau nominal asli.

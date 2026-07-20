@@ -1,0 +1,36 @@
+Spendly Multi-Bank AI Reader V4 — Verified Report
+
+This package supports all three banks in one application.
+
+MANDIRI
+- Pages: 11
+- Transactions: 120
+- Incoming: Rp10,229,850
+- Outgoing: Rp9,926,185
+- Closing balance: Rp429,865
+- Reconciliation: PASS
+
+BCA NATIVE READER V3
+- Pages: 2
+- Transactions: 17
+- Incoming: Rp1,491,372
+- Outgoing: Rp1,136,382
+- Closing balance: Rp364,990
+- Reconciliation: PASS
+- Intermediate balances reconstructed: supported
+
+KROM
+- Pages: 9
+- Raw transactions: 133
+- Incoming: Rp11,436,503
+- Outgoing: Rp12,078,090
+- Closing balance: Rp3,286,906
+- Internal balance-movement pairs: 13
+- Reconciliation: PASS
+
+Additional:
+- Automatic bank detection: PASS
+- Automatic source-account mapping: PASS
+- JavaScript syntax validation: PASS
+- FastAPI backend compilation: PASS
+- PDF password was used only for local verification and was not embedded.

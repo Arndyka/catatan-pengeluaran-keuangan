@@ -1,0 +1,38 @@
+Spendly BCA Native Reader V3 — Verified Test Report
+
+Sample:
+- BCA Tahapan Xpresi
+- Period: May 2026
+- Pages: 2
+
+Verified results:
+- Bank detection: BCA
+- Account owner detected: ARNOLDUS GRATIO DARRYL ANDYKA
+- Transactions parsed: 17
+- Total incoming: Rp1,491,372
+- Total outgoing: Rp1,136,382
+- Closing balance: Rp364,990
+- Reconciliation difference: Rp0
+- False running-balance mismatches: 0
+- Printed balance rows validated: PASS
+- Missing intermediate balance rows reconstructed: 5
+
+BCA transaction codes detected:
+- TRSF_EBANKING_CR
+- TRSF_EBANKING_DB
+- BI_FAST_CR
+- CARD_INTERCHANGE_DB
+- DEBIT_CARD_DB
+- ADMIN_FEE_DB
+
+Merchant normalization examples:
+- Google YouTubePrem -> Google YouTube Premium
+- ALFAMART R -> Alfamart
+- 39010/DANA -> DANA
+- 12208/SHOPEEPAY -> ShopeePay
+- 70077/GOPAY -> GoPay
+- QPON DIGITAL INDON -> QPON Digital Indonesia
+
+Security:
+- No PDF password is stored.
+- No NVIDIA API key is embedded in frontend files.

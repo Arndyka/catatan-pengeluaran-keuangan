@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spendly Accounting Pro</title>
-  <link rel="stylesheet" href="assets/styles.css?v=nvidia-ai-optimizer-20260720">
+  <title>Spendly Multi-Bank AI Reader V4</title>
+  <link rel="stylesheet" href="assets/styles.css?v=multibank-ai-reader-v4-20260720">
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -44,7 +44,7 @@
         <div class="brand-logo">S</div>
         <div>
           <h1>Spendly</h1>
-          <p>Accounting Pro</p>
+          <p>Multi-Bank AI Reader V4</p>
         </div>
       </div>
 
@@ -550,27 +550,71 @@
           <div class="panel-header">
             <div>
               <p class="section-label">OCR / PDF</p>
-              <h2>Scan Banyak Transaksi</h2>
+              <h2>Multi-Bank Statement Reader</h2>
             </div>
           </div>
 
           <div class="statement-reader-info">
             <article>
               <strong>1. Auto Bank Detection</strong>
-              <span>Mendeteksi format Mandiri, BCA, atau Krom secara otomatis dari isi PDF.</span>
+              <span>Mendeteksi Mandiri, BCA, atau Krom secara otomatis dari identitas dan struktur PDF.</span>
             </article>
             <article>
-              <strong>2. Bank-Specific Parser</strong>
-              <span>Setiap bank memakai aturan kolom, angka, tanggal, dan rekonsiliasi yang berbeda.</span>
+              <strong>2. Three Native Parsers</strong>
+              <span>Mandiri, BCA V3, dan Krom diproses dengan parser khusus masing-masing bank.</span>
             </article>
             <article>
               <strong>3. OCR ML Fallback</strong>
-              <span>Tesseract LSTM hanya dipakai untuk halaman scan/gambar tanpa teks asli.</span>
+              <span>Tesseract LSTM dipakai untuk screenshot atau halaman tanpa text layer.</span>
             </article>
             <article>
-              <strong>4. Accounting Validation</strong>
-              <span>Total mutasi, saldo berjalan, dan transfer internal diperiksa sebelum disimpan.</span>
+              <strong>4. NVIDIA AI Validation</strong>
+              <span>DeepSeek merapikan kategori, merchant, dan transfer tanpa mengubah nominal asli.</span>
             </article>
+          </div>
+
+          <div class="supported-bank-grid">
+            <article class="supported-bank-card mandiri">
+              <div class="supported-bank-title">
+                <strong>Mandiri Native Reader</strong>
+                <span>Aktif</span>
+              </div>
+              <p>
+                Membaca tanggal, waktu, keterangan, nominal plus/minus,
+                saldo berjalan, password PDF, dan rekonsiliasi seluruh halaman.
+              </p>
+            </article>
+
+            <article class="supported-bank-card bca">
+              <div class="supported-bank-title">
+                <strong>BCA Native Reader V3</strong>
+                <span>Aktif</span>
+              </div>
+              <p>
+                Membaca kode DB/CR, BI-FAST, mutasi, merchant, dan
+                merekonstruksi saldo antarbaris yang tidak dicetak.
+              </p>
+            </article>
+
+            <article class="supported-bank-card krom">
+              <div class="supported-bank-title">
+                <strong>Krom Native Reader</strong>
+                <span>Aktif</span>
+              </div>
+              <p>
+                Membaca Tabungan Utama, kantong, QRIS, cashback,
+                bunga, pajak, dan pasangan pemindahan saldo internal.
+              </p>
+            </article>
+          </div>
+
+          <div class="multi-bank-notice">
+            <strong>Satu scanner untuk tiga bank.</strong>
+            <span>
+              Tidak perlu memilih bank secara manual. Sistem membaca isi file,
+              menentukan bank, lalu mengarahkan transaksi ke akun Mandiri, BCA,
+              atau Krom yang sesuai.
+            </span>
           </div>
 
           <div class="scanner-grid">
@@ -753,6 +797,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/js/app.js?v=nvidia-ai-optimizer-20260720"></script>
+  <script type="module" src="assets/js/app.js?v=multibank-ai-reader-v4-20260720"></script>
 </body>
 </html>

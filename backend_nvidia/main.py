@@ -145,6 +145,11 @@ def compact_candidate(candidate: dict[str, Any]) -> dict[str, Any]:
         "extractionMethod",
         "confidence",
         "validationStatus",
+        "transactionCode",
+        "reference",
+        "counterpartyRaw",
+        "balanceAfter",
+        "balanceSource",
     }
 
     return {
@@ -292,9 +297,17 @@ Critical rules:
    - never interpret branch code/CBG such as 501 as a bank identity;
    - use account id asset-transfer-clearing when the other bank cannot
      be proven.
-5. Normalize merchant and category conservatively.
-6. Do not invent missing transaction text.
-7. Output:
+5. BCA-specific rules:
+   - TRSF_EBANKING_CR and BI_FAST_CR are credits.
+   - TRSF_EBANKING_DB, CARD_INTERCHANGE_DB, DEBIT_CARD_DB,
+     and ADMIN_FEE_DB are debits.
+   - Google YouTubePrem means Google YouTube Premium.
+   - DANA, GOPAY, and SHOPEEPAY are e-wallet top-ups when debit.
+   - ALFAMART is shopping unless stronger evidence exists.
+   - If balanceSource is calculated, do not treat that as an error.
+6. Normalize merchant and category conservatively.
+7. Do not invent missing transaction text.
+8. Output:
 {
   "updates": [
     {

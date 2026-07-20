@@ -71,7 +71,15 @@ function sanitizeCandidate(candidate, index) {
     internalMovement: candidate.internalMovement === true,
     extractionMethod: candidate.extractionMethod || "",
     confidence: Number(candidate.confidence || 0),
-    validationStatus: candidate.validationStatus || ""
+    validationStatus: candidate.validationStatus || "",
+    transactionCode: candidate.transactionCode || "",
+    reference: candidate.reference || "",
+    counterpartyRaw: candidate.counterpartyRaw || "",
+    balanceAfter:
+      candidate.balanceAfter === null || candidate.balanceAfter === undefined
+        ? null
+        : Number(candidate.balanceAfter),
+    balanceSource: candidate.balanceSource || ""
   };
 }
 
