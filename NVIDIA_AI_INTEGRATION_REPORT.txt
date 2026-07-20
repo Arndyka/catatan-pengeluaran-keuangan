@@ -1,0 +1,13 @@
+Spendly NVIDIA AI Optimizer
+
+Implemented:
+- NVIDIA backend URL configuration in frontend.
+- Explicit consent before sending transaction descriptions.
+- DeepSeek V4 Pro post-processing in safe batches.
+- Numeric fields (date, amount, signed amount) are never accepted from AI updates.
+- Account IDs are validated against the user's account catalog.
+- Optional NVIDIA vision endpoint using Nemotron Nano 12B V2 VL.
+- FastAPI backend with CORS, health endpoint, payload limits, and environment variables.
+- NVIDIA API key is not present in frontend or deliverable source.
+- All JavaScript modules passed node syntax validation.
+- FastAPI main.py passed Python compilation validation.

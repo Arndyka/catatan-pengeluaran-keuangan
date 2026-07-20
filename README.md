@@ -428,3 +428,31 @@ users/{uid}/settings/profile.transferAccountRules
 ```
 
 Scan berikutnya dengan pola keterangan yang sama akan mengisi akun sumber dan tujuan otomatis.
+
+
+## NVIDIA AI Optimizer
+
+Arsitektur:
+
+```text
+PDF/image
+→ parser multi-bank lokal
+→ Tesseract fallback
+→ tabel review
+→ DeepSeek V4 Pro text normalization
+→ review pengguna
+→ Firestore
+```
+
+DeepSeek V4 Pro tidak membaca gambar. Model tersebut dipakai setelah
+parser/OCR lokal menghasilkan teks.
+
+Untuk pembacaan gambar, backend menyediakan endpoint optional yang memakai:
+
+```text
+nvidia/nemotron-nano-12b-v2-vl
+```
+
+API key tidak boleh diletakkan pada frontend. Deploy folder
+`backend_nvidia`, simpan key sebagai environment variable, lalu masukkan
+URL backend pada halaman OCR/PDF Spendly.

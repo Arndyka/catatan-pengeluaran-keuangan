@@ -10,6 +10,10 @@ import { budgetAnalysis } from "./budget.js";
 import { creditCardSnapshot } from "./credit-card.js";
 import { buildMonthlyReport } from "./reports.js";
 import { scanStatementFiles } from "./scanner.js";
+import {
+  checkNvidiaBackend,
+  optimizeCandidatesWithNvidia
+} from "./nvidia-ai.js";
 
 const authScreen = $("authScreen");
 const appShell = $("appShell");
@@ -876,6 +880,51 @@ function setupEvents() {
       showPassword ? "Sembunyikan" : "Tampilkan";
   });
 
+  const savedNvidiaBackendUrl =
+    localStorage.getItem("spendlyNvidiaBackendUrl") || "";
+
+  $("nvidiaBackendUrlInput").value =
+    savedNvidiaBackendUrl;
+
+  updateNvidiaBackendBadge(
+    savedNvidiaBackendUrl
+      ? "configured"
+      : "missing"
+  );
+
+  $("nvidiaBackendUrlInput").addEventListener("change", async () => {
+    const url =
+      cleanText($("nvidiaBackendUrlInput").value)
+        .replace(/\/+$/, "");
+
+    $("nvidiaBackendUrlInput").value = url;
+
+    if (!url) {
+      localStorage.removeItem("spendlyNvidiaBackendUrl");
+      updateNvidiaBackendBadge("missing");
+      return;
+    }
+
+    localStorage.setItem(
+      "spendlyNvidiaBackendUrl",
+      url
+    );
+
+    updateNvidiaBackendBadge("checking");
+
+    try {
+      await checkNvidiaBackend(url);
+      updateNvidiaBackendBadge("ready");
+    } catch (error) {
+      updateNvidiaBackendBadge("error");
+      setNotice(
+        $("scanMessage"),
+        "error",
+        `Backend NVIDIA AI belum dapat diakses: ${error.message}`
+      );
+    }
+  });
+
   $("scanButton").addEventListener("click", scanFiles);
 
   $("cancelScanButton").addEventListener("click", () => {
@@ -923,6 +972,171 @@ function setupEvents() {
 let scanCandidates = [];
 let scanStatements = [];
 let scanCancelled = false;
+let nvidiaOptimizationRunning = false;
+
+function updateNvidiaBackendBadge(status) {
+  const badge = $("nvidiaAiStatusBadge");
+
+  if (!badge) return;
+
+  const states = {
+    missing: ["Belum dikonfigurasi", ""],
+    configured: ["URL tersimpan", ""],
+    checking: ["Memeriksa...", ""],
+    ready: ["Backend siap", "validation-ok"],
+    error: ["Backend bermasalah", "validation-error"],
+    running: ["AI memproses...", ""],
+    done: ["AI selesai", "validation-ok"]
+  };
+
+  const [label, className] =
+    states[status] || states.missing;
+
+  badge.textContent = label;
+  badge.className =
+    `pill ${className}`.trim();
+}
+
+async function optimizeCurrentScanWithNvidia() {
+  if (nvidiaOptimizationRunning) {
+    return;
+  }
+
+  syncScanCandidates();
+
+  if (!scanCandidates.length) {
+    setNotice(
+      $("scanMessage"),
+      "error",
+      "Belum ada hasil scan yang dapat dioptimalkan."
+    );
+    return;
+  }
+
+  if (!$("nvidiaAiConsent").checked) {
+    setNotice(
+      $("scanMessage"),
+      "error",
+      "Centang persetujuan pengiriman keterangan transaksi ke NVIDIA AI."
+    );
+    return;
+  }
+
+  const backendUrl =
+    cleanText($("nvidiaBackendUrlInput").value)
+      .replace(/\/+$/, "");
+
+  if (!backendUrl) {
+    setNotice(
+      $("scanMessage"),
+      "error",
+      "Isi URL backend NVIDIA AI terlebih dahulu."
+    );
+    return;
+  }
+
+  nvidiaOptimizationRunning = true;
+  updateNvidiaBackendBadge("running");
+
+  const button =
+    $("optimizeWithNvidiaButton");
+
+  if (button) {
+    button.disabled = true;
+    button.textContent =
+      "NVIDIA AI memproses...";
+  }
+
+  try {
+    const result =
+      await optimizeCandidatesWithNvidia({
+        baseUrl: backendUrl,
+        candidates: scanCandidates,
+        statements: scanStatements,
+        accounts: state.settings.accounts,
+        onProgress(progress) {
+          setNotice(
+            $("scanMessage"),
+            "info",
+            `NVIDIA AI memproses batch ${progress.batchNumber}/${progress.totalBatches}...`
+          );
+        }
+      });
+
+    let applied = 0;
+
+    (result.updates || []).forEach((update) => {
+      const index = Number(update.index);
+      const candidate = scanCandidates[index];
+
+      if (!candidate) return;
+
+      const allowedFields = [
+        "type",
+        "category",
+        "merchant",
+        "description",
+        "sourceAccountId",
+        "destinationAccountId",
+        "possibleOwnTransfer",
+        "transferNeedsMapping"
+      ];
+
+      allowedFields.forEach((field) => {
+        if (
+          update[field] !== undefined &&
+          update[field] !== null
+        ) {
+          candidate[field] = update[field];
+        }
+      });
+
+      if (
+        Number.isFinite(Number(update.confidence))
+      ) {
+        candidate.confidence = Math.max(
+          candidate.confidence || 0,
+          Math.min(0.99, Number(update.confidence))
+        );
+      }
+
+      candidate.aiOptimized = true;
+      candidate.aiReason =
+        cleanText(update.reason || "");
+      candidate.extractionMethod =
+        `${candidate.extractionMethod || "local"} + deepseek-v4-pro`;
+
+      applied += 1;
+    });
+
+    renderScanCandidates();
+    updateNvidiaBackendBadge("done");
+
+    setNotice(
+      $("scanMessage"),
+      "success",
+      `${applied} kandidat diperiksa NVIDIA AI. Tanggal dan nominal asli tetap dikunci agar AI tidak mengubah angka transaksi.`
+    );
+  } catch (error) {
+    updateNvidiaBackendBadge("error");
+    setNotice(
+      $("scanMessage"),
+      "error",
+      `Optimasi NVIDIA AI gagal: ${error.message}`
+    );
+  } finally {
+    nvidiaOptimizationRunning = false;
+
+    const currentButton =
+      $("optimizeWithNvidiaButton");
+
+    if (currentButton) {
+      currentButton.disabled = false;
+      currentButton.textContent =
+        "Optimalkan dengan NVIDIA AI";
+    }
+  }
+}
 
 async function scanFiles() {
   const files = [...($("scanInput").files || [])];
@@ -1351,6 +1565,10 @@ function renderScanCandidates() {
               Kosongkan
             </button>
 
+            <button id="optimizeWithNvidiaButton" class="btn btn-ai" type="button">
+              Optimalkan dengan NVIDIA AI
+            </button>
+
             <button id="saveScanCandidates" class="btn btn-primary" type="button">
               Simpan Terpilih
             </button>
@@ -1536,6 +1754,18 @@ function renderScanCandidates() {
                       <span class="method-label">
                         ${escapeHtml(item.extractionMethod || "-")}
                       </span>
+
+                      ${
+                        item.aiOptimized
+                          ? `<span class="ai-reviewed-badge">AI reviewed</span>`
+                          : ""
+                      }
+
+                      ${
+                        item.aiReason
+                          ? `<span class="ai-reason">${escapeHtml(item.aiReason)}</span>`
+                          : ""
+                      }
                     </div>
                   </td>
 
@@ -1582,6 +1812,11 @@ function syncScanCandidates() {
   });
 }
 async function handleScanReviewClick(event) {
+  if (event.target.id === "optimizeWithNvidiaButton") {
+    await optimizeCurrentScanWithNvidia();
+    return;
+  }
+
   if (event.target.id === "selectAllScanCandidates") {
     scanCandidates.forEach((item) => {
       if (!item.internalMovement) {

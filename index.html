@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Spendly Accounting Pro</title>
-  <link rel="stylesheet" href="assets/styles.css?v=transfer-auto-mapping-20260717">
+  <link rel="stylesheet" href="assets/styles.css?v=nvidia-ai-optimizer-20260720">
 </head>
 <body>
   <section id="authScreen" class="auth-screen">
@@ -607,6 +607,41 @@
                 </span>
               </label>
 
+              <section class="nvidia-ai-box">
+                <div class="nvidia-ai-header">
+                  <div>
+                    <strong>NVIDIA AI Optimizer</strong>
+                    <p>
+                      DeepSeek V4 Pro merapikan hasil OCR setelah parser lokal selesai.
+                      API key tetap berada di backend.
+                    </p>
+                  </div>
+                  <span id="nvidiaAiStatusBadge" class="pill">Belum dikonfigurasi</span>
+                </div>
+
+                <div class="field">
+                  <label for="nvidiaBackendUrlInput">URL Backend NVIDIA AI</label>
+                  <input
+                    id="nvidiaBackendUrlInput"
+                    type="url"
+                    inputmode="url"
+                    placeholder="Contoh: https://spendly-nvidia-api.up.railway.app"
+                  >
+                </div>
+
+                <label class="ai-consent">
+                  <input id="nvidiaAiConsent" type="checkbox">
+                  <span>
+                    Saya setuju mengirim keterangan transaksi yang sedang direview
+                    ke backend NVIDIA AI. File PDF dan password tidak dikirim.
+                  </span>
+                </label>
+
+                <p class="nvidia-ai-security-note">
+                  Jangan masukkan API key pada kolom ini. Yang diisi hanya URL backend.
+                </p>
+              </section>
+
               <div id="scanPreview" class="preview-box">Preview file akan muncul di sini.</div>
 
               <div id="scanProgressWrap" class="scan-progress-wrap hidden">
@@ -718,6 +753,6 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/js/app.js?v=transfer-auto-mapping-20260717"></script>
+  <script type="module" src="assets/js/app.js?v=nvidia-ai-optimizer-20260720"></script>
 </body>
 </html>
