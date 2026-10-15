@@ -62,3 +62,40 @@ html{scroll-behavior:smooth;scroll-padding-bottom:110px}body{font-family:'Segoe 
 .suggestion-list{display:grid;gap:12px;margin-top:16px;min-width:0}.suggestion-card{padding:16px;border-radius:16px;background:var(--soft);border:1px solid var(--line);white-space:normal;min-width:0}.suggestion-card p{margin:9px 0;color:var(--muted);font-size:12px;overflow-wrap:anywhere}.suggestion-title,.suggestion-actions{display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap}.suggestion-title>span{font-size:10px;color:var(--muted)}.suggestion-change{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.suggestion-change>strong{color:var(--text)}.suggestion-actions{justify-content:flex-start;margin-top:12px}.status-stack .suggestion-list{min-width:230px;max-width:320px}.scan-excluded{padding:18px;background:var(--soft);border:1px solid var(--line);border-radius:16px;margin:18px 0}.scan-excluded summary{cursor:pointer;font-weight:650}.scan-excluded li{margin:10px 0;color:var(--muted)}
 .salary-overview{padding:30px;border:1px solid var(--line);border-radius:24px;background:var(--card);margin-bottom:24px}.salary-head{display:flex;justify-content:space-between;align-items:center;gap:20px}.salary-head h2{margin:4px 0}.salary-head p{color:var(--muted)}.salary-symbol{font-size:38px;border-radius:20px;background:var(--success-soft);color:var(--success);padding:10px 24px}.salary-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;margin-top:20px}.salary-totals>div{display:grid;gap:8px}.salary-totals span{font-size:12px;color:var(--muted)}.salary-totals strong{font-size:24px;overflow-wrap:anywhere}.salary-dashboard{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-top:24px}.salary-dashboard p{color:var(--muted)}.recurring-actions{display:flex;gap:14px;flex-wrap:wrap}.recurring-rule{align-items:flex-start;flex-direction:column}.recurring-grid .list-card{gap:18px}.recurring-grid .list-card>div{min-width:0}.recurring-grid .list-card .btn{flex-shrink:0}#recurringForm .helper-note{margin:0}#salarySetupButton{margin-top:14px}
 @media(max-width:700px){.salary-overview{padding:23px}.salary-totals{grid-template-columns:1fr;gap:18px}.salary-totals>div{display:flex;justify-content:space-between;gap:10px;align-items:center}.salary-totals strong{font-size:21px}.salary-symbol{display:none}.salary-dashboard,.manual-review-header{align-items:flex-start;flex-direction:column}.recurring-grid .list-card{flex-wrap:wrap}}
+
+/* One review form: desktop table, compact expandable cards on phones. */
+.scan-mobile-summary { display: none; }
+@media (max-width: 720px) {
+  #scanReviewContainer .compact-review-table { max-height: none; overflow: visible; border: 0; background: transparent; }
+  #scanReviewContainer .compact-review-table table { display: block; min-width: 0; width: 100%; }
+  #scanReviewContainer .compact-review-table thead { display: none; }
+  #scanReviewContainer .compact-review-table tbody { display: grid; gap: 14px; }
+  #scanReviewContainer tr[data-scan-index] { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 16px; border: 1px solid var(--line); border-radius: 18px; background: var(--card); }
+  #scanReviewContainer tr.internal-movement-row { background: var(--warning-soft); }
+  #scanReviewContainer .compact-review-table td { display: block; position: static; width: auto; min-width: 0; padding: 0; border: 0; box-shadow: none; background: transparent; white-space: normal; overflow-wrap: anywhere; }
+  #scanReviewContainer .compact-review-table td:first-child { grid-column: 1; padding-top: 4px; }
+  #scanReviewContainer .compact-review-table td:nth-child(2) { grid-column: 2; }
+  #scanReviewContainer .compact-source-meta { display: none; }
+  #scanReviewContainer .bank-detection-badge { padding: 5px 10px; font-size: 11px; }
+  #scanReviewContainer .scan-mobile-summary { display: grid; gap: 5px; margin-top: 10px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+  #scanReviewContainer .scan-mobile-amount { color: var(--text); font-size: 22px; line-height: 1.25; }
+  #scanReviewContainer .scan-mobile-merchant { color: var(--text); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #scanReviewContainer .scan-mobile-status { color: var(--text); font-weight: 600; }
+  #scanReviewContainer .scan-detail-toggle { min-height: 44px; margin-top: 5px; width: 100%; }
+  #scanReviewContainer .compact-review-table td:nth-child(n+3) { display: none; grid-column: 1 / -1; }
+  #scanReviewContainer tr[data-scan-expanded="true"] td:nth-child(n+3) { display: block; padding-top: 12px; border-top: 1px solid var(--line); }
+  #scanReviewContainer td[data-label]::before { content: attr(data-label); display: block; margin-bottom: 8px; font-size: 12px; font-weight: 650; color: var(--muted); }
+  #scanReviewContainer .compact-review-table input:not([type="checkbox"]),
+  #scanReviewContainer .compact-review-table select,
+  #scanReviewContainer .compact-review-table textarea { width: 100%; min-width: 0; max-width: 100%; font-size: 16px; }
+  #scanReviewContainer .status-stack .suggestion-list,
+  #scanReviewContainer .import-match, #scanReviewContainer .ai-reason { min-width: 0; max-width: 100%; }
+  #scanReviewContainer .compact-toolbar { padding: 14px; gap: 12px; }
+  #scanReviewContainer .compact-toolbar p { font-size: 12px; line-height: 1.5; }
+  #scanReviewContainer .compact-toolbar-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; gap: 8px; }
+  #scanReviewContainer .compact-toolbar-actions .btn { min-width: 0; padding: 10px; min-height: 44px; font-size: 12px; }
+  #statementSummaryContainer .compact-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 12px; }
+  #statementSummaryContainer .summary-wide { grid-column: 1 / -1; }
+  #statementSummaryContainer .statement-summary-item { padding: 12px; min-width: 0; }
+  #statementSummaryContainer .statement-summary-item strong { font-size: 14px; overflow-wrap: anywhere; }
+}

@@ -1483,6 +1483,7 @@ function renderScanCandidates() {
               ${scanCandidates.map((item, index) => `
                 <tr
                   data-scan-index="${index}"
+                  data-scan-expanded="${Boolean(item.mobileExpanded)}"
                   class="${item.internalMovement ? "internal-movement-row" : ""}"
                 >
                   <td class="sticky-col sticky-col-1">
@@ -1508,18 +1509,29 @@ function renderScanCandidates() {
                         Hal. ${item.sourcePage || "-"} · No. ${item.sourceRow || "-"}
                       </span>
                     </div>
+                    <div class="scan-mobile-summary">
+                      <strong class="scan-mobile-amount">${money(item.amount)}</strong>
+                      <strong class="scan-mobile-merchant">${escapeHtml(item.merchant || item.description || item.category || 'Transaksi')}</strong>
+                      <span>${escapeHtml(transactionTypeLabel(item.type))} · ${formatDateId(parseLocalDate(item.date))}</span>
+                      <span>${escapeHtml(state.settings.accounts.find(account => account.id === item.sourceAccountId)?.name || 'Pilih rekening')}</span>
+                      <span class="scan-mobile-status">${({new:'Transaksi baru',duplicate:'Duplikat · dilewati',review:'Mirip · perlu diperiksa'})[item.importMatch.status]}</span>
+                      ${item.transferNeedsMapping ? '<span class="validation-warning">Periksa rekening sumber & tujuan</span>' : item.internalMovement ? '<span class="validation-warning">Transfer internal · periksa detail</span>' : ''}
+                      <button type="button" class="small-btn scan-detail-toggle" data-toggle-scan="${index}" aria-expanded="${Boolean(item.mobileExpanded)}">${item.mobileExpanded ? 'Tutup detail' : 'Detail & edit'}</button>
+                    </div>
                   </td>
 
-                  <td>
+                  <td data-label="Tanggal & waktu">
                     <div class="compact-date-time">
                       <input
                         data-scan-field="date"
+                        aria-label="Tanggal transaksi"
                         type="date"
                         value="${item.date || ""}"
                       >
 
                       <input
                         data-scan-field="time"
+                        aria-label="Waktu transaksi"
                         type="time"
                         step="1"
                         value="${item.time || ""}"
@@ -1527,8 +1539,8 @@ function renderScanCandidates() {
                     </div>
                   </td>
 
-                  <td>
-                    <select data-scan-field="type" class="compact-select">
+                  <td data-label="Tipe transaksi">
+                    <select data-scan-field="type" class="compact-select" aria-label="Tipe transaksi">
                       <option value="income" ${item.type === "income" ? "selected" : ""}>
                         Pemasukan
                       </option>
@@ -1549,7 +1561,7 @@ function renderScanCandidates() {
                     }
                   </td>
 
-                  <td>
+                  <td data-label="Rekening">
                     <div class="account-pair">
                       <label>
                         <span>Sumber</span>
@@ -1588,18 +1600,20 @@ function renderScanCandidates() {
                     }
                   </td>
 
-                  <td>
+                  <td data-label="Kategori">
                     <input
                       data-scan-field="category"
+                      aria-label="Kategori transaksi"
                       class="compact-input"
                       type="text"
                       value="${escapeHtml(item.category || "Lainnya")}"
                     >
                   </td>
 
-                  <td>
+                  <td data-label="Nominal">
                     <input
                       data-scan-field="amount"
+                      aria-label="Nominal transaksi"
                       class="compact-amount"
                       type="number"
                       min="1"
@@ -1617,10 +1631,11 @@ function renderScanCandidates() {
                     }
                   </td>
 
-                  <td>
+                  <td data-label="Merchant & keterangan">
                     <div class="merchant-description">
                       <input
                         data-scan-field="merchant"
+                        aria-label="Merchant transaksi"
                         class="compact-input"
                         type="text"
                         value="${escapeHtml(item.merchant || "")}"
@@ -1629,13 +1644,14 @@ function renderScanCandidates() {
 
                       <textarea
                         data-scan-field="description"
+                        aria-label="Keterangan transaksi"
                         rows="2"
                         placeholder="Keterangan"
                       >${escapeHtml(item.description || "")}</textarea>
                     </div>
                   </td>
 
-                  <td>
+                  <td data-label="Pemeriksaan transaksi">
                     <div class="status-stack">
                       <div class="import-match ${item.importMatch.status}"><strong>${({new:'Transaksi baru',duplicate:'Duplikat · dilewati',review:'Mirip · perlu diperiksa'})[item.importMatch.status]}</strong><p>${escapeHtml(item.importMatch.reason)}</p>${item.importMatch.matched?`<p>Catatan pembanding: ${escapeHtml(item.importMatch.matched.merchant||item.importMatch.matched.description||item.importMatch.matched.category||'Transaksi')} · ${escapeHtml(item.importMatch.matched.date)}</p>`:''}</div>
                       ${item.importMatch.status==='review'?`<label>Keputusan pencocokan<select data-scan-field="importDecision"><option value="">Pilih setelah diperiksa</option><option value="skip" ${item.importDecision==='skip'?'selected':''}>Transaksi sama · lewati</option><option value="new" ${item.importDecision==='new'?'selected':''}>Transaksi berbeda · simpan baru</option></select></label>`:''}
@@ -1718,6 +1734,14 @@ function syncScanCandidates() {
 async function handleScanReviewClick(event) {
   if(scanSaving)return;
   syncScanCandidates();
+  const toggleButton=event.target.closest('[data-toggle-scan]');
+  if(toggleButton){
+    const index=Number(toggleButton.dataset.toggleScan);
+    scanCandidates[index].mobileExpanded=!scanCandidates[index].mobileExpanded;
+    renderScanCandidates();
+    $("scanReviewContainer").querySelector(`[data-toggle-scan="${index}"]`)?.focus({preventScroll:true});
+    return;
+  }
   const suggestionButton=event.target.closest('[data-suggestion-scan]');
   if(suggestionButton){
     const item=scanCandidates[Number(suggestionButton.dataset.suggestionScan)],suggestion=item&&suggestionsFor(item)[Number(suggestionButton.dataset.suggestionIndex)];

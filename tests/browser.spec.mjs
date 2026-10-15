@@ -3,6 +3,45 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('phone scan uses compact cards and keeps edits when switching to desktop',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.route('http://127.0.0.1:9999/api/nvidia/read-page',route=>route.fulfill({json:{result:{bank:'bca',transactions:[
+  {record_kind:'transaction',status:'posted',date:'2026-10-13',amount:76543,direction:'outgoing',description:'Pembelian contoh',merchant:'Mobile scan',reference:'MOBILE001',confidence:0.95},
+  {record_kind:'transaction',status:'posted',date:'2026-10-14',amount:20000,direction:'internal_transfer',description:'Transfer ke tabungan',merchant:'Tabungan sendiri',reference:'MOBILE002',confidence:0.9}
+ ]}}}));
+ await page.evaluate(()=>location.hash='scanner');await page.locator('.ai-options summary').click();
+ await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');await page.locator('#visionConsent').check();
+ await page.locator('#scanMode').selectOption('ai');await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ const row=page.locator('[data-scan-index="0"]');await expect(row).toContainText('Mobile scan');
+ for(const width of [320,390,600]){
+  await page.setViewportSize({width,height:844});
+  expect(await page.locator('.compact-review-table').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+  await expect(page.locator('.compact-review-table thead')).not.toBeVisible();
+  await expect(row.locator('[data-scan-field="amount"]')).not.toBeVisible();
+  expect((await row.boundingBox()).height).toBeLessThan(330);
+  await page.locator('#scanReviewContainer').screenshot({path:`artifacts/previews/scan-cards-${width}.png`});
+ }
+ await page.setViewportSize({width:390,height:844});await row.locator('[data-toggle-scan]').click();
+ await row.locator('[data-scan-field="amount"]').fill('54321');await row.locator('[data-scan-field="amount"]').dispatchEvent('change');
+ await expect(row.locator('[data-scan-field="amount"]')).toBeVisible();
+ for(const width of [320,390,600]){
+  await page.setViewportSize({width,height:844});
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+  expect(await page.locator('.compact-review-table').evaluate(el=>el.scrollWidth<=el.clientWidth)).toBe(true);
+ }
+ await page.setViewportSize({width:390,height:844});
+ await row.locator('[data-scan-field="merchant"]').fill('Mobile edit');
+ await row.locator('[data-toggle-scan]').click();await expect(row.locator('.scan-mobile-summary')).toContainText('54.321');
+ await expect(row.locator('.scan-mobile-summary')).toContainText('Mobile edit');
+ await page.setViewportSize({width:1440,height:950});await expect(page.locator('.compact-review-table thead')).toBeVisible();
+ await expect(row.locator('[data-scan-field="amount"]')).toHaveValue('54321');await expect(row.locator('[data-scan-field="merchant"]')).toHaveValue('Mobile edit');
+ await expect(page.locator('[data-scan-field="amount"]')).toHaveCount(2);
+ await page.setViewportSize({width:390,height:844});await row.locator('[data-scan-field="selected"]').check();
+ await page.locator('#saveScanCandidates').click();await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.filter(tx=>tx.merchant==='Mobile edit'));
+ expect(saved).toHaveLength(1);expect(saved[0].amount).toBe(54321);
+});
+
 test('populated scan summaries and sticky review columns stay readable in both themes',async({page,context})=>{
  test.setTimeout(120000);
  await page.route('http://127.0.0.1:9999/api/nvidia/read-page',route=>route.fulfill({json:{result:{bank:'mandiri',transactions:[
@@ -27,6 +66,14 @@ test('populated scan summaries and sticky review columns stay readable in both t
     await page.locator('.compact-review-table').evaluate((el,left)=>el.scrollLeft=left,left);
     const audit=await new AxeBuilder({page}).include('#statementSummaryContainer').include('#scanReviewContainer').withRules(['color-contrast']).analyze();
     expect(audit.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),`${theme}, ${width}px, scroll ${left}`).toEqual([]);
+   }
+   if(width===390){
+    await page.locator('[data-toggle-scan="0"]').click();
+    expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+    const expandedAudit=await new AxeBuilder({page}).include('#scanReviewContainer').withRules(['color-contrast','label']).analyze();
+    expect(expandedAudit.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))).toEqual([]);
+    await page.locator('[data-scan-index="0"]').screenshot({path:`artifacts/previews/scan-expanded-${theme}.png`});
+    await page.locator('[data-toggle-scan="0"]').click();
    }
   }
  }
@@ -261,7 +308,8 @@ test('AI image and PDF import require consent, save once, and match across forma
  expect(errors).toEqual([]);
 });
 
-test('ambiguous imports require an explicit decision and distinct payments are preserved',async({page})=>{
+for(const width of [1440,390]) test(`ambiguous imports require an explicit decision and distinct payments are preserved at ${width}px`,async({page})=>{
+ await page.setViewportSize({width,height:950});
  await page.route('http://127.0.0.1:9999/api/nvidia/read-page',route=>route.fulfill({json:{result:{bank:'krom',transactions:[{record_kind:'transaction',status:'completed',date:'2026-10-15',amount:87654,direction:'outgoing',description:'Repeated payment',merchant:'QA Similar',confidence:0.8}]}}}));
  await page.evaluate(()=>location.hash='scanner');
  await page.locator('.ai-options summary').click();await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');
@@ -273,6 +321,10 @@ test('ambiguous imports require an explicit decision and distinct payments are p
  await page.locator('#scanInput').setInputFiles('assets/icon-512.png');await page.locator('#scanButton').click();
  await expect(page.locator('#scanReviewContainer')).toContainText('Mirip');
  await expect(page.locator('[data-scan-field="selected"]')).toBeDisabled();
+ if(width===390){
+  await expect(page.locator('.scan-mobile-summary')).toContainText('Mirip');
+  await page.locator('[data-toggle-scan="0"]').click();
+ }
  await page.locator('[data-scan-field="importDecision"]').selectOption('skip');
  await expect(page.locator('[data-scan-field="selected"]')).not.toBeChecked();
  await page.locator('[data-scan-field="importDecision"]').selectOption('new');

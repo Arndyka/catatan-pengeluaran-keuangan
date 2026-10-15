@@ -1,5 +1,13 @@
 # Audit akhir SPENDLY — 15 Oktober 2026
 
+## Perbaikan lanjutan: hasil scan di HP
+
+Pada layar sampai 720 px, hasil scan sekarang menjadi kartu ringkas dengan nominal, merchant, tanggal, rekening, dan status pencocokan. Detail & edit membuka formulir yang sama dengan tabel desktop; tidak ada salinan input tersembunyi yang dapat menimpa edit. Keputusan transaksi mirip, pemilihan ulang setelah perubahan nominal, serta pemeriksaan sebelum simpan tetap berlaku. Ringkasan statement dan toolbar juga dipadatkan untuk HP.
+
+Regresi mereproduksi tampilan lama sebelum perbaikan. Pengujian memeriksa lebar 320/390/600 px, tanpa overflow horizontal, perpindahan HP ke desktop, serta nominal hasil edit yang benar-benar tersimpan. Pemeriksaan kontras dark/light mencakup kartu tertutup dan detail terbuka; input diberi label aksesibel.
+
+Verifikasi: 88 unit dan seluruh 23 skenario browser lulus. Setelah memperluas cakupan keputusan transaksi mirip ke HP, tiga skenario terfokus kembali lulus (kartu/edit, pencocokan desktop, pencocokan HP). Screenshot hasil terisi diperiksa pada kedua tema.
+
 ## Perbaikan lanjutan: dark mode hasil scan
 
 Laporan pengguna setelah deployment menemukan latar putih tetap pada ringkasan statement dan kolom sticky, termasuk baris transfer. Pemeriksaan halaman kosong sebelumnya belum mencakup keadaan hasil scan terisi. Warna komponen tersebut kini mengikuti token tema; status informasional, badge bank, dan tombol AI juga menyesuaikan. URL CSS diberi versi baru untuk mengambil pembaruan setelah deployment.
