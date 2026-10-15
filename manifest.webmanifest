@@ -1,0 +1,18 @@
+{
+ "id":"./",
+ "name":"Spendly — Budget & Goals",
+ "short_name":"Spendly",
+ "description":"Ruang tenang untuk uangmu. Catat transaksi, atur budget, dan wujudkan tujuan tabungan.",
+ "lang":"id",
+ "start_url":"./",
+ "scope":"./",
+ "display":"standalone",
+ "background_color":"#211e25",
+ "theme_color":"#211e25",
+ "icons":[
+  {"src":"assets/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},
+  {"src":"assets/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}
+ ],
+ "shortcuts":[{"name":"Catat transaksi","url":"./#transactions"},{"name":"Goals","url":"./#goals"}],
+ "categories":["finance","productivity"]
+}

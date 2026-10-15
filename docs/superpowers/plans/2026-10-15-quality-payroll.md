@@ -1,0 +1,13 @@
+# Kualitas scan, saran perbaikan, dan gaji
+
+Pengguna meminta implementasi; otorisasi sebelumnya membebaskan perbaikan SPENDLY, sehingga tidak ada permintaan approval desain ulang. Sistem yang ada diperluas dengan perubahan berikut.
+
+1. Filter scan berlapis: output AI harus menyatakan baris transaksi selesai; ringkasan, saldo, promo, tagihan belum dibayar, dan proses gagal/pending dikeluarkan. Filter lokal juga berlaku pada kandidat native/OCR. Jumlah/alasan pengecualian terlihat terpisah dari transaksi yang dapat disimpan. Bunga, biaya, pajak, dan refund aktual tetap valid.
+2. Suggestion Edit pada input manual dan review scan. Perbaikan teks/kategori/tipe/akun ditampilkan sebagai usulan sebelum/sesudah dengan alasan; pengguna menerima atau mengabaikan. AI tidak mengubah tanggal/nominal, dan peringatan nominal tidak menebak nilai pengganti. Saran lokal tetap tersedia tanpa API key. Respons AI lama tidak boleh mengubah input yang sudah diedit.
+3. Jadwal gaji memakai aturan rutin yang sama, mendukung tanggal 1–31 (bulan pendek memakai hari terakhir), edit/jeda, dan konfirmasi per bulan. Jadwal bukan saldo aktual. Rekening penerima disimpan sebagai sourceAccountId sesuai konvensi income aplikasi.
+4. Konfirmasi penerimaan dapat membuat transaksi nyata atau menautkan transaksi yang sudah ada. Penyelesaian periode dan transaksi ditulis atomik melalui repository demo/Firebase, dengan identitas aturan+periode untuk mencegah posting ganda. Kandidat scan yang mirip gaji rutin juga ditandai meskipun tanggal bergeser.
+5. Ringkasan gaji dijadwalkan/diterima dan shortcut pada dashboard. Pemasukan terkonfirmasi otomatis memengaruhi ledger/laporan/budget persentase yang sudah ada. Budget rencana tidak menaikkan saldo.
+
+Uji: filter noise dan transaksi valid, typo/nominal anomali, saran tidak otomatis, tanggal akhir bulan/tahun kabisat, idempotensi antar periode dan perubahan aturan, penautan scan, persistensi demo, screenshot desktop/HP dan audit UI. Tidak mengirim data pengguna ke NVIDIA tanpa persetujuan UI; layanan live tetap memerlukan API key backend.
+
+Status: implementasi selesai. Review independen menemukan QRIS belum dibayar, potensi input manual menggandakan gaji, dan saran AI lain hilang setelah satu saran diterapkan. Ketiganya diperbaiki dan memiliki regresi. Pengujian akhir: 38 unit Node, 6 backend, suite 17 browser lulus; pengujian terkait diulang setelah penyempurnaan UI. Pemeriksaan OCR nyata pada fixture sintetis lulus. Enam audit halaman/viewport tanpa pageerror, overflow, atau pelanggaran axe. Keterbatasan integrasi live dan cara penggunaan dicatat di docs/QUALITY_PAYROLL.md.

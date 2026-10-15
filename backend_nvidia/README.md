@@ -42,6 +42,8 @@ Copy-Item .env.example .env
 
 Isi key baru pada `.env`, kemudian:
 
+Backend memuat `.env` dari folder `backend_nvidia`, termasuk jika perintah dijalankan dari folder lain. Environment sistem tetap lebih diprioritaskan. Origin preview frontend port 4173 sudah diizinkan pada konfigurasi default.
+
 ```powershell
 uvicorn main:app --reload --port 8000
 ```

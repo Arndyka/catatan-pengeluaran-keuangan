@@ -1,6 +1,14 @@
 const DEFAULT_TIMEOUT_MS = 120000;
 const BATCH_SIZE = 35;
 
+export async function readPageWithNvidia({baseUrl,imageDataUrl,bankHint='generic',pageNumber=1}) {
+ const normalized=normalizeBaseUrl(baseUrl);
+ if(!normalized)throw new Error('Isi URL backend AI sebelum memakai scan AI.');
+ const response=await fetchJson(`${normalized}/api/nvidia/read-page`,{method:'POST',body:JSON.stringify({image_data_url:imageDataUrl,bank_hint:bankHint,page_number:pageNumber})});
+ if(!Array.isArray(response.result?.transactions))throw new Error('AI tidak mengembalikan daftar transaksi. Coba OCR lokal atau gambar lebih jelas.');
+ return response.result;
+}
+
 function normalizeBaseUrl(value) {
   return String(value || "").trim().replace(/\/+$/, "");
 }

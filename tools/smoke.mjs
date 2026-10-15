@@ -1,0 +1,15 @@
+import {chromium} from '@playwright/test';
+import fs from 'node:fs/promises';
+await fs.mkdir('test-results',{recursive:true});
+const browser=await chromium.launch({headless:true});
+const page=await browser.newPage({viewport:{width:1440,height:1100}});
+const errors=[];page.on('pageerror',err=>errors.push(err.message));page.on('console',msg=>{if(msg.type()==='error')errors.push(msg.text());});
+await page.goto('http://127.0.0.1:4173/?demo=1');
+await page.waitForTimeout(1800);
+console.log(JSON.stringify({errors,title:await page.title(),auth:await page.locator('#authScreen').isVisible(),app:await page.locator('#appShell').isVisible(),goals:await page.locator('.goal-card').count(),overflow:await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth)}));
+await page.screenshot({path:'test-results/dashboard-desktop.png',fullPage:true});
+await page.setViewportSize({width:390,height:844});
+await page.screenshot({path:'test-results/dashboard-mobile.png',fullPage:true});
+await page.locator('.quick-actions [data-page="goals"]').click();
+await page.screenshot({path:'test-results/goals-mobile.png',fullPage:true});
+await browser.close();

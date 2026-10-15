@@ -2,24 +2,35 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Spendly Multi-Bank AI Reader V4</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Spendly — Ruang tenang untuk uangmu</title>
+  <meta name="theme-color" content="#211e25">
+  <meta name="description" content="Atur pengeluaran, bangun tabungan, dan wujudkan tujuanmu bersama Spendly.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/icon-192.png">
+  <script>document.documentElement.dataset.theme='dark';try{document.documentElement.dataset.theme=localStorage.getItem('spendly:theme')||'dark'}catch{}</script>
   <link rel="stylesheet" href="assets/styles.css?v=multibank-ai-reader-v4-20260720">
+  <link rel="stylesheet" href="assets/experience.css">
 </head>
 <body>
+  <a class="skip-link" href="#mainContent">Lewati ke konten</a>
   <section id="authScreen" class="auth-screen">
+    <div class="auth-story"><span class="story-pill">UANG LEBIH TERARAH. HIDUP LEBIH TENANG.</span><h2>Langkah kecil.<br>Mimpi <em>besar.</em></h2><p>Kenali kebiasaanmu, beri setiap rupiah tujuan, dan nikmati perjalanan menuju kebebasan finansial.</p><div class="story-orbit"><div class="orbit-ring"></div><div class="story-card"><span>Tujuan berikutnya</span><strong>Rumah pertama</strong><div class="story-progress"></div><small>Setiap langkah berarti.</small></div><div class="orbit-symbol">✦</div></div><div class="story-footer">Dirancang untuk keseharianmu <span>✦</span> Spendly</div></div>
     <div class="auth-card">
       <div class="brand-row">
         <div class="brand-logo">S</div>
         <div>
           <h1>Spendly</h1>
-          <p>Personal finance berbasis jurnal berpasangan</p>
+          <p>Ruang tenang untuk uangmu.</p>
         </div>
       </div>
 
+      <h2 class="auth-heading">Selamat datang kembali.</h2><p class="muted">Satu tempat untuk semua rencana keuanganmu.</p>
       <div class="auth-tabs">
-        <button id="loginTab" class="auth-tab active" type="button">Login</button>
-        <button id="registerTab" class="auth-tab" type="button">Register</button>
+        <button id="loginTab" class="auth-tab active" type="button">Masuk</button>
+        <button id="registerTab" class="auth-tab" type="button">Daftar</button>
       </div>
 
       <form id="authForm" class="form-stack">
@@ -31,10 +42,10 @@
           <label for="authPassword">Password</label>
           <input id="authPassword" type="password" autocomplete="current-password" minlength="6" required>
         </div>
-        <button id="authSubmitButton" class="btn btn-primary" type="submit">Login</button>
+        <button id="authSubmitButton" class="btn btn-primary" type="submit">Masuk</button>
       </form>
 
-      <div id="authMessage" class="notice hidden"></div>
+      <div id="authMessage" class="notice hidden" role="status"></div><a class="demo-link" href="?demo=1">Jelajahi demo terlebih dahulu <span aria-hidden="true">↗</span></a><p class="auth-note">Data akun tersimpan privat. Kamu yang memegang kendali.</p>
     </div>
   </section>
 
@@ -44,42 +55,40 @@
         <div class="brand-logo">S</div>
         <div>
           <h1>Spendly</h1>
-          <p>Multi-Bank AI Reader V4</p>
+          <p>Make room for your dreams.</p>
         </div>
       </div>
 
-      <nav class="nav">
-        <button class="nav-link active" data-page="dashboard" type="button">Dashboard</button>
-        <button class="nav-link" data-page="transactions" type="button">Transaksi</button>
-        <button class="nav-link" data-page="recurring" type="button">Transaksi Berulang</button>
-        <button class="nav-link" data-page="credit-card" type="button">Kartu Kredit</button>
-        <button class="nav-link" data-page="budget" type="button">Budget</button>
-        <button class="nav-link" data-page="reports" type="button">Laporan</button>
-        <button class="nav-link" data-page="scanner" type="button">OCR / PDF</button>
-        <button class="nav-link" data-page="settings" type="button">Pengaturan</button>
-      </nav>
+      <nav class="nav" aria-label="Navigasi utama"><p class="nav-caption">RUANG KEUANGANMU</p><button class="nav-link" data-page="dashboard" type="button"><span data-icon="grid"></span><span>Ringkasan</span></button><button class="nav-link" data-page="wallets" type="button"><span data-icon="wallet"></span><span>Dompet</span></button><button class="nav-link" data-page="transactions" type="button"><span data-icon="arrows"></span><span>Transaksi</span></button><button class="nav-link" data-page="budget" type="button"><span data-icon="pie"></span><span>Budget</span></button><button class="nav-link" data-page="goals" type="button"><span data-icon="target"></span><span>Goals</span></button><button class="nav-link" data-page="investments" type="button"><span data-icon="chart"></span><span>Investasi</span></button><button class="nav-link" data-page="scanner" type="button"><span data-icon="scan"></span><span>Scan mutasi</span></button><button class="nav-link" data-page="recurring" type="button"><span data-icon="repeat"></span><span>Transaksi rutin</span></button><button class="nav-link" data-page="credit-card" type="button"><span data-icon="card"></span><span>Kartu kredit</span></button><button class="nav-link" data-page="reports" type="button"><span data-icon="chart"></span><span>Laporan</span></button><button class="nav-link" data-page="settings" type="button"><span data-icon="settings"></span><span>Pengaturan</span></button></nav><div class="sidebar-tip"><span data-icon="sparkles"></span><strong>Sedikit demi sedikit.</strong><p>Kebiasaan baik hari ini, masa depan yang lebih tenang.</p></div>
 
       <div class="sidebar-user">
         <p class="section-label">Login sebagai</p>
         <p id="userEmail" class="user-email">-</p>
-        <button id="logoutButton" class="btn btn-light" type="button">Logout</button>
+        <button id="logoutButton" class="btn btn-light" type="button">Keluar</button>
       </div>
     </aside>
 
-    <main class="content">
+    <main id="mainContent" class="content" tabindex="-1"><div class="mobile-brand"><span class="brand-logo">S.</span><strong>Spendly<span>.</span></strong><span class="mobile-tag">YOUR MONEY, YOUR WAY</span></div><div id="demoBanner" class="demo-banner hidden">Ruang demo · Angka contoh, perubahan hanya di browser ini. <a href="./">Masuk ke akun →</a></div>
       <header class="topbar">
         <div>
           <p id="pageEyebrow" class="section-label">Overview</p>
-          <h1 id="pageTitle">Dashboard</h1>
+          <h1 id="pageTitle">Ringkasan</h1><p id="pageDescription" class="page-description">Selamat datang. Mari buat rencana baik hari ini.</p>
         </div>
         <div class="topbar-actions">
-          <span id="syncStatus" class="sync-status">Menyambungkan...</span>
-          <button id="toggleBalanceButton" class="btn btn-light" type="button">Show Saldo</button>
+          <span id="syncStatus" class="sync-status" role="status">Menyambungkan...</span><button id="themeButton" class="icon-button" aria-label="Ganti tema" title="Ganti tema" type="button"><span data-icon="moon"></span></button><button id="installButton" class="icon-button" aria-label="Pasang Spendly" title="Pasang Spendly" type="button"><span data-icon="download"></span></button>
+          <button id="toggleBalanceButton" class="btn btn-light" type="button">Tampilkan saldo</button>
         </div>
       </header>
 
       <section id="page-dashboard" class="page-section">
-        <div class="stats-grid">
+        <div class="welcome-row"><div><span class="eyebrow">SELANGKAH LEBIH TERARAH</span><h2 id="welcomeTitle">Halo, Teman Spendly <span class="wave">✦</span></h2><p>Rencana besar dimulai dari kebiasaan kecil.</p></div><button class="btn btn-primary" data-action="transaction" type="button"><span data-icon="plus"></span> Catat transaksi</button></div>
+        <div class="hero-grid"><article class="daily-card"><div class="daily-top"><span><span data-icon="sparkles"></span> RUANG BELANJA HARI INI</span><span class="hero-chip" id="heroMonth"></span></div><h2 id="dailyAmount">—</h2><p id="dailyHint">Atur batas belanja untuk mulai merencanakan.</p><div class="daily-bottom"><div><span>Terpakai hari ini</span><strong id="todaySpent">—</strong></div><button data-action="limit" class="hero-action" type="button">Atur budget <span data-icon="chevron"></span></button></div><div class="hero-orbit" aria-hidden="true"></div></article>
+        <article class="pace-card"><div class="panel-header"><span class="eyebrow">LANGKAH BULAN INI</span><span data-icon="pie"></span></div><div class="pace-main"><div id="monthRing" class="progress-ring"><span id="monthPercent">0%</span></div><div><h3 id="paceTitle">Awal yang baik.</h3><p id="paceHint">Buat ruang untuk hal yang berarti.</p></div></div><div class="pace-footer"><span id="daysRemaining"></span><button class="text-button" data-page="budget" type="button">Lihat budget ↗</button></div></article></div>
+        <div id="modernStats" class="modern-stats"></div>
+        <div class="quick-actions" aria-label="Akses cepat"><button data-page="budget" type="button"><span class="quick-icon" data-icon="pie"></span><span>Budget</span></button><button data-page="scanner" type="button"><span class="quick-icon" data-icon="scan"></span><span>Scan mutasi</span></button><button data-page="goals" type="button"><span class="quick-icon" data-icon="target"></span><span>Goals</span></button><button data-page="wallets" type="button"><span class="quick-icon" data-icon="wallet"></span><span>Dompet</span></button><button data-page="investments" type="button"><span class="quick-icon" data-icon="chart"></span><span>Investasi</span></button><button data-page="recurring" type="button"><span class="quick-icon" data-icon="repeat"></span><span>Tagihan rutin</span></button></div>
+        <div class="dashboard-main-grid"><section class="panel spending-panel"><div class="panel-header"><div><p class="section-label">KENALI POLAMU</p><h2>Pengeluaran bulan ini</h2></div><span class="pill" id="chartMonth"></span></div><div id="spendingChart"></div></section><section class="panel"><div class="panel-header"><div><p class="section-label">TETAP DI JALUR</p><h2>Budget terpantau</h2></div><button class="text-button" data-page="budget" type="button">Kelola ↗</button></div><div id="budgetPreview"></div></section></div>
+        <div class="dashboard-main-grid"><section class="panel"><div class="panel-header"><div><p class="section-label">CERITA UANGMU</p><h2>Transaksi terbaru</h2></div><button class="text-button" data-page="transactions" type="button">Semua ↗</button></div><div id="recentTransactions"></div></section><section class="panel goal-preview-panel"><div class="panel-header"><div><p class="section-label">SATU LANGKAH LEBIH DEKAT</p><h2>Mimpi yang ditabung</h2></div><button class="text-button" data-page="goals" type="button">Semua ↗</button></div><div id="goalsPreview"></div></section></div>
+        <details class="accounting-details"><summary>Detail saldo & kesehatan pencatatan <span aria-hidden="true">+</span></summary>        <div class="stats-grid">
           <article class="stat-card">
             <p>Total Aset</p>
             <h2 id="dashboardAssets">Rp ••••••</h2>
@@ -154,14 +163,17 @@
           </div>
           <button id="migrateLegacyButton" class="btn btn-light" type="button">Migrasi Data Lama</button>
         </section>
-      </section>
-
+</details><p class="page-footer">Setiap rupiah punya cerita. Buat ceritamu berarti. <span>✦</span></p>
+      <section id="salaryDashboard" class="panel salary-dashboard"></section></section>
+      <section id="page-wallets" class="page-section hidden"><div class="section-intro"><div><h2>Semua uangmu. Satu tempat.</h2><p>Kenali saldo rekening, dompet digital, dan kartu kreditmu.</p></div><button class="btn btn-primary" data-action="account" type="button"><span data-icon="plus"></span> Tambah dompet</button></div><div id="financialHealth" aria-live="polite"></div><div id="walletOverview"></div><div id="walletCards" class="wallet-grid"></div><section id="bankMonitor" class="panel bank-monitor"></section><p class="brand-attribution">Logo bank adalah milik masing-masing pemilik merek. Spendly merupakan pencatat keuangan independen dan tidak terhubung langsung ke bank.</p></section>
+      <section id="page-goals" class="page-section hidden"><div class="section-intro"><div><h2>Mimpi besar, langkah kecil.</h2><p>Sisihkan sedikit hari ini untuk hal yang kamu impikan.</p></div><button class="btn btn-primary" data-action="new-goal" type="button"><span data-icon="plus"></span> Buat goal</button></div><div id="goalsOverview" class="goal-overview"></div><div id="goalCards" class="goal-grid"></div><p class="helper-note">Tabungan goals dicatat manual sebagai penanda tujuan, tidak menambah atau mengurangi saldo dompet.</p></section>
+      <section id="page-investments" class="page-section hidden"><div class="section-intro"><div><h2>Tumbuh bersama rencanamu.</h2><p>Pantau dana yang sudah kamu alokasikan untuk masa depan.</p></div><button class="btn btn-primary" data-action="investment" type="button"><span data-icon="plus"></span> Catat investasi</button></div><div class="investment-tabs" role="group" aria-label="Jenis aset"><button type="button" data-bank-action="portfolio" class="active" aria-pressed="true">Investasi</button><button type="button" data-bank-action="savings" aria-pressed="false">Tabungan bersama</button></div><div id="investmentView"></div><div id="savingsView" class="hidden"></div></section>
       <section id="page-transactions" class="page-section hidden">
         <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">Journal Entry</p>
-              <h2>Input Transaksi</h2>
+              <p class="section-label">CATAT KESEHARIANMU</p>
+              <h2>Uang masuk atau keluar?</h2>
             </div>
           </div>
 
@@ -175,7 +187,7 @@
               <label for="transactionType">Tipe Transaksi</label>
               <select id="transactionType">
                 <option value="income">Pemasukan</option>
-                <option value="expense">Pengeluaran Tunai/Bank</option>
+                <option value="expense" selected>Pengeluaran</option>
                 <option value="transfer">Transfer Antar Akun</option>
                 <option value="credit_purchase">Belanja Kartu Kredit</option>
                 <option value="credit_payment">Bayar Kartu Kredit</option>
@@ -206,13 +218,13 @@
                 <option value="Hiburan">Hiburan</option>
                 <option value="Pendidikan">Pendidikan</option>
                 <option value="Investasi">Investasi</option>
-                <option value="Lainnya">Lainnya</option>
+                <option value="Lainnya" selected>Lainnya</option>
               </select>
             </div>
 
             <div class="field">
               <label for="transactionAmount">Nominal</label>
-              <input id="transactionAmount" type="number" min="1" step="1" required>
+              <input id="transactionAmount" type="number" min="0.01" step="0.01" required>
             </div>
 
             <div class="field">
@@ -238,8 +250,8 @@
               </select>
             </div>
 
-            <button id="saveTransactionButton" class="btn btn-primary form-submit" type="submit">Simpan Transaksi</button>
-          </form>
+
+          <section class="manual-review form-span"><div class="manual-review-header"><div><p class="section-label">SEBELUM DISIMPAN</p><h3>Saran perbaikan</h3><p class="helper-note">Periksa typo, kategori, dan input yang tidak biasa. Saran tidak mengubah transaksi sampai kamu menerapkannya.</p></div><button id="checkManualButton" type="button" class="btn btn-light">Periksa input</button></div><details><summary>Minta saran AI (opsional)</summary><p class="helper-note">Menggunakan URL backend pada halaman Scan mutasi. Tanggal dan nominal tidak diubah AI.</p><label class="ai-consent"><input id="manualAiConsent" type="checkbox"><span>Izinkan pengiriman rincian input ini ke backend dan penyedia NVIDIA AI.</span></label><button id="manualAiButton" type="button" class="btn btn-light">Minta saran AI</button></details><div id="manualReviewMessage" class="notice hidden" role="status"></div><div id="manualSuggestions" aria-live="polite"></div></section><button id="saveTransactionButton" class="btn btn-primary form-submit" type="submit">Simpan Transaksi</button></form>
 
           <div id="transactionMessage" class="notice hidden"></div>
         </section>
@@ -251,7 +263,7 @@
               <h2>Riwayat Transaksi</h2>
             </div>
             <div class="table-actions">
-              <select id="transactionFilter">
+              <select id="transactionFilter" aria-label="Filter jenis transaksi">
                 <option value="all">Semua Tipe</option>
                 <option value="income">Pemasukan</option>
                 <option value="expense">Pengeluaran</option>
@@ -268,16 +280,16 @@
         </section>
       </section>
 
-      <section id="page-recurring" class="page-section hidden">
+      <section id="page-recurring" class="page-section hidden"><section id="salaryOverview" class="salary-overview"></section>
         <section class="panel">
           <div class="panel-header">
             <div>
               <p class="section-label">Recurring Rules</p>
-              <h2>Transaksi Berulang</h2>
+              <h2>Jadwal pemasukan &amp; pengeluaran</h2><button id="salarySetupButton" type="button" class="btn btn-primary">Atur gaji bulanan</button>
             </div>
           </div>
 
-          <form id="recurringForm" class="form-grid">
+          <form id="recurringForm" class="form-grid"><input id="recurringRuleId" type="hidden"><div class="field"><label for="recurringKind">Jenis jadwal</label><select id="recurringKind"><option value="standard">Transaksi rutin</option><option value="salary">Gaji bulanan</option></select></div>
             <div class="field">
               <label for="recurringName">Nama Aturan</label>
               <input id="recurringName" type="text" placeholder="Contoh: Gaji, Internet, Netflix" required>
@@ -294,14 +306,14 @@
             </div>
             <div class="field">
               <label for="recurringDay">Tanggal Setiap Bulan</label>
-              <input id="recurringDay" type="number" min="1" max="28" value="1" required>
+              <input id="recurringDay" type="number" min="1" max="31" value="1" required>
             </div>
             <div class="field">
               <label for="recurringAmount">Nominal</label>
               <input id="recurringAmount" type="number" min="1" required>
             </div>
             <div class="field">
-              <label for="recurringSource">Akun Sumber</label>
+              <label for="recurringSource" id="recurringSourceLabel">Rekening penerima</label>
               <select id="recurringSource"></select>
             </div>
             <div class="field">
@@ -320,7 +332,7 @@
               <label for="recurringEnd">Berakhir (opsional)</label>
               <input id="recurringEnd" type="date">
             </div>
-            <button class="btn btn-primary form-submit" type="submit">Simpan Aturan</button>
+            <p class="helper-note form-span">Tanggal 29–31 mengikuti hari terakhir jika bulan lebih pendek. Gaji belum menambah saldo sampai dikonfirmasi.</p><button id="recurringSaveButton" class="btn btn-primary form-submit" type="submit">Simpan jadwal</button><button id="cancelRecurringEdit" class="btn btn-light" type="button">Reset formulir</button>
           </form>
 
           <div id="recurringMessage" class="notice hidden"></div>
@@ -333,7 +345,7 @@
                 <p class="section-label">Due Items</p>
                 <h2>Transaksi yang Sudah Jatuh Jadwal</h2>
               </div>
-              <button id="postDueRecurringButton" class="btn btn-primary" type="button">Posting Semua yang Jatuh Jadwal</button>
+              <button id="postDueRecurringButton" class="btn btn-primary" type="button">Catat rutin tanpa kecocokan</button>
             </div>
             <div id="dueRecurringList" class="list-stack"></div>
           </section>
@@ -441,14 +453,14 @@
         </section>
       </section>
 
-      <section id="page-budget" class="page-section hidden">
+      <section id="page-budget" class="page-section hidden"><div id="monthlyBudgetCard" class="budget-limit-panel"></div>
         <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">Budget Plan</p>
-              <h2>Rencana Anggaran Bulanan</h2>
+              <p class="section-label">RENCANAKAN DENGAN TENANG</p>
+              <h2>Beri setiap rupiah tujuan</h2>
             </div>
-            <input id="budgetMonth" type="month">
+            <input id="budgetMonth" type="month" aria-label="Bulan budget">
           </div>
 
           <form id="budgetForm" class="form-grid">
@@ -493,11 +505,11 @@
       <section id="page-reports" class="page-section hidden">
         <section class="panel report-toolbar">
           <div>
-            <p class="section-label">Monthly Report</p>
+            <p class="section-label">CERITA BULAN INI</p>
             <h2>Laporan Bulanan</h2>
           </div>
           <div class="report-actions">
-            <input id="reportMonth" type="month">
+            <input id="reportMonth" type="month" aria-label="Bulan laporan">
             <button id="exportReportCsv" class="btn btn-light" type="button">Export CSV</button>
           </div>
         </section>
@@ -541,7 +553,7 @@
               <h2>Neraca Saldo</h2>
             </div>
           </div>
-          <div id="trialBalanceContainer" class="table-container"></div>
+          <div id="trialBalanceContainer" class="table-container" tabindex="0" role="region" aria-label="Neraca saldo, geser untuk melihat semua kolom"></div>
         </section>
       </section>
 
@@ -549,12 +561,13 @@
         <section class="panel">
           <div class="panel-header">
             <div>
-              <p class="section-label">OCR / PDF</p>
-              <h2>Multi-Bank Statement Reader</h2>
+              <p class="section-label">SCAN MUTASI</p>
+              <h2>Dari mutasi jadi catatan rapi</h2>
             </div>
           </div>
 
-          <div class="statement-reader-info">
+          <div class="scanner-intro"><span class="scanner-emblem" data-icon="scan"></span><div><h3>Catatan rapi, tanpa ketik satu-satu.</h3><p>Unggah mutasi PDF atau screenshot. Periksa hasilnya sebelum masuk ke catatanmu.</p><div class="bank-chips"><span>Mandiri</span><span>BCA</span><span>Krom</span></div></div></div>
+          <details class="reader-details"><summary>Format yang didukung & cara kerja</summary>          <div class="statement-reader-info">
             <article>
               <strong>1. Auto Bank Detection</strong>
               <span>Mendeteksi Mandiri, BCA, atau Krom secara otomatis dari identitas dan struktur PDF.</span>
@@ -617,10 +630,11 @@
             </span>
           </div>
 
+</details>
           <div class="scanner-grid">
             <div class="upload-card">
               <div class="field">
-                <label for="scanInput">Upload Screenshot / PDF e-Statement</label>
+                <label for="scanMode">Cara membaca dokumen</label><select id="scanMode"><option value="local">OCR lokal · PDF &amp; screenshot</option><option value="ai">AI Vision · screenshot &amp; PDF yang perlu fallback</option></select><p class="helper-note">PDF bertulisan dibaca langsung. Screenshot dan PDF hasil scan bisa memakai AI. Semua hasil diperiksa sebelum disimpan.</p><label for="scanInput">Pilih PDF atau screenshot mutasi</label>
                 <input id="scanInput" type="file" accept="image/*,.pdf,application/pdf" multiple>
               </div>
 
@@ -651,7 +665,7 @@
                 </span>
               </label>
 
-              <section class="nvidia-ai-box">
+<details class="ai-options"><summary>Pengaturan AI · gambar &amp; kategori <span>Opsional</span></summary>              <section class="nvidia-ai-box">
                 <div class="nvidia-ai-header">
                   <div>
                     <strong>NVIDIA AI Optimizer</strong>
@@ -681,12 +695,12 @@
                   </span>
                 </label>
 
-                <p class="nvidia-ai-security-note">
+                <label class="ai-consent"><input id="visionConsent" type="checkbox"><span>Saya setuju mengirim screenshot atau gambar halaman PDF yang perlu dibaca ke backend dan penyedia NVIDIA AI. Gambar bisa memuat nomor rekening serta data pribadi. File PDF asli dan password tetap di browser.</span></label><p class="nvidia-ai-security-note">
                   Jangan masukkan API key pada kolom ini. Yang diisi hanya URL backend.
                 </p>
-              </section>
+              </section></details>
 
-              <div id="scanPreview" class="preview-box">Preview file akan muncul di sini.</div>
+              <div id="scanPreview" class="preview-box">File pilihanmu akan ditampilkan di sini.</div>
 
               <div id="scanProgressWrap" class="scan-progress-wrap hidden">
                 <div class="scan-progress-header">
@@ -697,7 +711,7 @@
               </div>
 
               <div class="scan-button-row">
-                <button id="scanButton" class="btn btn-primary" type="button">Baca Semua Halaman</button>
+                <button id="scanButton" class="btn btn-primary" type="button">Baca mutasi</button>
                 <button id="cancelScanButton" class="btn btn-light hidden" type="button">Batalkan</button>
               </div>
 
@@ -708,11 +722,11 @@
           </div>
 
           <div id="statementSummaryContainer" class="statement-summary-container"></div>
-          <div id="scanReviewContainer" class="scan-review"></div>
+          <div id="scanExcludedContainer"></div><div id="scanReviewContainer" class="scan-review"></div>
         </section>
       </section>
 
-      <section id="page-settings" class="page-section hidden">
+      <section id="page-settings" class="page-section hidden"><section class="panel preferences-panel"><div><p class="section-label">SESUAI CARA KAMU</p><h2>Nyaman dipakai setiap hari.</h2><p class="muted">Tema, pemasangan aplikasi, dan akses cepat.</p></div><div class="preference-actions"><button class="btn btn-light" data-action="theme" type="button">Ganti tema</button><button class="btn btn-primary" data-action="install" type="button">Pasang di HP</button><button class="btn btn-light" data-action="logout" type="button">Keluar akun</button></div></section>
         <section class="settings-grid">
           <section class="panel">
             <div class="panel-header">
@@ -753,7 +767,7 @@
           <section class="panel">
             <div class="panel-header">
               <div>
-                <p class="section-label">Credit Card Settings</p>
+                <p class="section-label">KARTU KREDIT</p>
                 <h2>Pengaturan Kartu Kredit</h2>
               </div>
             </div>
@@ -782,10 +796,7 @@
                 <label for="ccMinimumFloorInput">Minimum Nominal</label>
                 <input id="ccMinimumFloorInput" type="number" min="0">
               </div>
-              <div class="field">
-                <label for="ccInterestInput">Bunga per Bulan (%)</label>
-                <input id="ccInterestInput" type="number" min="0" step="0.01">
-              </div>
+
               <button class="btn btn-primary form-submit" type="submit">Simpan Pengaturan</button>
             </form>
             <div id="creditSettingsMessage" class="notice hidden"></div>
@@ -795,8 +806,13 @@
     </main>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-  <script type="module" src="assets/js/app.js?v=multibank-ai-reader-v4-20260720"></script>
+  <nav class="bottom-nav hidden" id="bottomNav" aria-label="Navigasi ponsel"><button data-page="dashboard" type="button"><span data-icon="grid"></span><span>Beranda</span></button><button data-page="wallets" type="button"><span data-icon="wallet"></span><span>Dompet</span></button><button data-action="transaction" class="floating-add" aria-label="Catat transaksi" type="button"><span data-icon="plus"></span></button><button data-page="transactions" type="button"><span data-icon="arrows"></span><span>Transaksi</span></button><button data-action="menu" type="button"><span data-icon="grid"></span><span>Lainnya</span></button></nav>
+  <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
+  <script type="module" src="assets/js/boot.js"></script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 </body>
 </html>

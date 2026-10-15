@@ -3,6 +3,9 @@ import {
   formatDateLocal,
   slugText
 } from "./utils.js";
+import {visionCandidates,imageDataUrl} from './scan-vision.js';
+import {scanExclusionReason} from './transaction-quality.js';
+import {explicitBankReference} from './import-reconciliation.js';
 
 const MONTHS = {
   jan: "01", januari: "01", january: "01",
@@ -23,6 +26,7 @@ const BANK_LABELS = {
   mandiri: "Mandiri",
   bca: "BCA",
   krom: "Krom",
+  blu: "blu",
   generic: "Format Umum"
 };
 
@@ -88,11 +92,10 @@ export function parseIdrValue(value) {
     return null;
   }
 
-  const rounded = Math.round(numeric);
-  const signedAmount = sign === "-" ? -rounded : rounded;
+  const signedAmount = sign === "-" ? -numeric : numeric;
 
   return {
-    amount: Math.abs(rounded),
+    amount: Math.abs(numeric),
     signedAmount,
     sign,
     raw: match[0]
@@ -101,6 +104,8 @@ export function parseIdrValue(value) {
 
 function parseDateFromText(value, fallbackYear = null) {
   const text = normalizeLine(value);
+  const iso = text.match(/\b20\d{2}-\d{2}-\d{2}\b/);
+  if (iso) return iso[0];
 
   // Prioritaskan nama bulan agar waktu seperti 09.20 tidak salah dibaca sebagai tanggal.
   let match = text.toLowerCase().match(
@@ -246,8 +251,13 @@ export function detectBankFromText(pageText, fileName = "") {
   const scores = {
     mandiri: 0,
     bca: 0,
-    krom: 0
+    krom: 0,
+    blu: 0
   };
+  if(/\bblu\b|bca digital/.test(text))scores.blu+=5;
+  if(/\bbca\b/.test(text)&&!scores.blu)scores.bca+=1;
+  if(/\bmandiri\b/.test(text))scores.mandiri+=1;
+  if(/\bkrom\b/.test(text))scores.krom+=1;
 
   if (/menara mandiri|bank mandiri|mandiri e-?statement/.test(text)) {
     scores.mandiri += 4;
@@ -941,13 +951,7 @@ function detectBcaTransactionCode(titleText) {
 }
 
 function extractBcaReference(description) {
-  const text = normalizeLine(description);
-
-  return (
-    text.match(/\b\d{4}\/[A-Z]+\/[A-Z0-9]+\b/i)?.[0] ||
-    text.match(/\bBIF\s+TRANSFER\s+(?:DR|CR)\s+\d+\b/i)?.[0] ||
-    ""
-  );
+  return explicitBankReference(description);
 }
 
 function inferBcaCategory({
@@ -1432,10 +1436,11 @@ function parseKromPage({
       return;
     }
 
-    const reference =
-      description.match(/\b([A-Za-z0-9]{12,})\b/)?.[1] || "";
     const merchant = merchantFromDescription(description);
     const isMovement = /Pemindahan Saldo|Balance Movement/i.test(transactionTypeText);
+    // Unlabeled Krom IDs can pair the two internal pocket legs, but ordinary
+    // payments may contain sender account numbers and must not dedupe on them.
+    const reference = explicitBankReference(description) || (isMovement ? description.match(/\b([A-Za-z0-9]{12,})\b/)?.[1] || "" : "");
     const ownerTokens = normalizeLine(metadata.ownerName || "")
       .toLowerCase()
       .split(" ")
@@ -1465,12 +1470,10 @@ function parseKromPage({
               ? accountMap.krom
               : "";
 
-      // Statement ini milik Krom, sehingga rekening penerima selalu Krom.
-      destinationAccountId = accountId;
-
       if (mentionsOwner && sourceBank) {
         type = "transfer";
         sourceAccountId = sourceBank;
+        destinationAccountId = accountId;
       } else {
         possibleOwnTransfer = mentionsOwner;
       }
@@ -1543,6 +1546,34 @@ function parseKromPage({
   return candidates;
 }
 
+export function parseReceiptText(rawText,{bank,accountId,pageNumber=1,merchantRules={}}) {
+ const text=String(rawText||'');
+ const dateText=text.match(/\b20\d{2}-\d{2}-\d{2}\b/)?.[0] || text.match(/\b\d{1,2}[\/-]\d{1,2}[\/-]20\d{2}\b|\b\d{1,2}\s+[a-z]+\s+20\d{2}\b/i)?.[0] || '';
+ const date=/^20\d{2}-/.test(dateText)?dateText:dateText?parseDateFromText(dateText):'';
+ const parsedDate=new Date(date+'T12:00:00Z');
+ if(!date||Number.isNaN(parsedDate.getTime())||parsedDate.toISOString().slice(0,10)!==date||scanExclusionReason({description:text}))return [];
+ if(!/\b(berhasil|sukses|successful|completed|settled)\b/i.test(text))return [];
+ const lines=text.split('\n').map(normalizeLine).filter(Boolean);
+ const labelled=text.match(/(?:total\s+(?:transaksi|pembayaran|transfer)|nominal|jumlah(?:\s+transfer)?)\s*[:\s]*(?:Rp|IDR)?\s*([\d.,]+)/i);
+ const currencies=[...text.matchAll(/(?:Rp|IDR)\s*([\d.,]+)/gi)];
+ // Multiple unlabelled amounts can be fees, balance or total: leave them for AI/review.
+ const amount=parseIdrValue(labelled?.[1] || (currencies.length===1?currencies[0][1]:''));
+ if(!amount||amount.amount<=0)return [];
+ const incoming=/uang masuk|transfer masuk|dana diterima|penerimaan/i.test(text);
+ const reference=text.match(/(?:no\.?\s*referensi|nomor referensi|reference|ref(?:erensi)?\.?|id transaksi)\s*[:#]?\s*([A-Z0-9-]{6,})/i)?.[1]||'';
+ const description=lines.filter(line=>!/^saldo|rekening|nomor rekening/i.test(line)).join(' ').slice(0,1000);
+ const time=text.match(/\b([01]\d|2[0-3]):([0-5]\d)(?::([0-5]\d))?\b/);
+ return [createBaseCandidate({bank,type:incoming?'income':'expense',date,time:time?`${time[1]}:${time[2]}:${time[3]||'00'}`:'',amount:amount.amount,signedAmount:incoming?amount.amount:-amount.amount,sourceAccountId:accountId,category:inferCategory(description,'',merchantRules),merchant:'',description,pageNumber,rowNumber:1,method:'receipt-ocr',confidence:0.6,reference,selected:false})];
+}
+
+export function parseImageText(rawText,options){
+ if(/mutasi|rekening koran|account statement|riwayat transaksi/i.test(rawText))return parseGenericText(rawText,options);
+ if(scanExclusionReason({description:rawText}))return [];
+ const receipt=parseReceiptText(rawText,options);
+ // A signed amount on an unpaid request is not proof of a posted transaction.
+ return receipt;
+}
+
 function parseGenericText(
   rawText,
   {
@@ -1565,7 +1596,9 @@ function parseGenericText(
       return;
     }
 
-    const context = active.lines.join(" ");
+    // Remove only the date token, not its entire line; the same line can hold
+    // merchant, amount and failure status. A date's '-' is never a money sign.
+    const context = active.lines.join(" ").replace(active.dateText, "");
     const amounts = [...context.matchAll(
       /([+-])\s*(?:Rp|IDR)?\s*((?:\d{1,3}(?:[.,]\d{3})+|\d+)(?:[.,]\d{2})?)/gi
     )];
@@ -1579,12 +1612,14 @@ function parseGenericText(
       return;
     }
 
-    const description = normalizeLine(
-      context
-        .replace(active.dateText, "")
-        .replace(active.time || "", "")
-        .replace(amounts[0][0], "")
-    );
+    const withoutAmount = context.replace(amounts[0][0], "");
+    const timeText = withoutAmount.match(/(?<![\d.,])(?:[01]?\d|2[0-3])[:.][0-5]\d(?::[0-5]\d)?(?![\d.,])(?:\s*WIB)?/i)?.[0] || "";
+    const time = timeText ? parseTimeFromText(timeText) : "";
+    const description = normalizeLine(withoutAmount.replace(timeText, ""));
+    if (scanExclusionReason({description})) {
+      active = null;
+      return;
+    }
 
     const merchant = merchantFromDescription(description);
     const type = amountInfo.signedAmount >= 0 ? "income" : "expense";
@@ -1594,7 +1629,7 @@ function parseGenericText(
         bank,
         type,
         date: active.date,
-        time: active.time,
+        time,
         amount: amountInfo.amount,
         signedAmount: amountInfo.signedAmount,
         sourceAccountId: accountId,
@@ -1612,24 +1647,20 @@ function parseGenericText(
   };
 
   lines.forEach((line) => {
-    const date = parseDateFromText(line);
+    const dateText = line.match(/\b20\d{2}-\d{2}-\d{2}\b|\b\d{1,2}[\/-]\d{1,2}[\/-]20\d{2}\b|\b\d{1,2}\s+[a-z]+\s+20\d{2}\b/i)?.[0] || "";
+    const date = dateText ? parseDateFromText(dateText) : "";
 
     if (date) {
       flush();
       active = {
         date,
-        dateText: line,
-        time: parseTimeFromText(line),
+        dateText,
         lines: [line]
       };
       return;
     }
 
     if (active) {
-      if (!active.time) {
-        active.time = parseTimeFromText(line);
-      }
-
       active.lines.push(line);
     }
   });
@@ -2135,7 +2166,8 @@ async function readPdfStatement({
   merchantRules,
   onProgress,
   shouldCancel,
-  getOcrWorker
+  getOcrWorker,
+  visionReader
 }) {
   const pdf = await openPdf(file, password);
   let bank = "generic";
@@ -2146,6 +2178,8 @@ async function readPdfStatement({
   const fallbackPages = [];
   let nativePages = 0;
   let ocrPages = 0;
+  let aiPages = 0;
+  let excludedCount = 0;
   let informationalPages = 0;
   let parserFailedPages = 0;
   let ocrFailedPages = 0;
@@ -2224,7 +2258,7 @@ async function readPdfStatement({
       const expectedTransactionPage =
         isExpectedTransactionPage(bank, pageText);
 
-      if (tokens.length < 35) {
+      if (tokens.length < 35 || (visionReader && expectedTransactionPage)) {
         fallbackPages.push({
           pageNumber,
           expectedTransactionPage
@@ -2256,6 +2290,19 @@ async function readPdfStatement({
 
     const page = await pdf.getPage(pageNumber);
     const sourceCanvas = await renderPageCanvas(page);
+    if (visionReader) {
+      onProgress({stage:'ai',fileName:file.name,bank,pageNumber,pageCount:pdf.numPages,stageProgress:0});
+      const result = await visionReader({imageDataUrl:await imageDataUrl(sourceCanvas),bankHint:bank,pageNumber});
+      if(shouldCancel())throw new Error('Proses scan dibatalkan.');
+      const detected=detectBankFromText(JSON.stringify(result),file.name);
+      if(bank==='generic')bank=['bca','mandiri','krom','blu'].includes(result.bank)?result.bank:detected.bank;
+      const parsed=visionCandidates(result,{bank,accountId:bankAccountMap[bank]||bankAccountMap.generic,pageNumber});
+      excludedCount+=Number(result.excluded_count||0)+(result.transactions?.length||0)-parsed.length;
+      rawCandidates.push(...parsed.map(item=>({...item,sourceFile:file.name,sourceFileOrder:fileOrder})));
+      aiPages+=1;if(!parsed.length)ocrFailedPages+=1;
+      sourceCanvas.width=0;sourceCanvas.height=0;page.cleanup();
+      continue;
+    }
     const preparedCanvas = preprocessCanvas(sourceCanvas);
 
     const worker = await getOcrWorker((progress) => {
@@ -2347,6 +2394,8 @@ async function readPdfStatement({
       pageCount: pdf.numPages,
       nativePages,
       ocrPages,
+      aiPages,
+      excludedCount,
       informationalPages,
       parserFailedPages,
       ocrFailedPages,
@@ -2368,10 +2417,20 @@ async function readImageStatement({
   merchantRules,
   onProgress,
   shouldCancel,
-  getOcrWorker
+  getOcrWorker,
+  visionReader
 }) {
   if (shouldCancel()) {
     throw new Error("Proses scan dibatalkan.");
+  }
+
+  if(visionReader) {
+    onProgress({stage:'ai',fileName:file.name,pageNumber:1,pageCount:1,stageProgress:0});
+    const result=await visionReader({imageDataUrl:await imageDataUrl(file),pageNumber:1});
+    if(shouldCancel())throw new Error('Proses scan dibatalkan.');
+    const detected=detectBankFromText(JSON.stringify(result),file.name),bank=['bca','mandiri','krom','blu'].includes(result.bank)?result.bank:detected.bank;
+    const candidates=visionCandidates(result,{bank,accountId:bankAccountMap[bank]||bankAccountMap.generic,pageNumber:1}).map(item=>({...item,sourceFile:file.name,sourceFileOrder:fileOrder}));
+    return {candidates,statement:{fileName:file.name,bank,bankLabel:BANK_LABELS[bank],pageCount:1,nativePages:0,ocrPages:0,aiPages:1,excludedCount:Number(result.excluded_count||0)+(result.transactions?.length||0)-candidates.length,failedPages:candidates.length?0:1,reviewCandidateCount:candidates.length,metadata:{},reconciliation:{}}};
   }
 
   const worker = await getOcrWorker((progress) => {
@@ -2389,17 +2448,8 @@ async function readImageStatement({
   const rawText = result?.data?.text || "";
   const detection = detectBankFromText(rawText, file.name);
   const bank = detection.bank;
-  const parsed = parseGenericText(
-    rawText,
-    {
-      bank,
-      pageNumber: 1,
-      accountId:
-        bankAccountMap[bank] ||
-        bankAccountMap.generic,
-      merchantRules
-    }
-  ).map((item) => ({
+  const options={bank,pageNumber:1,accountId:bankAccountMap[bank]||bankAccountMap.generic,merchantRules};
+  const parsed = parseImageText(rawText,options).map((item) => ({
     ...item,
     sourceFile: file.name,
     sourceFileOrder: fileOrder
@@ -2437,10 +2487,12 @@ export async function scanStatementFiles({
   bankAccountMap,
   merchantRules = {},
   onProgress = () => {},
-  shouldCancel = () => false
+  shouldCancel = () => false,
+  visionReader = null
 }) {
   const candidates = [];
   const statements = [];
+  const excluded = [];
   let ocrWorker = null;
 
   const getOcrWorker = async (progressCallback) => {
@@ -2478,7 +2530,8 @@ export async function scanStatementFiles({
             merchantRules,
             onProgress,
             shouldCancel,
-            getOcrWorker
+            getOcrWorker,
+            visionReader
           })
         : await readImageStatement({
             file,
@@ -2487,10 +2540,15 @@ export async function scanStatementFiles({
             merchantRules,
             onProgress,
             shouldCancel,
-            getOcrWorker
+            getOcrWorker,
+            visionReader
           });
 
-      candidates.push(...result.candidates);
+      const bytes=await file.arrayBuffer();
+      const digest=await crypto.subtle.digest('SHA-256',bytes);
+      const sourceHash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
+      for(const item of result.candidates){const reason=scanExclusionReason(item);if(reason)excluded.push({fileName:file.name,page:item.sourcePage,reason});else candidates.push({...item,sourceHash});}
+      if(result.statement.excludedCount)excluded.push({fileName:file.name,reason:`${result.statement.excludedCount} baris AI bukan transaksi selesai atau tidak cukup terbaca.`});
       statements.push(result.statement);
     }
   } finally {
@@ -2501,7 +2559,8 @@ export async function scanStatementFiles({
 
   return {
     candidates,
-    statements
+    statements,
+    excluded
   };
 }
 

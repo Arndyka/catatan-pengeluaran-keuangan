@@ -1,92 +1,22 @@
-import {
-  addDays,
-  formatDateLocal,
-  parseLocalDate
-} from "./utils.js";
-import {
-  saveTransaction
-} from "./transactions.js";
-import {
-  updateRecurringRule
-} from "./repository.js";
-
-function safeMonthlyDate(year, monthIndex, day) {
-  const maxDay = new Date(year, monthIndex + 1, 0).getDate();
-  return new Date(year, monthIndex, Math.min(day, maxDay));
+import {buildTransaction} from './accounting.js';
+import {settleRecurringOccurrence} from './repository.js';
+import {isSalaryRule,dueOccurrences,recurringMatches,validateSettlement} from './recurring-logic.js';
+export {dueOccurrences} from './recurring-logic.js';
+export async function confirmOccurrence(uid,rule,period,settings,{date,amount,existingTransactionId}={}) {
+ if(existingTransactionId)return settleRecurringOccurrence(uid,rule.id,period,{existingTransactionId});
+ const input={type:rule.type,date,amount:Number(amount),sourceAccountId:rule.sourceAccountId,destinationAccountId:rule.destinationAccountId||'',category:rule.category||'Lainnya',merchant:rule.name,description:`Transaksi rutin: ${rule.name}`,recurringRuleId:rule.id,recurringPeriod:period,origin:'recurring'};
+ validateSettlement(rule,period,input);
+ const transactionData=await buildTransaction(input,settings);
+ return settleRecurringOccurrence(uid,rule.id,period,{transactionData});
 }
-
-export function dueOccurrences(rule, throughDate = new Date()) {
-  if (rule.active === false) return [];
-
-  const start = parseLocalDate(rule.startDate);
-  const end = rule.endDate ? parseLocalDate(rule.endDate) : null;
-
-  if (!start) return [];
-
-  const occurrences = [];
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-  const last = new Date(throughDate.getFullYear(), throughDate.getMonth(), 1);
-
-  while (cursor <= last) {
-    const occurrence = safeMonthlyDate(
-      cursor.getFullYear(),
-      cursor.getMonth(),
-      Number(rule.dayOfMonth || 1)
-    );
-
-    const periodKey = formatDateLocal(occurrence).slice(0, 7);
-
-    if (
-      occurrence >= start &&
-      occurrence <= throughDate &&
-      (!end || occurrence <= end) &&
-      rule.lastPostedPeriod !== periodKey
-    ) {
-      occurrences.push({
-        periodKey,
-        date: formatDateLocal(occurrence)
-      });
-    }
-
-    cursor.setMonth(cursor.getMonth() + 1);
+export async function postDueRules(uid,rules,settings,transactions=[]) {
+ let created=0,duplicate=0,needsReview=0;
+ for(const rule of rules){
+  for(const occurrence of dueOccurrences(rule)){
+   if(isSalaryRule(rule)||recurringMatches(rule,occurrence.periodKey,transactions).length){needsReview++;continue;}
+   const result=await confirmOccurrence(uid,rule,occurrence.periodKey,settings,{date:occurrence.date,amount:rule.amount});
+   if(result.created)created++;else duplicate++;
   }
-
-  return occurrences;
-}
-
-export async function postDueRules(uid, rules, settings) {
-  let created = 0;
-  let duplicate = 0;
-
-  for (const rule of rules) {
-    const occurrences = dueOccurrences(rule);
-
-    for (const occurrence of occurrences) {
-      const result = await saveTransaction(
-        uid,
-        {
-          type: rule.type,
-          date: occurrence.date,
-          amount: rule.amount,
-          sourceAccountId: rule.sourceAccountId,
-          destinationAccountId: rule.destinationAccountId || "",
-          category: rule.category || "Lainnya",
-          merchant: rule.name,
-          description: `Transaksi berulang: ${rule.name}`,
-          recurringRuleId: rule.id,
-          origin: "recurring"
-        },
-        settings
-      );
-
-      if (result.created) created += 1;
-      else duplicate += 1;
-
-      await updateRecurringRule(uid, rule.id, {
-        lastPostedPeriod: occurrence.periodKey
-      });
-    }
-  }
-
-  return { created, duplicate };
+ }
+ return {created,duplicate,needsReview};
 }

@@ -1,17 +1,23 @@
+import {renderRecurringUI} from './recurring-ui.js';
+import {setupManualSuggestions,suggestionsFor,suggestionsHtml,transactionSignature,remainingAiSuggestions} from './suggestions-ui.js';
+import {stageAiSuggestions,suggestionKey,scanExclusionReason,manualRecurringMatches} from './transaction-quality.js';
+import { setupExperience, loadExperience, resetExperience, renderExperience, onPageChange, refreshBudgetPreview } from './experience.js';
+import { isDemo } from './demo.js';
+import {matchImport,reconcileImports,importIdentity} from './import-reconciliation.js';
 import { $, cleanText, downloadText, escapeHtml, formatDateId, formatDateLocal, formatRupiah, hideNotice, monthKey, parseLocalDate, setNotice, slugText } from "./utils.js";
 import { setupAuth, observeAuth, logout } from "./auth.js";
 import { state, resetState } from "./state.js";
-import { DEFAULT_CREDIT_SETTINGS, DEFAULT_SETTINGS, balanceSheet, buildTransaction, deriveLedger, incomeStatement } from "./accounting.js";
+import { DEFAULT_CREDIT_SETTINGS, DEFAULT_SETTINGS, balanceSheet, buildTransaction, deriveLedger, incomeStatement,validateJournal } from "./accounting.js";
 import { loadUserSettings, saveCreditSettings, saveProfileSettings, addAccount, toggleAccountActive, accountOptions } from "./settings.js";
-import { listenTransactions, deleteTransaction, deleteAllTransactions, listenRecurringRules, saveRecurringRule, deleteRecurringRule, getBudgetPlan, saveBudgetPlan, migrateLegacyCollections } from "./repository.js";
+import { listenTransactions, deleteTransaction, deleteAllTransactions, listenRecurringRules, getBudgetPlan, saveBudgetPlan, migrateLegacyCollections } from "./repository.js";
 import { saveTransaction, transactionTypeLabel } from "./transactions.js";
-import { dueOccurrences, postDueRules } from "./recurring.js";
-import { budgetAnalysis } from "./budget.js";
+import { budgetAnalysis,validateBudgetItem } from "./budget.js";
 import { creditCardSnapshot } from "./credit-card.js";
 import { buildMonthlyReport } from "./reports.js";
 import { scanStatementFiles } from "./scanner.js";
 import {
   checkNvidiaBackend,
+  readPageWithNvidia,
   optimizeCandidatesWithNvidia
 } from "./nvidia-ai.js";
 
@@ -23,7 +29,10 @@ const pageEyebrow = $("pageEyebrow");
 const pageTitle = $("pageTitle");
 
 const PAGE_META = {
-  dashboard: ["Overview", "Dashboard"],
+  dashboard: ["Overview", "Ringkasan"],
+  wallets: ["Accounts", "Dompet"],
+  goals: ["Planning", "Goals"],
+  investments: ["Growth", "Investasi"],
   transactions: ["Journal", "Transaksi"],
   recurring: ["Automation", "Transaksi Berulang"],
   "credit-card": ["Liability", "Kartu Kredit"],
@@ -77,7 +86,7 @@ function accountOptionsHtml(selected = "", filter = {}) {
   ].join("");
 }
 
-function setPage(page) {
+function setPage(page, { replace = false } = {}) {
   const activePage = PAGE_META[page] ? page : "dashboard";
 
   document.querySelectorAll(".nav-link").forEach((button) => {
@@ -91,7 +100,10 @@ function setPage(page) {
   $(`page-${activePage}`).classList.remove("hidden");
   pageEyebrow.textContent = PAGE_META[activePage][0];
   pageTitle.textContent = PAGE_META[activePage][1];
-  history.replaceState(null, "", `#${activePage}`);
+  if (window.location.hash !== `#${activePage}`) {
+    history[replace ? "replaceState" : "pushState"](null, "", `#${activePage}`);
+  }
+  onPageChange(activePage);
   window.scrollTo({ top: 0, behavior: "smooth" });
 
   renderAll();
@@ -108,6 +120,7 @@ function renderAll() {
   renderBudget();
   renderReports();
   renderSettings();
+  renderExperience();
 }
 
 function renderAccountSelects() {
@@ -120,9 +133,9 @@ function renderAccountSelects() {
 
   allSelectIds.forEach((id) => {
     const element = $(id);
-    if (!element) return;
+    if (!element || element.form?.contains(document.activeElement)) return;
     const previous = element.value;
-    element.innerHTML = accountOptionsHtml(previous);
+    element.innerHTML = accountOptionsHtml(previous,id==='sourceAccount'?($('transactionType').value==='credit_purchase'?{includeAssets:false,includeLiabilities:true,subtype:'credit_card'}:{includeAssets:true,includeLiabilities:false}):{});
   });
 
   const cardAccountId = state.creditSettings.cardAccountId;
@@ -218,7 +231,7 @@ function updateTransactionFormMode() {
     $("sourceAccount").value = state.creditSettings.cardAccountId;
   } else {
     $("sourceAccount").innerHTML = accountOptionsHtml(
-      $("sourceAccount").value
+      $("sourceAccount").value,{includeAssets:true,includeLiabilities:false}
     );
   }
 
@@ -286,7 +299,7 @@ function renderTransactions() {
               <td>${escapeHtml(tx.category)}</td>
               <td>${money(tx.amount)}</td>
               <td>${escapeHtml(tx.description || tx.merchant || "-")}</td>
-              <td>${tx.journalCheck?.valid ? "Seimbang" : "Periksa"}</td>
+              <td>${validateJournal(tx.journal||[]).valid ? "Seimbang" : "Periksa"}${tx.date>formatDateLocal()?'<br><small>Belum masuk saldo aktual</small>':''}</td>
               <td>
                 <button class="small-btn danger" data-delete-transaction="${tx.id}" type="button">Hapus</button>
               </td>
@@ -298,38 +311,7 @@ function renderTransactions() {
     : `<div class="empty-state">Belum ada transaksi.</div>`;
 }
 
-function renderRecurring() {
-  const due = state.recurringRules.flatMap((rule) =>
-    dueOccurrences(rule).map((occurrence) => ({
-      rule,
-      occurrence
-    }))
-  );
-
-  $("dueRecurringList").innerHTML = due.length
-    ? due.map(({ rule, occurrence }) => `
-        <article class="list-card">
-          <div>
-            <strong>${escapeHtml(rule.name)}</strong>
-            <p>${escapeHtml(occurrence.date)} · ${formatRupiah(rule.amount)}</p>
-          </div>
-          <span class="pill">Jatuh jadwal</span>
-        </article>
-      `).join("")
-    : `<div class="empty-state">Tidak ada transaksi yang jatuh jadwal.</div>`;
-
-  $("recurringRuleList").innerHTML = state.recurringRules.length
-    ? state.recurringRules.map((rule) => `
-        <article class="list-card">
-          <div>
-            <strong>${escapeHtml(rule.name)}</strong>
-            <p>Tanggal ${rule.dayOfMonth} · ${formatRupiah(rule.amount)} · ${escapeHtml(transactionTypeLabel(rule.type))}</p>
-          </div>
-          <button class="small-btn danger" data-delete-recurring="${rule.id}" type="button">Hapus</button>
-        </article>
-      `).join("")
-    : `<div class="empty-state">Belum ada aturan berulang.</div>`;
-}
+function renderRecurring(){renderRecurringUI();}
 
 function renderCreditCard() {
   const snapshot = creditCardSnapshot(
@@ -350,7 +332,8 @@ function renderCreditCard() {
     ["Tanggal Cetak Terakhir", formatDateId(snapshot.cycle.lastStatement)],
     ["Tanggal Cetak Berikutnya", formatDateId(snapshot.cycle.nextStatement)],
     ["Tanggal Pengingat", formatDateId(snapshot.cycle.reminderDate)],
-    ["Pembayaran setelah cetak", money(snapshot.paymentsAfterStatement)]
+    ["Pembayaran/kredit setelah cetak", money(snapshot.paymentsAfterStatement)],
+    ["Kelebihan pembayaran", money(snapshot.creditBalance)]
   ].map(([label, value]) => `
       <div class="summary-row">
         <span>${label}</span>
@@ -371,6 +354,7 @@ function renderCreditCard() {
     : `<div class="empty-state">Belum ada cicilan aktif.</div>`;
 
   $("creditReconcileSummary").innerHTML = `
+    <p class="helper-note">${snapshot.officialStatementApplied?'Menggunakan tagihan resmi untuk siklus ini.':snapshot.officialStatementStale?'Data tagihan resmi berasal dari siklus lain atau tanggal belum sesuai. Estimasi jurnal digunakan; perbarui tanggal cetak/jadwal kartu.':'Menggunakan estimasi jurnal. Cocokkan dengan e-Billing bank.'} Bunga, biaya, dan denda hanya masuk jika dicatat sebagai transaksi aktual.</p>
     <div class="summary-row">
       <span>Estimasi aplikasi</span>
       <strong>${money(snapshot.estimatedBilled)}</strong>
@@ -385,6 +369,7 @@ function renderCreditCard() {
     </div>
   `;
 
+  if($("creditReconcileForm").contains(document.activeElement))return;
   $("officialStatementAmount").value =
     Number(state.creditSettings.officialStatementAmount || 0);
   $("officialStatementDate").value =
@@ -395,9 +380,14 @@ function renderCreditCard() {
     state.creditSettings.reconciliationNote || "";
 }
 
+let budgetRequest=0;
 async function loadBudget(month) {
-  state.budgetPlan = await getBudgetPlan(state.user.uid, month);
+  const request=++budgetRequest,uid=state.user.uid;
+  const plan=await getBudgetPlan(uid,month);
+  if(request!==budgetRequest||state.user?.uid!==uid)return;
+  state.budgetPlan = plan;
   renderBudget();
+  refreshBudgetPreview(state.budgetPlan);
 }
 
 function renderBudget() {
@@ -420,7 +410,7 @@ function renderBudget() {
     </div>
     <div class="summary-row">
       <span>Status alokasi</span>
-      <strong>${analysis.percentageValid ? "Valid" : "Lebih dari 100%"}</strong>
+      <strong>${!analysis.percentageValid ? "Persentase tidak valid" : analysis.overlap ? "Kategori bertumpuk: tinjau pos lama" : "Valid"}</strong>
     </div>
   `;
 
@@ -434,7 +424,7 @@ function renderBudget() {
           <div>
             <p>Target ${money(item.target)} · Aktual ${money(item.actual)} · Sisa ${money(item.remaining)}</p>
             <div class="progress-track">
-              <div class="progress-fill ${item.overBudget ? "over" : ""}" style="width:${Math.min(100, item.usage)}%"></div>
+              <div class="progress-fill ${item.overBudget ? "over" : ""}" style="width:${state.hideBalances?0:Math.min(100, item.usage)}%"></div>
             </div>
           </div>
           <button class="small-btn danger" data-delete-budget="${item.id}" type="button">Hapus</button>
@@ -464,7 +454,9 @@ function renderReports() {
 
   $("cashFlowReport").innerHTML = [
     ["Arus Kas Operasi Bersih", report.cashFlow.netOperating],
-    ["Arus Kas Investasi", -report.cashFlow.investingOutflow],
+    ["Arus Kas Investasi Bersih", report.cashFlow.netInvesting],
+    ["Transfer belum terklasifikasi", report.cashFlow.otherNet],
+    ["Saldo awal kas (bukan arus kas)", report.cashFlow.openingAdjustments],
     ["Pembayaran Liabilitas", -report.cashFlow.financingOutflow],
     ["Perubahan Kas Bersih", report.cashFlow.netCashFlow]
   ].map(([label, value]) => `
@@ -533,13 +525,13 @@ function renderSettings() {
     </article>
   `).join("");
 
-  $("ccLimitInput").value = Number(state.creditSettings.limit || 0);
-  $("ccStatementDayInput").value = Number(state.creditSettings.statementDay || 7);
-  $("ccDueDaysInput").value = Number(state.creditSettings.dueDays || 20);
-  $("ccReminderDaysInput").value = Number(state.creditSettings.reminderDays || 5);
-  $("ccMinimumPercentInput").value = Number(state.creditSettings.minimumPaymentPercent || 5);
-  $("ccMinimumFloorInput").value = Number(state.creditSettings.minimumPaymentFloor || 50000);
-  $("ccInterestInput").value = Number(state.creditSettings.monthlyInterestPercent || 1.75);
+  if ($("creditSettingsForm").contains(document.activeElement)) return;
+  $("ccLimitInput").value = Number(state.creditSettings.limit ?? 0);
+  $("ccStatementDayInput").value = Number(state.creditSettings.statementDay ?? 7);
+  $("ccDueDaysInput").value = Number(state.creditSettings.dueDays ?? 20);
+  $("ccReminderDaysInput").value = Number(state.creditSettings.reminderDays ?? 5);
+  $("ccMinimumPercentInput").value = Number(state.creditSettings.minimumPaymentPercent ?? 5);
+  $("ccMinimumFloorInput").value = Number(state.creditSettings.minimumPaymentFloor ?? 50000);
 }
 
 function csvFromReport() {
@@ -559,7 +551,9 @@ function csvFromReport() {
     [],
     ["ARUS KAS", ""],
     ["Operasi Bersih", report.cashFlow.netOperating],
-    ["Investasi", -report.cashFlow.investingOutflow],
+    ["Investasi Bersih", report.cashFlow.netInvesting],
+    ["Transfer belum terklasifikasi", report.cashFlow.otherNet],
+    ["Saldo awal kas (bukan arus kas)", report.cashFlow.openingAdjustments],
     ["Pembayaran Liabilitas", -report.cashFlow.financingOutflow],
     ["Perubahan Kas Bersih", report.cashFlow.netCashFlow]
   ];
@@ -570,12 +564,9 @@ function csvFromReport() {
 }
 
 function setupNavigation() {
-  document.querySelectorAll(".nav-link").forEach((button) => {
-    button.addEventListener("click", () => setPage(button.dataset.page));
-  });
 
   const requested = window.location.hash.replace("#", "");
-  setPage(PAGE_META[requested] ? requested : "dashboard");
+  setPage(PAGE_META[requested] ? requested : "dashboard", { replace: true });
 }
 
 function setupEvents() {
@@ -584,11 +575,11 @@ function setupEvents() {
   $("toggleBalanceButton").addEventListener("click", async () => {
     state.hideBalances = !state.hideBalances;
     $("toggleBalanceButton").textContent =
-      state.hideBalances ? "Show Saldo" : "Hide Saldo";
+      state.hideBalances ? "Tampilkan saldo" : "Sembunyikan saldo";
 
     state.settings.hideBalanceDefault = state.hideBalances;
-    await saveProfileSettings(state.user.uid, state.settings);
     renderAll();
+    try { await saveProfileSettings(state.user.uid, state.settings); } catch (error) { console.error(error); }
   });
 
   $("transactionType").addEventListener("change", updateTransactionFormMode);
@@ -600,22 +591,26 @@ function setupEvents() {
     const type = $("transactionType").value;
 
     try {
-      const result = await saveTransaction(
-        state.user.uid,
-        {
+      const input = {
           type,
           date: $("transactionDate").value,
           amount: Number($("transactionAmount").value),
           sourceAccountId: $("sourceAccount").value,
-          destinationAccountId: $("destinationAccount").value,
+          destinationAccountId: ['transfer','investment','credit_payment'].includes(type) ? $("destinationAccount").value : '',
           category: $("transactionCategory").value,
           merchant: $("transactionMerchant").value,
           description: $("transactionDescription").value,
           installmentTenor: Number($("installmentTenor").value || 1),
           origin: "manual"
-        },
-        state.settings
-      );
+        };
+      const matches=manualRecurringMatches(input,state.transactions);
+      if(matches.length){
+        const details=matches.slice(0,3).map(tx=>`${tx.date} · ${state.hideBalances?'••••':formatRupiah(tx.amount)} · ${tx.merchant||tx.category}`).join('\n');
+        if(!confirm(`Ada transaksi rutin/gaji mirip yang sudah tercatat:\n${details}\n\nJika ini transaksi yang sama, pilih Batal agar tidak dihitung dua kali. Pilih OK hanya jika ini transaksi yang berbeda dan tetap ingin menambahkannya.`)){
+          setNotice($("transactionMessage"),'info','Tidak ada transaksi tambahan. Catatan rutin/gaji yang sudah ada tetap digunakan.');return;
+        }
+      }
+      const result = await saveTransaction(state.user.uid,input,state.settings);
 
       if (result.created) {
         setNotice($("transactionMessage"), "success", "Transaksi dan jurnal berhasil disimpan.");
@@ -680,59 +675,12 @@ function setupEvents() {
     }
   });
 
-  $("recurringForm").addEventListener("submit", async (event) => {
-    event.preventDefault();
-
-    await saveRecurringRule(state.user.uid, {
-      name: cleanText($("recurringName").value),
-      type: $("recurringType").value,
-      dayOfMonth: Number($("recurringDay").value),
-      amount: Number($("recurringAmount").value),
-      sourceAccountId: $("recurringSource").value,
-      destinationAccountId: $("recurringDestination").value,
-      category: cleanText($("recurringCategory").value),
-      startDate: $("recurringStart").value,
-      endDate: $("recurringEnd").value,
-      active: true,
-      lastPostedPeriod: ""
-    });
-
-    setNotice($("recurringMessage"), "success", "Aturan transaksi berulang disimpan.");
-    event.target.reset();
-    $("recurringDay").value = "1";
-    $("recurringStart").value = formatDateLocal();
-  });
-
-  $("postDueRecurringButton").addEventListener("click", async () => {
-    const result = await postDueRules(
-      state.user.uid,
-      state.recurringRules,
-      state.settings
-    );
-
-    alert(`${result.created} transaksi dibuat. ${result.duplicate} duplikat dilewati.`);
-  });
-
-  $("recurringRuleList").addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-delete-recurring]");
-    if (!button) return;
-    await deleteRecurringRule(state.user.uid, button.dataset.deleteRecurring);
-  });
-
   $("creditReconcileForm").addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    state.creditSettings = {
-      ...state.creditSettings,
-      officialStatementAmount: Number($("officialStatementAmount").value || 0),
-      officialStatementDate: $("officialStatementDate").value,
-      officialDueDate: $("officialDueDate").value,
-      reconciliationNote: cleanText($("reconciliationNote").value)
-    };
-
-    await saveCreditSettings(state.user.uid, state.creditSettings);
-    setNotice($("creditReconcileMessage"), "success", "Rekonsiliasi kartu kredit disimpan.");
-    renderCreditCard();
+    const next={...state.creditSettings,officialStatementAmount:Number($("officialStatementAmount").value||0),officialStatementDate:$("officialStatementDate").value,officialDueDate:$("officialDueDate").value,reconciliationNote:cleanText($("reconciliationNote").value)};
+    const uid=state.user.uid,button=event.target.querySelector('button[type="submit"]');button.disabled=true;
+    try{await saveCreditSettings(uid,next);if(state.user?.uid!==uid)return;state.creditSettings=next;setNotice($("creditReconcileMessage"),'success','Rekonsiliasi kartu kredit disimpan.');renderCreditCard();}catch(error){setNotice($("creditReconcileMessage"),'error',error.message);}finally{button.disabled=false;}
   });
 
   $("budgetMonth").addEventListener("change", () => {
@@ -742,41 +690,21 @@ function setupEvents() {
   $("budgetForm").addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const item = {
-      id: crypto.randomUUID(),
-      name: cleanText($("budgetName").value),
-      category: $("budgetCategory").value,
-      method: $("budgetMethod").value,
-      value: Number($("budgetValue").value)
-    };
-
-    state.budgetPlan.items = [...state.budgetPlan.items, item];
-    await saveBudgetPlan(
-      state.user.uid,
-      state.budgetPlan.month,
-      state.budgetPlan
-    );
-
-    setNotice($("budgetMessage"), "success", "Pos budget ditambahkan.");
-    event.target.reset();
-    renderBudget();
+    const button=event.target.querySelector('button[type="submit"]');button.disabled=true;
+    const uid=state.user.uid;
+    try{
+      const item=validateBudgetItem({id:crypto.randomUUID(),name:cleanText($("budgetName").value),category:$("budgetCategory").value,method:$("budgetMethod").value,value:Number($("budgetValue").value)},state.budgetPlan.items);
+      const next={...state.budgetPlan,items:[...state.budgetPlan.items,item]};
+      await saveBudgetPlan(uid,next.month,next);
+      if(state.user?.uid!==uid)return;
+      if(state.budgetPlan.month===next.month)state.budgetPlan=next;
+      setNotice($("budgetMessage"),'success','Pos budget ditambahkan.');event.target.reset();renderBudget();refreshBudgetPreview(next);
+    }catch(error){setNotice($("budgetMessage"),'error',error.message);}finally{button.disabled=false;}
   });
-
-  $("budgetList").addEventListener("click", async (event) => {
-    const button = event.target.closest("[data-delete-budget]");
-    if (!button) return;
-
-    state.budgetPlan.items = state.budgetPlan.items.filter(
-      (item) => item.id !== button.dataset.deleteBudget
-    );
-
-    await saveBudgetPlan(
-      state.user.uid,
-      state.budgetPlan.month,
-      state.budgetPlan
-    );
-
-    renderBudget();
+  $("budgetList").addEventListener('click',async event=>{
+    const button=event.target.closest('[data-delete-budget]');if(!button)return;button.disabled=true;
+    const uid=state.user.uid,next={...state.budgetPlan,items:state.budgetPlan.items.filter(item=>item.id!==button.dataset.deleteBudget)};
+    try{await saveBudgetPlan(uid,next.month,next);if(state.user?.uid!==uid)return;if(state.budgetPlan.month===next.month)state.budgetPlan=next;renderBudget();refreshBudgetPreview(next);}catch(error){setNotice($("budgetMessage"),'error',error.message);}finally{button.disabled=false;}
   });
 
   $("reportMonth").addEventListener("change", renderReports);
@@ -792,53 +720,39 @@ function setupEvents() {
 
   $("accountForm").addEventListener("submit", async (event) => {
     event.preventDefault();
-
+    const uid=state.user.uid,button=event.target.querySelector('button[type="submit"]');button.disabled=true;
     try {
-      state.settings = addAccount(state.settings, {
+      const next = addAccount(state.settings, {
         name: $("accountName").value,
         type: $("accountType").value,
         subtype: $("accountSubtype").value
       });
 
-      await saveProfileSettings(state.user.uid, state.settings);
+      await saveProfileSettings(uid, next);
+      if(state.user?.uid!==uid)return;
+      state.settings=next;
       setNotice($("accountMessage"), "success", "Akun baru disimpan dan tersinkronisasi.");
       event.target.reset();
       renderAll();
     } catch (error) {
-      setNotice($("accountMessage"), "error", error.message);
-    }
+      if(state.user?.uid===uid)setNotice($("accountMessage"), "error", error.message);
+    } finally {button.disabled=false;}
   });
 
   $("accountSettingsList").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-toggle-account]");
     if (!button) return;
 
-    state.settings = toggleAccountActive(
-      state.settings,
-      button.dataset.toggleAccount
-    );
-
-    await saveProfileSettings(state.user.uid, state.settings);
-    renderAll();
+    const uid=state.user.uid,next=toggleAccountActive(state.settings,button.dataset.toggleAccount);button.disabled=true;
+    try{await saveProfileSettings(uid,next);if(state.user?.uid!==uid)return;state.settings=next;renderAll();}catch(error){if(state.user?.uid===uid)setNotice($("accountMessage"),'error',error.message);}finally{button.disabled=false;}
   });
 
   $("creditSettingsForm").addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    state.creditSettings = {
-      ...state.creditSettings,
-      limit: Number($("ccLimitInput").value),
-      statementDay: Number($("ccStatementDayInput").value),
-      dueDays: Number($("ccDueDaysInput").value),
-      reminderDays: Number($("ccReminderDaysInput").value),
-      minimumPaymentPercent: Number($("ccMinimumPercentInput").value),
-      minimumPaymentFloor: Number($("ccMinimumFloorInput").value),
-      monthlyInterestPercent: Number($("ccInterestInput").value)
-    };
-
-    await saveCreditSettings(state.user.uid, state.creditSettings);
-    setNotice($("creditSettingsMessage"), "success", "Pengaturan kartu kredit disimpan ke Firestore.");
-    renderAll();
+    const next={...state.creditSettings,limit:Number($("ccLimitInput").value),statementDay:Number($("ccStatementDayInput").value),dueDays:Number($("ccDueDaysInput").value),reminderDays:Number($("ccReminderDaysInput").value),minimumPaymentPercent:Number($("ccMinimumPercentInput").value),minimumPaymentFloor:Number($("ccMinimumFloorInput").value)};
+    const uid=state.user.uid,button=event.target.querySelector('button[type="submit"]');button.disabled=true;
+    try{await saveCreditSettings(uid,next);if(state.user?.uid!==uid)return;state.creditSettings=next;setNotice($("creditSettingsMessage"),'success','Pengaturan kartu kredit berhasil disimpan.');renderAll();}catch(error){setNotice($("creditSettingsMessage"),'error',error.message);}finally{button.disabled=false;}
   });
 
   $("scanInput").addEventListener("change", () => {
@@ -933,46 +847,24 @@ function setupEvents() {
     $("cancelScanButton").textContent = "Membatalkan...";
   });
 
-  $("scanReviewContainer").addEventListener("click", handleScanReviewClick);
+  $("scanReviewContainer").addEventListener("click", event => {handleScanReviewClick(event).catch(error=>setNotice($("scanMessage"),"error",error.message));});
 
-  $("scanReviewContainer").addEventListener("change", (event) => {
-    if (event.target.dataset.scanField !== "type") {
-      return;
-    }
-
-    const row = event.target.closest("[data-scan-index]");
-
-    if (!row) {
-      return;
-    }
-
-    const index = Number(row.dataset.scanIndex);
-    const candidate = scanCandidates[index];
-    candidate.type = event.target.value;
-
-    const destinationSelect =
-      row.querySelector('[data-scan-field="destinationAccountId"]');
-    const destinationLabel =
-      destinationSelect?.closest("label");
-    const isTransfer = candidate.type === "transfer";
-
-    if (destinationSelect) {
-      destinationSelect.disabled = !isTransfer;
-    }
-
-    if (destinationLabel) {
-      destinationLabel.classList.toggle(
-        "destination-disabled",
-        !isTransfer
-      );
+  $("scanReviewContainer").addEventListener("change", event=>{
+    if(['importDecision','date','amount','type','sourceAccountId','destinationAccountId'].includes(event.target.dataset.scanField)){
+      syncScanCandidates();const item=scanCandidates[Number(event.target.closest('[data-scan-index]').dataset.scanIndex)];
+      if(event.target.dataset.scanField==='importDecision')item.selected=event.target.value==='new';renderScanCandidates();
     }
   });
+
+
 }
 
 let scanCandidates = [];
 let scanStatements = [];
 let scanCancelled = false;
 let nvidiaOptimizationRunning = false;
+let scanBatchVersion=0;
+let scanSaving = false;
 
 function updateNvidiaBackendBadge(status) {
   const badge = $("nvidiaAiStatusBadge");
@@ -1036,6 +928,8 @@ async function optimizeCurrentScanWithNvidia() {
   }
 
   nvidiaOptimizationRunning = true;
+  const startedBatch=scanBatchVersion;
+  const originals=scanCandidates.map(item=>({...item}));
   updateNvidiaBackendBadge("running");
 
   const button =
@@ -1063,50 +957,18 @@ async function optimizeCurrentScanWithNvidia() {
         }
       });
 
+    if(startedBatch!==scanBatchVersion)throw new Error('Dokumen berubah saat AI memeriksa. Jalankan ulang pada dokumen terbaru.');
+    syncScanCandidates();
     let applied = 0;
 
     (result.updates || []).forEach((update) => {
       const index = Number(update.index);
       const candidate = scanCandidates[index];
 
-      if (!candidate) return;
+      if (!candidate || transactionSignature(candidate)!==transactionSignature(originals[index]||{})) return;
 
-      const allowedFields = [
-        "type",
-        "category",
-        "merchant",
-        "description",
-        "sourceAccountId",
-        "destinationAccountId",
-        "possibleOwnTransfer",
-        "transferNeedsMapping"
-      ];
-
-      allowedFields.forEach((field) => {
-        if (
-          update[field] !== undefined &&
-          update[field] !== null
-        ) {
-          candidate[field] = update[field];
-        }
-      });
-
-      if (
-        Number.isFinite(Number(update.confidence))
-      ) {
-        candidate.confidence = Math.max(
-          candidate.confidence || 0,
-          Math.min(0.99, Number(update.confidence))
-        );
-      }
-
-      candidate.aiOptimized = true;
-      candidate.aiReason =
-        cleanText(update.reason || "");
-      candidate.extractionMethod =
-        `${candidate.extractionMethod || "local"} + deepseek-v4-pro`;
-
-      applied += 1;
+      candidate.aiSuggestions=stageAiSuggestions(candidate,update,state.settings.accounts).map(s=>({...s,snapshot:transactionSignature(candidate)}));
+      applied+=candidate.aiSuggestions.length;
     });
 
     renderScanCandidates();
@@ -1115,7 +977,7 @@ async function optimizeCurrentScanWithNvidia() {
     setNotice(
       $("scanMessage"),
       "success",
-      `${applied} kandidat diperiksa NVIDIA AI. Tanggal dan nominal asli tetap dikunci agar AI tidak mengubah angka transaksi.`
+      `${applied} saran AI tersedia. Pilih Terapkan atau Abaikan; data asli belum diubah.`
     );
   } catch (error) {
     updateNvidiaBackendBadge("error");
@@ -1133,7 +995,7 @@ async function optimizeCurrentScanWithNvidia() {
     if (currentButton) {
       currentButton.disabled = false;
       currentButton.textContent =
-        "Optimalkan dengan NVIDIA AI";
+        "Minta saran NVIDIA AI";
     }
   }
 }
@@ -1145,6 +1007,10 @@ async function scanFiles() {
   if (!files.length) {
     setNotice($("scanMessage"), "error", "Pilih file terlebih dahulu.");
     return;
+  }
+  const useVision=$("scanMode").value==='ai';
+  if(useVision&&(!$("visionConsent").checked||!$("nvidiaBackendUrlInput").value.trim())){
+    setNotice($("scanMessage"),"error","Untuk scan AI, isi URL backend dan setujui pengiriman gambar. Kamu juga bisa memilih OCR lokal.");return;
   }
 
   const assetAccounts = state.settings.accounts.filter(
@@ -1187,6 +1053,7 @@ async function scanFiles() {
   };
 
   const bankAccountMap = {
+    blu: findBankAccount(['blu','BCA Digital','blu BCA Digital']),
     mandiri: findBankAccount([
       "Mandiri",
       "Bank Mandiri",
@@ -1221,6 +1088,7 @@ async function scanFiles() {
     return;
   }
 
+  scanBatchVersion++;
   scanCandidates = [];
   scanStatements = [];
   scanCancelled = false;
@@ -1233,11 +1101,13 @@ async function scanFiles() {
   $("scanProgress").value = 0;
   $("scanProgressPercent").textContent = "0%";
   $("statementSummaryContainer").innerHTML = "";
+  $("scanExcludedContainer").innerHTML = "";
   $("scanReviewContainer").innerHTML = "";
 
   try {
     const result = await scanStatementFiles({
       files,
+      visionReader:useVision?options=>readPageWithNvidia({...options,baseUrl:$("nvidiaBackendUrlInput").value.trim()}):null,
       password: pdfPassword,
       bankAccountMap,
       merchantRules:
@@ -1272,11 +1142,12 @@ async function scanFiles() {
         $("scanProgressText").textContent =
           progress.stage === "native"
             ? `Membaca ${progress.bank && progress.bank !== "generic" ? progress.bank.toUpperCase() : "PDF"} · ${progress.fileName} · halaman ${progress.pageNumber}/${pageCount}`
-            : `OCR machine-learning ${progress.fileName} · halaman ${progress.pageNumber}/${pageCount}`;
+            : `${progress.stage==='ai'?'AI membaca':'OCR lokal'} ${progress.fileName} · halaman ${progress.pageNumber}/${pageCount}`;
       }
     });
 
     scanStatements = result.statements;
+    $('scanExcludedContainer').innerHTML=(result.excluded||[]).length?`<details class="scan-excluded"><summary>${result.excluded.length} informasi pengecualian: tidak masuk transaksi</summary><ul>${result.excluded.map(item=>`<li><strong>${escapeHtml(item.fileName)}</strong>: ${escapeHtml(item.reason)}</li>`).join('')}</ul></details>`:'';
 
     const statementBankByFile = new Map(
       scanStatements.map((statement) => [
@@ -1387,7 +1258,7 @@ async function scanFiles() {
     setNotice(
       $("scanMessage"),
       "success",
-      `${scanCandidates.length} transaksi ditemukan. ${nativeCount} halaman dibaca langsung dari PDF dan ${ocrCount} halaman memakai OCR fallback.`
+      `${scanCandidates.length} transaksi ditemukan. ${nativeCount} halaman PDF langsung, ${ocrCount} OCR lokal, ${scanStatements.reduce((sum,s)=>sum+Number(s.aiPages||0),0)} halaman AI. Periksa hasil sebelum menyimpan.`
     );
 
     $("pdfPasswordInput").value = "";
@@ -1444,6 +1315,7 @@ function renderStatementSummaries() {
                     ${statement.pageCount} halaman ·
                     ${statement.nativePages} halaman transaksi native ·
                     ${statement.ocrPages} OCR fallback ·
+                    ${statement.aiPages || 0} AI ·
                     ${statement.informationalPages || 0} halaman informasi
                   </p>
                 </div>
@@ -1553,6 +1425,12 @@ function validationLabel(item) {
 }
 
 function renderScanCandidates() {
+  const matched=reconcileImports(scanCandidates,state.transactions);
+  scanCandidates=matched.map((next,index)=>{
+    const old=scanCandidates[index];
+    const selected=next.importMatch.status==='duplicate'?false:next.importMatch.status==='review'?old.importDecision==='new'&&old.selected:old.selected;
+    return {...next,selected};
+  });
   $("scanReviewContainer").innerHTML =
     scanCandidates.length
       ? `
@@ -1560,8 +1438,8 @@ function renderScanCandidates() {
           <div>
             <strong>${scanCandidates.length} kandidat transaksi</strong>
             <p>
-              Akun mengikuti bank hasil deteksi. Transfer internal Krom
-              tidak dipilih otomatis agar tidak dihitung dua kali.
+              Baru: ${scanCandidates.filter(i=>i.importMatch.status==='new').length} · Duplikat: ${scanCandidates.filter(i=>i.importMatch.status==='duplicate').length} · Perlu keputusan: ${scanCandidates.filter(i=>i.importMatch.status==='review').length}.
+              Duplikat pasti dilewati. Periksa akun serta transaksi yang mirip sebelum menyimpan.
             </p>
           </div>
 
@@ -1575,7 +1453,7 @@ function renderScanCandidates() {
             </button>
 
             <button id="optimizeWithNvidiaButton" class="btn btn-ai" type="button">
-              Optimalkan dengan NVIDIA AI
+              Minta saran NVIDIA AI
             </button>
 
             <button id="saveScanCandidates" class="btn btn-primary" type="button">
@@ -1610,7 +1488,9 @@ function renderScanCandidates() {
                   <td class="sticky-col sticky-col-1">
                     <input
                       data-scan-field="selected"
+                      aria-label="Pilih transaksi ${index+1}"
                       type="checkbox"
+                      ${item.importMatch.status==='duplicate'||(item.importMatch.status==='review'&&item.importDecision!=='new')?'disabled':''}
                       ${item.selected ? "checked" : ""}
                     >
                   </td>
@@ -1757,6 +1637,9 @@ function renderScanCandidates() {
 
                   <td>
                     <div class="status-stack">
+                      <div class="import-match ${item.importMatch.status}"><strong>${({new:'Transaksi baru',duplicate:'Duplikat · dilewati',review:'Mirip · perlu diperiksa'})[item.importMatch.status]}</strong><p>${escapeHtml(item.importMatch.reason)}</p>${item.importMatch.matched?`<p>Catatan pembanding: ${escapeHtml(item.importMatch.matched.merchant||item.importMatch.matched.description||item.importMatch.matched.category||'Transaksi')} · ${escapeHtml(item.importMatch.matched.date)}</p>`:''}</div>
+                      ${item.importMatch.status==='review'?`<label>Keputusan pencocokan<select data-scan-field="importDecision"><option value="">Pilih setelah diperiksa</option><option value="skip" ${item.importDecision==='skip'?'selected':''}>Transaksi sama · lewati</option><option value="new" ${item.importDecision==='new'?'selected':''}>Transaksi berbeda · simpan baru</option></select></label>`:''}
+                      ${suggestionsHtml(suggestionsFor(item),index)}
                       ${validationLabel(item)}
 
                       <span class="badge ${confidenceClass(item.confidence)}">
@@ -1808,6 +1691,8 @@ function syncScanCandidates() {
   document.querySelectorAll("[data-scan-index]").forEach((row) => {
     const item =
       scanCandidates[Number(row.dataset.scanIndex)];
+    const core=tx=>JSON.stringify([tx.date,Number(tx.amount),tx.type,tx.sourceAccountId,tx.destinationAccountId||'']);
+    const previousCore=core(item);
 
     row.querySelectorAll("[data-scan-field]").forEach((input) => {
       const field = input.dataset.scanField;
@@ -1827,9 +1712,20 @@ function syncScanCandidates() {
         : item.type === "expense"
           ? -Number(item.amount || 0)
           : 0;
+    if(core(item)!==previousCore){item.importDecision='';item.selected=false;}
   });
 }
 async function handleScanReviewClick(event) {
+  if(scanSaving)return;
+  syncScanCandidates();
+  const suggestionButton=event.target.closest('[data-suggestion-scan]');
+  if(suggestionButton){
+    const item=scanCandidates[Number(suggestionButton.dataset.suggestionScan)],suggestion=item&&suggestionsFor(item)[Number(suggestionButton.dataset.suggestionIndex)];
+    if(!suggestion)return;
+    if(suggestionButton.dataset.suggestionAction==='apply'&&!suggestion.warning){const before={...item};item[suggestion.field]=suggestion.after;item.aiSuggestions=remainingAiSuggestions(item.aiSuggestions,before,item,suggestion);item.importDecision='';item.selected=false;item.aiOptimized=suggestion.source==='NVIDIA AI';}
+    else item.dismissedSuggestions=[...(item.dismissedSuggestions||[]),suggestionKey(suggestion)];
+    renderScanCandidates();return;
+  }
   if (event.target.id === "optimizeWithNvidiaButton") {
     await optimizeCurrentScanWithNvidia();
     return;
@@ -1837,7 +1733,7 @@ async function handleScanReviewClick(event) {
 
   if (event.target.id === "selectAllScanCandidates") {
     scanCandidates.forEach((item) => {
-      if (!item.internalMovement) {
+      if (!item.internalMovement && item.importMatch?.status==='new') {
         item.selected = true;
       }
     });
@@ -1871,6 +1767,15 @@ async function handleScanReviewClick(event) {
 
   syncScanCandidates();
 
+  const selected=scanCandidates.filter(candidate=>candidate.selected);
+  const excluded=selected.find(scanExclusionReason);
+  if(excluded){excluded.selected=false;renderScanCandidates();setNotice($('scanMessage'),'error',`Tidak disimpan: ${scanExclusionReason(excluded)}. Periksa isi dokumen.`);return;}
+  if(!selected.length){setNotice($("scanMessage"),"error","Pilih transaksi baru yang sudah diperiksa terlebih dahulu.");return;}
+  for(const item of reconcileImports(selected,state.transactions)){if(item.importMatch.status==='review'&&item.importDecision!=='new'){renderScanCandidates();setNotice($("scanMessage"),"error","Ada transaksi mirip. Tentukan apakah transaksi sama atau berbeda sebelum menyimpan.");return;}}
+  scanSaving=true;
+  $("saveScanCandidates").disabled=true;
+  try {
+
   let created = 0;
   let duplicate = 0;
   let rulesChanged = false;
@@ -1884,28 +1789,31 @@ async function handleScanReviewClick(event) {
     ...(state.settings.transferAccountRules || {})
   };
 
-  for (
-    const item of scanCandidates.filter(
-      (candidate) => candidate.selected
-    )
-  ) {
+  const savedThisBatch=[];
+  for (const item of selected) {
+    const match=matchImport(item,[...state.transactions,...savedThisBatch]);
+    if(match.status==='duplicate'){duplicate+=1;item.selected=false;continue;}
     const result = await saveTransaction(
       state.user.uid,
       {
         ...item,
+        importIdentity:importIdentity(item),
         description:
           item.time
             ? `${item.description} · ${item.time}`
             : item.description,
         sourceMeta: {
-          fileName: item.sourceFile,
-          page: item.sourcePage,
-          row: item.sourceRow,
-          extractionMethod: item.extractionMethod,
-          bank: item.bank,
-          statementAccountName: item.statementAccountName,
-          statementAccountNumber: item.statementAccountNumber,
-          movementReference: item.movementReference,
+          fileName: item.sourceFile || '',
+          fileHash: item.sourceHash || '',
+          reference:item.reference || item.movementReference || '',
+          time:item.time || '',
+          page: item.sourcePage || 1,
+          row: item.sourceRow || 1,
+          extractionMethod: item.extractionMethod || '',
+          bank: item.bank || 'generic',
+          statementAccountName: item.statementAccountName || '',
+          statementAccountNumber: item.statementAccountNumber || '',
+          movementReference: item.movementReference || '',
           internalMovement: item.internalMovement === true
         },
         externalBalance: item.balanceAfter,
@@ -1914,6 +1822,7 @@ async function handleScanReviewClick(event) {
       },
       state.settings
     );
+    savedThisBatch.push(item);item.selected=false;
 
     if (result.created) {
       created += 1;
@@ -1999,10 +1908,14 @@ async function handleScanReviewClick(event) {
         : ""
     }`
   );
+  } finally {scanSaving=false;renderScanCandidates();}
 }
 
+let authGeneration=0;
 async function initializeUser(user) {
+  const generation=++authGeneration;
   resetState();
+  resetExperience();
   state.user = user;
   userEmail.textContent = user.email || "-";
   authScreen.classList.add("hidden");
@@ -2010,12 +1923,13 @@ async function initializeUser(user) {
   syncStatus.textContent = "Memuat data...";
 
   const loaded = await loadUserSettings(user.uid);
+  if(generation!==authGeneration||state.user?.uid!==user.uid)return;
   state.settings = loaded.profile;
   state.creditSettings = loaded.credit;
   state.hideBalances = state.settings.hideBalanceDefault !== false;
 
   $("toggleBalanceButton").textContent =
-    state.hideBalances ? "Show Saldo" : "Hide Saldo";
+    state.hideBalances ? "Tampilkan saldo" : "Sembunyikan saldo";
 
   $("transactionDate").value = formatDateLocal();
   $("recurringStart").value = formatDateLocal();
@@ -2023,13 +1937,17 @@ async function initializeUser(user) {
   $("reportMonth").value = monthKey();
 
   await loadBudget(monthKey());
+  if(generation!==authGeneration||state.user?.uid!==user.uid)return;
+  await loadExperience(user.uid);
+  if(generation!==authGeneration||state.user?.uid!==user.uid)return;
 
   state.unsubscribe.push(
     listenTransactions(
       user.uid,
       (items) => {
+        if(generation!==authGeneration||state.user?.uid!==user.uid)return;
         state.transactions = items;
-        syncStatus.textContent = "Tersinkronisasi";
+        syncStatus.textContent = isDemo ? "Mode demo · lokal" : "Tersinkronisasi";
         renderAll();
       },
       (error) => {
@@ -2043,8 +1961,10 @@ async function initializeUser(user) {
     listenRecurringRules(
       user.uid,
       (items) => {
+        if(generation!==authGeneration||state.user?.uid!==user.uid)return;
         state.recurringRules = items;
         renderRecurring();
+        renderExperience();
       },
       console.error
     )
@@ -2055,7 +1975,9 @@ async function initializeUser(user) {
 }
 
 function showAuth() {
+  authGeneration++;budgetRequest++;
   resetState();
+  resetExperience();
   authScreen.classList.remove("hidden");
   appShell.classList.add("hidden");
 }
@@ -2077,12 +1999,15 @@ setupAuth({
   }
 });
 
+setupExperience({ setPage, updateTransactionFormMode });
 setupNavigation();
 setupEvents();
+setupManualSuggestions(updateTransactionFormMode);
 
 observeAuth((user) => {
   if (user) {
     initializeUser(user).catch((error) => {
+      if(state.user?.uid!==user.uid)return;
       console.error(error);
       setNotice($("authMessage"), "error", error.message);
       showAuth();

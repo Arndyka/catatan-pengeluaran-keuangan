@@ -1,4 +1,72 @@
-# Spendly Multi-Bank AI Reader V4
+## Coba Spendly
+
+- Aplikasi: https://arndyka.github.io/catatan-pengeluaran-keuangan/
+- Demo terpisah: https://arndyka.github.io/catatan-pengeluaran-keuangan/?demo=1
+
+GitHub Pages memublikasikan frontend statis dari branch `main`. Backend AI Python harus dihosting terpisah melalui HTTPS dan URL-nya diisi pada pengaturan AI; API key hanya disimpan di backend.
+
+## Audit akhir keuangan dan UI — 15 Oktober 2026
+
+Jurnal dan presisi uang, saldo awal, arus kas, siklus/minimum kartu, deduplikasi scan, gaji rutin, budget, dan penanganan gagal simpan diperiksa ulang. Logo bank lokal, animasi reduced-motion, serta aksesibilitas desktop/HP telah dirapikan. Lihat [hasil audit dan batas pengujian](docs/FINAL_FINANCIAL_AUDIT.md).
+
+Validasi terbaru: **88 unit Node + 6 backend + 21 skenario browser lulus**, OCR lokal asli pada bukti sintetis lulus. Audit axe pada **11 halaman × 2 ukuran layar** tidak menemukan pelanggaran pada aturan yang diuji atau overflow halaman. Firebase produksi dan model NVIDIA live belum diuji.
+
+Paket frontend: `artifacts/spendly-web-redesign.zip`. Buat ulang dengan `python tools/package-frontend.py`; paket tidak menyertakan API key, backend, atau data pribadi. Backend AI tetap dipasang terpisah sesuai panduannya.
+
+## Scan lebih selektif, Suggestion Edit, dan gaji bulanan
+
+Filter informasi di luar transaksi, saran perbaikan yang harus diterapkan pengguna, serta jadwal gaji terhubung dengan saldo, laporan, dan budget. Lihat [panduan kualitas scan dan gaji](docs/QUALITY_PAYROLL.md).
+
+## Tambahan scan dan tabungan (15 Oktober 2026)
+
+Scan screenshot/PDF + review duplikat, AI Vision opsional, tabungan bersama Krom, pengingat biaya bank, default dark mode, dan perbaikan jarak kartu kredit. Lihat [panduan lengkap](docs/SCAN_SAVINGS.md). AI membutuhkan backend dan API key pada `.env`; OCR lokal dapat digunakan tanpa key.
+
+# Spendly — Budget, Dompet & Goals
+
+Redesign 15 Oktober 2026: tampilan coral/plum yang responsif, navigasi HP, tema terang/gelap, dashboard belanja harian, goals tabungan, dompet, dan investasi tercatat. Mesin akuntansi dan parser bank tetap digunakan.
+
+## Menjalankan versi baru
+
+Di folder SPENDLY, jalankan `npm.cmd start` pada Windows (atau `npm start` di shell lain). Server tersedia di `http://127.0.0.1:4173`.
+
+- Akun Firebase: `http://127.0.0.1:4173/`
+- Demo terpisah: `http://127.0.0.1:4173/?demo=1`
+- Demo menggunakan data contoh dan menyimpan perubahan hanya di localStorage browser (`spendly:demo:v1`). Tidak masuk ke akun Firebase.
+- Frontend tetap berupa file statis; tidak membutuhkan build atau node_modules saat di-host.
+
+## Fitur redesign
+
+- Ringkasan: ruang belanja harian, pemasukan/pengeluaran, kekayaan bersih, grafik aktual, budget dan goals.
+- Batas belanja bulanan terpisah dari alokasi kategori. Sisa budget dibagi hari tersisa termasuk hari ini. Belanja kartu kredit masuk konsumsi; transfer/investasi tidak.
+- Goals: buat, perbarui, hapus; target tanggal, jumlah terkumpul dan estimasi tabungan bulanan. Pencatatan manual goals tidak mengubah saldo rekening.
+- Dompet: semua rekening, termasuk saldo nol, dengan saldo dari jurnal.
+- Investasi: saldo tercatat dan riwayat alokasi. Belum ada harga pasar langsung atau perhitungan keuntungan pasar.
+- Tema tersimpan per browser, privasi saldo, navigasi bawah, animasi yang mengikuti pengaturan reduced motion.
+- Scanner: unggah file lebih mudah; detail parser dan AI opsional bisa dibuka saat diperlukan.
+
+## Dipasang di HP
+
+Manifest, ikon 192/512, mode standalone, dan service worker sudah disiapkan. Setelah frontend dipublikasikan lewat HTTPS, gunakan **Pasang di HP** pada Pengaturan. Android Chrome mendukung instalasi; iPhone memakai Bagikan → Tambahkan ke Layar Utama. Dukungan mengikuti browser/perangkat. Lihat [persyaratan PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable).
+
+Ini fondasi PWA, belum APK atau aplikasi App Store. Saat offline, halaman pemberitahuan ditampilkan; login, sinkronisasi, dan AI membutuhkan internet. Service worker menyimpan aset statis saja. Dokumen bank dan permintaan cloud/AI tidak masuk cache service worker.
+
+Untuk GitHub Pages, salin `index.html`, `offline.html`, `manifest.webmanifest`, `sw.js`, dan seluruh `assets/`. Semua path relatif mendukung `/catatan-pengeluaran-keuangan/`. Backend Python di-host terpisah. Folder ini belum di-push atau dipublikasikan oleh proses redesign.
+
+## Pengujian
+
+```text
+npm.cmd install
+npm.cmd test
+npx.cmd playwright install chromium
+npx.cmd playwright test
+node tools/visual-qa.mjs
+```
+
+Jalankan server `npm.cmd start` di terminal lain sebelum tes browser. Backend menggunakan `backend_nvidia/.venv`; pengujiannya: `backend_nvidia/.venv/Scripts/python.exe -m unittest discover -s tests -p test_backend.py` (memerlukan requirements backend dan httpx).
+
+Catatan verifikasi dan batas pengujian: [docs/REDESIGN_REVIEW.md](docs/REDESIGN_REVIEW.md). Screenshot: [artifacts/previews](artifacts/previews).
+
+## Dokumentasi mesin pencatatan sebelumnya
 
 Major upgrade dari Spendly Budget Tracker.
 
@@ -456,7 +524,20 @@ nvidia/nemotron-nano-12b-v2-vl
 API key tidak boleh diletakkan pada frontend. Deploy folder
 `backend_nvidia`, simpan key sebagai environment variable, lalu masukkan
 URL backend pada halaman OCR/PDF Spendly.
-\n\n## BCA Native Reader V3\n\nPerbaikan khusus BCA:\n\n- membaca 17 transaksi dari mutasi Tahapan Xpresi;\n- mendeteksi kode transaksi BCA (TRSF E-BANKING, BI-FAST, DB INTERCHANGE, TRANSAKSI DEBIT, BIAYA ADM);\n- menormalisasi merchant YouTube Premium, Spotify, Alfamart, DANA, ShopeePay, GoPay, dan QPON;\n- mendeteksi transfer antar rekening memakai nama pemilik rekening dari header PDF, bukan nama hardcoded;\n- merekonstruksi saldo yang tidak dicetak pada setiap baris;\n- hanya membandingkan saldo tercetak pada baris yang memang memiliki saldo;\n- menghilangkan false warning seperti selisih Rp50.000 akibat saldo antara yang tidak dicetak BCA.\n
+
+
+## BCA Native Reader V3
+
+Perbaikan khusus BCA:
+
+- membaca 17 transaksi dari mutasi Tahapan Xpresi;
+- mendeteksi kode transaksi BCA (TRSF E-BANKING, BI-FAST, DB INTERCHANGE, TRANSAKSI DEBIT, BIAYA ADM);
+- menormalisasi merchant YouTube Premium, Spotify, Alfamart, DANA, ShopeePay, GoPay, dan QPON;
+- mendeteksi transfer antar rekening memakai nama pemilik rekening dari header PDF, bukan nama hardcoded;
+- merekonstruksi saldo yang tidak dicetak pada setiap baris;
+- hanya membandingkan saldo tercetak pada baris yang memang memiliki saldo;
+- menghilangkan false warning seperti selisih Rp50.000 akibat saldo antara yang tidak dicetak BCA.
+
 
 ## Multi-Bank AI Reader V4
 

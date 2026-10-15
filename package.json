@@ -1,0 +1,1 @@
+{"name":"spendly","private":true,"type":"module","scripts":{"test":"node --test tests/*.test.mjs","start":"node tools/serve.mjs"},"devDependencies":{"@axe-core/playwright":"^4.14.0","@playwright/test":"^1.64.1"}}

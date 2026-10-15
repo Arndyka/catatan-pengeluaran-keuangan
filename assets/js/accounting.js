@@ -4,13 +4,19 @@ import {
   sha256,
   slugText,
   parseLocalDate,
+  formatDateLocal,
   monthRange
 } from "./utils.js";
+
+export const roundMoney = value => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+const cents = value => Math.round(Number(value || 0) * 100);
+export const actualTransactions = (transactions, today = formatDateLocal()) => transactions.filter(tx => tx.date && tx.date <= today);
 
 export const DEFAULT_ACCOUNTS = [
   { id: "asset-mandiri", name: "Mandiri", type: "asset", subtype: "bank", active: true },
   { id: "asset-bca", name: "BCA", type: "asset", subtype: "bank", active: true },
   { id: "asset-krom", name: "Krom", type: "asset", subtype: "bank", active: true },
+  { id: "asset-blu", name: "blu", type: "asset", subtype: "bank", active: true },
   { id: "asset-cash", name: "Tunai", type: "asset", subtype: "cash", active: true },
   { id: "asset-dana", name: "DANA", type: "asset", subtype: "ewallet", active: true },
   { id: "asset-investment", name: "Investasi / Portofolio", type: "asset", subtype: "investment", active: true },
@@ -88,6 +94,10 @@ export function buildJournal(input, settings) {
   };
 
   switch (input.type) {
+    case "opening_balance": {
+      const equity={id:'equity-opening',name:'Saldo awal',type:'equity',subtype:'opening'};
+      return source.type==='asset'?[accountEntry(source,amount,0),accountEntry(equity,0,amount)]:[accountEntry(equity,amount,0),accountEntry(source,0,amount)];
+    }
     case "income":
       return [
         accountEntry(source, amount, 0),
@@ -135,13 +145,18 @@ export function buildJournal(input, settings) {
   }
 }
 
+// Tolerate damaged persisted rows in read-only views, while validation still
+// reports the original journal as invalid. Never rewrite the stored evidence.
+export const journalEntries = journal => (Array.isArray(journal)?journal:[]).filter(item=>item&&typeof item.accountId==='string'&&[item.debit,item.credit].every(v=>v!==null&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0));
 export function validateJournal(journal) {
-  const debit = journal.reduce((sum, item) => sum + Number(item.debit || 0), 0);
-  const credit = journal.reduce((sum, item) => sum + Number(item.credit || 0), 0);
-  const difference = Math.abs(debit - credit);
+  const entries=journalEntries(journal);
+  const validEntries=Array.isArray(journal)&&journal.length>=2&&entries.length===journal.length&&entries.every(item=>['asset','liability','equity','income','expense'].includes(item.accountType));
+  const debit = entries.reduce((sum, item) => sum + cents(item.debit), 0)/100;
+  const credit = entries.reduce((sum, item) => sum + cents(item.credit), 0)/100;
+  const difference = roundMoney(Math.abs(debit - credit));
 
   return {
-    valid: difference < 0.01,
+    valid: validEntries && debit>0 && difference === 0,
     debit,
     credit,
     difference
@@ -150,11 +165,33 @@ export function validateJournal(journal) {
 
 export async function buildTransaction(input, settings) {
   const date = input.date;
-  const amount = Number(input.amount || 0);
+  const amount = roundMoney(input.amount || 0);
 
-  if (!date || !amount || amount <= 0) {
+  if (!date || !Number.isSafeInteger(cents(amount)) || amount <= 0) {
     throw new Error("Tanggal dan nominal wajib diisi.");
   }
+
+  const parsedDate = parseLocalDate(date);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !parsedDate || Number.isNaN(parsedDate.getTime()) || formatDateLocal(parsedDate) !== date) {
+    throw new Error("Tanggal transaksi tidak valid.");
+  }
+  if (["transfer", "investment", "credit_payment"].includes(input.type) && input.sourceAccountId === input.destinationAccountId) {
+    throw new Error("Akun sumber dan tujuan harus berbeda.");
+  }
+  const source=accountById(settings,input.sourceAccountId),target=accountById(settings,input.destinationAccountId);
+  if(!source||source.active===false)throw new Error('Pilih rekening sumber/penerima yang aktif.');
+  if(input.type==='opening_balance'){
+    if(!['asset','liability'].includes(source.type)||source.subtype==='clearing')throw new Error('Saldo awal memerlukan akun aset atau kewajiban.');
+  }else if(input.type==='credit_purchase'){
+    if(source.type!=='liability'||source.subtype!=='credit_card')throw new Error('Pilih akun kartu kredit untuk belanja kartu.');
+  }else if(source.type!=='asset')throw new Error('Pilih akun aset. Belanja kartu dicatat sebagai Belanja Kartu Kredit.');
+  if(['transfer','investment','credit_payment'].includes(input.type)){
+    if(!target||target.active===false)throw new Error('Pilih akun tujuan yang aktif.');
+    if(input.type==='credit_payment'?(target.type!=='liability'||target.subtype!=='credit_card'):target.type!=='asset')throw new Error('Jenis akun tujuan tidak sesuai transaksi.');
+    if(input.type==='investment'&&target.subtype!=='investment')throw new Error('Pembelian investasi harus menuju akun investasi. Untuk tabungan gunakan Transfer.');
+  }
+  const tenor=Number(input.installmentTenor||1);
+  if(!Number.isInteger(tenor)||tenor<1||tenor>360)throw new Error('Tenor harus berupa jumlah bulan bulat 1–360.');
 
   const normalized = {
     type: input.type,
@@ -187,7 +224,7 @@ export async function buildTransaction(input, settings) {
     throw new Error("Jurnal tidak seimbang.");
   }
 
-  const fingerprintPayload = {
+  let fingerprintPayload = {
     type: normalized.type,
     date: normalized.date,
     amount: normalized.amount,
@@ -198,6 +235,11 @@ export async function buildTransaction(input, settings) {
     description: slugText(normalized.description),
     recurringRuleId: normalized.recurringRuleId
   };
+
+  // Scan identity keeps distinct bank references/rows apart. Legacy/manual keys are unchanged.
+  if(input.importIdentity) fingerprintPayload={importIdentity:String(input.importIdentity),type:normalized.type,date,amount,sourceAccountId:normalized.sourceAccountId,destinationAccountId:normalized.destinationAccountId};
+  if(input.recurringRuleId) fingerprintPayload={recurringRuleId:input.recurringRuleId,period:input.recurringPeriod||date.slice(0,7)};
+  if(input.type==='opening_balance')fingerprintPayload={openingBalance:source.id};
 
   const fingerprint = await sha256(canonicalJson(fingerprintPayload));
 
@@ -217,10 +259,12 @@ export function deriveLedger(transactions) {
   let totalDebits = 0;
   let totalCredits = 0;
 
-  transactions.forEach((transaction) => {
-    (transaction.journal || []).forEach((entry) => {
-      totalDebits += Number(entry.debit || 0);
-      totalCredits += Number(entry.credit || 0);
+  let journalsValid=true;
+  actualTransactions(transactions).forEach((transaction) => {
+    if(!validateJournal(transaction.journal||[]).valid)journalsValid=false;
+    journalEntries(transaction.journal).forEach((entry) => {
+      totalDebits += cents(entry.debit);
+      totalCredits += cents(entry.credit);
 
       if (!accountMap.has(entry.accountId)) {
         accountMap.set(entry.accountId, {
@@ -234,8 +278,8 @@ export function deriveLedger(transactions) {
       }
 
       const account = accountMap.get(entry.accountId);
-      account.debit += Number(entry.debit || 0);
-      account.credit += Number(entry.credit || 0);
+      account.debit += cents(entry.debit);
+      account.credit += cents(entry.credit);
     });
   });
 
@@ -247,15 +291,17 @@ export function deriveLedger(transactions) {
 
     return {
       ...account,
-      balance
+      debit:account.debit/100,
+      credit:account.credit/100,
+      balance:balance/100
     };
   });
 
   return {
     accounts,
-    totalDebits,
-    totalCredits,
-    balanced: Math.abs(totalDebits - totalCredits) < 0.01
+    totalDebits:totalDebits/100,
+    totalCredits:totalCredits/100,
+    balanced: journalsValid && totalDebits === totalCredits
   };
 }
 
@@ -276,13 +322,13 @@ export function balanceSheet(transactions, asOfDate = null) {
     .filter((account) => account.accountType === "liability")
     .reduce((sum, account) => sum + account.balance, 0);
 
-  const equity = assets - liabilities;
+  const equity = roundMoney(assets - liabilities);
 
   return {
-    assets,
-    liabilities,
+    assets:roundMoney(assets),
+    liabilities:roundMoney(liabilities),
     equity,
-    balanced: Math.abs(assets - (liabilities + equity)) < 0.01,
+    balanced: ledger.balanced,
     ledger
   };
 }
@@ -304,55 +350,32 @@ export function incomeStatement(transactions, month) {
     .reduce((sum, account) => sum + account.balance, 0);
 
   return {
-    income,
-    expenses,
-    netIncome: income - expenses,
+    income:roundMoney(income),
+    expenses:roundMoney(expenses),
+    netIncome: roundMoney(income - expenses),
     accounts: ledger.accounts
   };
 }
 
 export function cashFlowStatement(transactions, month, settings) {
-  const { start, end } = monthRange(month);
-  const filtered = transactions.filter((tx) => {
-    const date = parseLocalDate(tx.date);
-    return date && date >= start && date <= end;
-  });
-
-  let operatingInflow = 0;
-  let operatingOutflow = 0;
-  let investingOutflow = 0;
-  let financingOutflow = 0;
-
-  filtered.forEach((tx) => {
-    if (tx.type === "income") {
-      operatingInflow += Number(tx.amount || 0);
-    }
-
-    if (tx.type === "expense") {
-      operatingOutflow += Number(tx.amount || 0);
-    }
-
-    if (tx.type === "investment") {
-      investingOutflow += Number(tx.amount || 0);
-    }
-
-    if (tx.type === "credit_payment") {
-      financingOutflow += Number(tx.amount || 0);
-    }
-  });
-
-  return {
-    operatingInflow,
-    operatingOutflow,
-    netOperating: operatingInflow - operatingOutflow,
-    investingOutflow,
-    financingOutflow,
-    netCashFlow:
-      operatingInflow -
-      operatingOutflow -
-      investingOutflow -
-      financingOutflow
+  const cashEntry=entry=>{
+    const account=settings?.accounts?.find(a=>a.id===entry.accountId);
+    return (account?.type||entry.accountType)==='asset'&&!['investment','clearing'].includes(account?.subtype||entry.accountSubtype);
   };
+  let operatingInflow=0,operatingOutflow=0,investingInflow=0,investingOutflow=0,financingOutflow=0,otherNet=0,openingAdjustments=0;
+  for(const tx of actualTransactions(transactions).filter(tx=>tx.date.startsWith(month))){
+    const entries=journalEntries(tx.journal);
+    const delta=entries.filter(cashEntry).reduce((n,j)=>n+cents(j.debit)-cents(j.credit),0)/100;
+    if(tx.type==='opening_balance'){openingAdjustments+=delta;continue;}
+    if(!delta)continue;
+    const investment=entries.some(j=>(settings?.accounts?.find(a=>a.id===j.accountId)?.subtype||j.accountSubtype)==='investment');
+    if(investment){if(delta>0)investingInflow+=delta;else investingOutflow-=delta;}
+    else if(tx.type==='credit_payment')financingOutflow-=delta;
+    else if(tx.type==='income'||tx.type==='expense'){if(delta>0)operatingInflow+=delta;else operatingOutflow-=delta;}
+    else otherNet+=delta;
+  }
+  const values={operatingInflow,operatingOutflow,investingInflow,investingOutflow,financingOutflow,otherNet,openingAdjustments,netOperating:operatingInflow-operatingOutflow,netInvesting:investingInflow-investingOutflow,netCashFlow:operatingInflow-operatingOutflow+investingInflow-investingOutflow-financingOutflow+otherNet};
+  return Object.fromEntries(Object.entries(values).map(([key,value])=>[key,roundMoney(value)]));
 }
 
 export function trialBalance(transactions, asOfDate = null) {
