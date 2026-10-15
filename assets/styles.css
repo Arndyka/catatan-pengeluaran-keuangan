@@ -900,7 +900,7 @@ th {
   align-items: flex-start;
   padding: 16px 18px;
   border-bottom: 1px solid var(--line);
-  background: #fff;
+  background: var(--card);
 }
 
 .statement-summary-header h3 {
@@ -924,7 +924,7 @@ th {
   padding: 13px;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: #fff;
+  background: var(--card);
 }
 
 .statement-summary-item p {
@@ -1066,7 +1066,7 @@ th {
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 15px;
-  background: #fff;
+  background: var(--card);
 }
 
 .bank-coverage-card strong {
@@ -1081,7 +1081,7 @@ th {
 }
 
 .internal-movement-row {
-  background: #fffaf0;
+  background: var(--warning-soft);
 }
 
 .possible-transfer-warning {
@@ -1120,7 +1120,7 @@ th {
   top: 8px;
   z-index: 8;
   padding: 12px 14px;
-  background: rgba(248, 250, 252, 0.96);
+  background: var(--soft);
   backdrop-filter: blur(10px);
 }
 
@@ -1156,7 +1156,7 @@ th {
   position: sticky;
   top: 0;
   z-index: 6;
-  background: #fff;
+  background: var(--soft);
 }
 
 .compact-review-table th,
@@ -1218,7 +1218,7 @@ th {
 .sticky-col {
   position: sticky;
   z-index: 4;
-  background: #fff;
+  background: var(--card);
 }
 
 .sticky-col-1 {
@@ -1231,11 +1231,12 @@ th {
 }
 
 thead .sticky-col {
+  background: var(--soft);
   z-index: 7;
 }
 
 .internal-movement-row .sticky-col {
-  background: #fffaf0;
+  background: var(--warning-soft);
 }
 
 .compact-source-meta {
@@ -1414,17 +1415,17 @@ thead .sticky-col {
 }
 
 .btn-ai {
-  color: #16351e;
-  background: #dff7e5;
-  border: 1px solid #a7ddb5;
+  color: var(--success);
+  background: var(--success-soft);
+  border: 1px solid var(--success);
 }
 
 .ai-reviewed-badge {
   display: inline-flex;
   padding: 5px 7px;
   border-radius: 999px;
-  background: #dff7e5;
-  color: #176b34;
+  background: var(--success-soft);
+  color: var(--success);
   font-size: 9px;
   font-weight: 900;
   text-transform: uppercase;
@@ -1447,7 +1448,7 @@ thead .sticky-col {
 
 /* BCA READER V3 */
 .validation-calculated {
-  color: #175cd3;
+  color: var(--info, #175cd3);
   font-weight: 800;
   font-size: 11px;
 }
@@ -1456,8 +1457,8 @@ thead .sticky-col {
   display: inline-flex;
   padding: 4px 6px;
   border-radius: 7px;
-  background: #eef4ff;
-  color: #3538cd;
+  background: var(--info-soft, #eef4ff);
+  color: var(--info, #175cd3);
   font-size: 8px;
   font-weight: 900;
   overflow-wrap: anywhere;

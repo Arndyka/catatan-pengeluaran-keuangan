@@ -1,5 +1,11 @@
 # Audit akhir SPENDLY — 15 Oktober 2026
 
+## Perbaikan lanjutan: dark mode hasil scan
+
+Laporan pengguna setelah deployment menemukan latar putih tetap pada ringkasan statement dan kolom sticky, termasuk baris transfer. Pemeriksaan halaman kosong sebelumnya belum mencakup keadaan hasil scan terisi. Warna komponen tersebut kini mengikuti token tema; status informasional, badge bank, dan tombol AI juga menyesuaikan. URL CSS diberi versi baru untuk mengambil pembaruan setelah deployment.
+
+Regresi mereproduksi kegagalan kontras sebelum perbaikan, lalu lulus setelahnya pada PDF sintetis dengan hasil normal dan transfer: dark/light × 1440/390 px × dua posisi horizontal tabel. Tiga skenario terkait layout/impor dan 88 unit tetap lulus. Data dan logika transaksi tidak diubah oleh perbaikan visual ini.
+
 Audit ini berfokus pada konsistensi jurnal, saldo, impor, kartu kredit, gaji, budget, dan pengalaman desktop/HP. Perubahan berada di folder lokal SPENDLY; data produksi tidak dimigrasikan atau ditimpa.
 
 ## Koreksi logika

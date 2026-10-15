@@ -1,6 +1,36 @@
 import {test,expect} from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
+
+test('populated scan summaries and sticky review columns stay readable in both themes',async({page,context})=>{
+ test.setTimeout(120000);
+ await page.route('http://127.0.0.1:9999/api/nvidia/read-page',route=>route.fulfill({json:{result:{bank:'mandiri',transactions:[
+  {record_kind:'transaction',status:'posted',date:'2026-10-01',amount:15000,direction:'incoming',description:'Transfer masuk contoh',merchant:'Pengirim contoh',reference:'THEME001',confidence:0.99},
+  {record_kind:'transaction',status:'posted',date:'2026-10-02',amount:6000,direction:'internal_transfer',description:'Transfer tabungan contoh',merchant:'Tabungan sendiri',reference:'THEME002',confidence:0.9}
+ ]}}}));
+ await page.evaluate(()=>location.hash='scanner');
+ const fixture=await context.newPage();await fixture.setContent('<h1>Statement layout test</h1>');const pdf=await fixture.pdf();await fixture.close();
+ await page.locator('#scanInput').setInputFiles({name:'contoh-e-statement.pdf',mimeType:'application/pdf',buffer:pdf});
+ await page.locator('.ai-options summary').click();await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');
+ await page.locator('#visionConsent').check();await page.locator('#scanMode').selectOption('ai');await page.locator('#scanButton').click();
+ await expect(page.locator('.statement-summary-header h3')).toHaveText('contoh-e-statement.pdf');
+ await expect(page.locator('.internal-movement-row')).toHaveCount(1);
+ for(const theme of ['dark','light']){
+  await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
+  for(const width of [1440,390]){
+   await page.setViewportSize({width,height:950});
+   await page.locator('#statementSummaryContainer').screenshot({path:`artifacts/previews/scan-summary-${theme}-${width}.png`});
+   await page.locator('#scanReviewContainer').screenshot({path:`artifacts/previews/scan-review-${theme}-${width}.png`});
+   expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+   for(const left of [0,900]){
+    await page.locator('.compact-review-table').evaluate((el,left)=>el.scrollLeft=left,left);
+    const audit=await new AxeBuilder({page}).include('#statementSummaryContainer').include('#scanReviewContainer').withRules(['color-contrast']).analyze();
+    expect(audit.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>({target:n.target,summary:n.failureSummary}))})),`${theme}, ${width}px, scroll ${left}`).toEqual([]);
+   }
+  }
+ }
+});
 
 test('opening balances preserve cents without inflating monthly income and cannot be added twice',async({page})=>{
  const before=await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js'),{incomeStatement,balanceSheet}=await import('/assets/js/accounting.js');return {income:incomeStatement(state.transactions,'2026-10').income,assets:balanceSheet(state.transactions).assets};});
