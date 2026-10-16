@@ -14,7 +14,7 @@ import { saveTransaction, transactionTypeLabel } from "./transactions.js";
 import { budgetAnalysis,validateBudgetItem } from "./budget.js";
 import { creditCardSnapshot } from "./credit-card.js";
 import { buildMonthlyReport } from "./reports.js";
-import { scanStatementFiles } from "./scanner.js";
+import { scanStatementFiles } from "./scanner.js?v=statements-20261016";
 import {
   checkNvidiaBackend,
   readPageWithNvidia,
@@ -1193,7 +1193,7 @@ async function scanFiles() {
             detectedBankAccount;
         }
 
-        if (nextCandidate.internalMovement) {
+        if (nextCandidate.internalMovement && !nextCandidate.transferNeedsMapping) {
           nextCandidate.sourceAccountId =
             nextCandidate.sourceAccountId ||
             detectedBankAccount;
@@ -1616,7 +1616,8 @@ function renderScanCandidates() {
                       aria-label="Nominal transaksi"
                       class="compact-amount"
                       type="number"
-                      min="1"
+                      min="0.01"
+                      step="0.01"
                       value="${item.amount || 0}"
                     >
 

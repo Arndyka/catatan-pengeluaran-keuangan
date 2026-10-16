@@ -3,6 +3,33 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('native blu PDF keeps cent amounts editable and unknown transfer accounts blank',async({page,context})=>{
+ const fixture=await context.newPage();
+ const tokens=[['bluAccount',500,800],['Nama / Name',30,740],['NASABAH CONTOH',30,727],['Periode / Period',195,740],['June 2026',195,727],
+  ['29 Jun 2026',26,600],['Bunga',140,598],['bluAccount',140,580],['0,31',450,591],['1.000,31',520,591],
+  ['30 Jun 2026',26,540],['Dana Masuk dari NASABAH CONTOH',140,538],['SHOPEEPAY',140,520],['10.000,00',420,531],['11.000,31',520,531],
+  ['Saldo Awal / Initial Balance',30,410],['1.000,00',535,410],['Total Pemasukan / Total Income',30,390],['10.000,31',535,390],['Total Pengeluaran / Total Expense',30,370],['0,00',535,370],['Saldo Akhir / Ending Balance',30,350],['11.000,31',535,350]];
+ await fixture.setContent(`<body style="margin:0"><div style="position:relative;width:600pt;height:840pt">${tokens.map(([text,x,y])=>`<span style="position:absolute;left:${x}pt;top:${840-y}pt;font:8pt Arial;white-space:nowrap">${text}</span>`).join('')}</div></body>`);
+ const buffer=await fixture.pdf({width:'800px',height:'1120px',margin:{top:0,right:0,bottom:0,left:0}});await fixture.close();
+ await page.evaluate(()=>location.hash='scanner');
+ const upload={name:'synthetic-blu.pdf',mimeType:'application/pdf',buffer};
+ await page.locator('#scanInput').setInputFiles(upload);await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-index]')).toHaveCount(2);
+ const interest=page.locator('[data-scan-index="0"]'),transfer=page.locator('[data-scan-index="1"]');
+ await expect(interest.locator('[data-scan-field="amount"]')).toHaveValue('0.31');
+ expect(await interest.locator('[data-scan-field="amount"]').evaluate(el=>el.checkValidity())).toBe(true);
+ await expect(transfer.locator('[data-scan-field="sourceAccountId"]')).toHaveValue('');
+ await expect(transfer.locator('[data-scan-field="destinationAccountId"]')).toHaveValue('asset-blu');
+ await expect(transfer.locator('[data-scan-field="selected"]')).not.toBeChecked();
+ await interest.locator('[data-scan-field="selected"]').check();await page.locator('#saveScanCandidates').click();
+ await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.filter(tx=>tx.sourceMeta?.fileName==='synthetic-blu.pdf'));
+ expect(saved).toHaveLength(1);expect(saved[0].amount).toBe(0.31);
+ await page.locator('#scanInput').setInputFiles(upload);await page.locator('#scanButton').click();
+ await expect(interest.locator('[data-scan-field="selected"]')).toBeDisabled();
+ await expect(interest).toContainText('Duplikat');
+});
+
 test('phone scan uses compact cards and keeps edits when switching to desktop',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.route('http://127.0.0.1:9999/api/nvidia/read-page',route=>route.fulfill({json:{result:{bank:'bca',transactions:[

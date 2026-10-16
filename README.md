@@ -5,6 +5,14 @@
 
 GitHub Pages memublikasikan frontend statis dari branch `main`. Backend AI Python harus dihosting terpisah melalui HTTPS dan URL-nya diisi pada pengaturan AI; API key hanya disimpan di backend.
 
+## Pembacaan e-statement — 16 Oktober 2026
+
+Pembaca PDF lokal mendukung bluAccount, rekening koran konsolidasi Mandiri (termasuk PDF berpassword), dan rekening utama myBCA Tahapan Xpresi dengan lampiran Poket Rupiah kosong. Halaman informasi, ringkasan kartu kredit, dan disclaimer tidak menjadi transaksi. Deskripsi Mandiri yang bersambung ke halaman berikutnya tetap digabungkan. Nominal pecahan rupiah dipertahankan, dan rekonsiliasi memeriksa total serta saldo per baris sampai sen.
+
+Verifikasi lokal: **16 PDF, 80 halaman, 638 baris transaksi**; semua cocok dengan total tercetak dan saldo, tanpa OCR/AI. Angka baris mencakup tiga salinan statement Mei myBCA, bukan jumlah transaksi unik. Berkas identik dikenali sebagai duplikat; versi dokumen berbeda dengan transaksi serupa memerlukan keputusan pengguna. Transfer milik sendiri yang belum diketahui rekening pasangannya tetap tidak dipilih untuk disimpan.
+
+Sampel asli dan password tidak disertakan dalam Git. Pengujian tidak menambahkan transaksi ke akun pengguna. Dukungan ini diverifikasi terhadap format sampel tersebut; Poket Rupiah berisi transaksi, dokumen multi-rekening aktif, PDF rusak, dan variasi format lain perlu diperiksa tersendiri. Selalu tinjau hasil sebelum memilih **Simpan Terpilih**.
+
 ## Audit akhir keuangan dan UI — 15 Oktober 2026
 
 Jurnal dan presisi uang, saldo awal, arus kas, siklus/minimum kartu, deduplikasi scan, gaji rutin, budget, dan penanganan gagal simpan diperiksa ulang. Logo bank lokal, animasi reduced-motion, serta aksesibilitas desktop/HP telah dirapikan. Lihat [hasil audit dan batas pengujian](docs/FINAL_FINANCIAL_AUDIT.md).

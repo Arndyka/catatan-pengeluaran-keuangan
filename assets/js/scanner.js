@@ -154,6 +154,7 @@ function textContentToTokens(textContent) {
     .filter((item) => normalizeLine(item.str))
     .map((item) => ({
       text: normalizeLine(item.str),
+      rawText: String(item.str).replace(/\s+/g, " ").trim(),
       x: Number(item.transform?.[4] || 0),
       y: Number(item.transform?.[5] || 0),
       width: Number(item.width || 0),
@@ -254,6 +255,9 @@ export function detectBankFromText(pageText, fileName = "") {
     krom: 0,
     blu: 0
   };
+  // Issuer marks outweigh bank names mentioned in transaction descriptions.
+  if (/bankmandiri\.co\.id|mandiri call/.test(text)) scores.mandiri += 12;
+  if (/blubybcadigital\.id|\bbluaccount\b/.test(text)) scores.blu += 12;
   if(/\bblu\b|bca digital/.test(text))scores.blu+=5;
   if(/\bbca\b/.test(text)&&!scores.blu)scores.bca+=1;
   if(/\bmandiri\b/.test(text))scores.mandiri+=1;
@@ -497,6 +501,116 @@ function createBaseCandidate({
   };
 }
 
+function layoutMoney(text) {
+  const value=String(text || '').trim();
+  return /^[+\-]?\s*(?:Rp\s*)?(?:\d{1,3}(?:[.,]\d{3})+|\d+)[.,]\d{2}(?:\s*[DC])?$/i.test(value)
+    ? parseIdrValue(value) : null;
+}
+
+function layoutSummaryValue(tokens, pattern, pageWidth) {
+  const labels=tokens.filter(token=>pattern.test(token.text));
+  for(const label of labels){
+    const sameLine=tokens.filter(token=>token.x>pageWidth*.82 && token.x>label.x && Math.abs(token.y-label.y)<3 && layoutMoney(token.text));
+    if(sameLine.length)return layoutMoney(sameLine.at(-1).text).signedAmount;
+    const below=tokens.filter(token=>token.x>=label.x-2 && token.x<label.x+pageWidth*.20 && token.y<label.y-4 && token.y>label.y-23 && layoutMoney(token.text));
+    if(below.length)return layoutMoney(below[0].text).signedAmount;
+  }
+  return null;
+}
+
+function parseBluMetadata({tokens,pageWidth,existing}) {
+  const metadata={...existing};
+  const text=tokensReadingText(tokens);
+  const periodLabel=tokens.find(token=>/^Periode\s*\//i.test(token.text));
+  if(periodLabel){
+    const period=tokensReadingText(tokens.filter(token=>token.x>=periodLabel.x-2 && token.x<pageWidth*.54 && token.y<periodLabel.y-4 && token.y>periodLabel.y-23));
+    const range=period.match(/(\d{1,2})\s*-\s*(\d{1,2})\s+([A-Za-z]+)\s+(20\d{2})/);
+    const month=period.match(/([A-Za-z]+)\s+(20\d{2})/);
+    if(range && MONTHS[range[3].toLowerCase()]){
+      const m=MONTHS[range[3].toLowerCase()];
+      metadata.periodStart=`${range[4]}-${m}-${range[1].padStart(2,'0')}`;
+      metadata.periodEnd=`${range[4]}-${m}-${range[2].padStart(2,'0')}`;
+    }else if(month && MONTHS[month[1].toLowerCase()]){
+      const m=MONTHS[month[1].toLowerCase()];metadata.periodStart=`${month[2]}-${m}-01`;metadata.periodEnd=monthEndDate(month[2],m);
+    }
+  }
+  const ownerLabel=tokens.find(token=>/^Nama\s*\//i.test(token.text));
+  if(ownerLabel)metadata.ownerName=tokensReadingText(tokens.filter(token=>token.x<pageWidth*.32 && token.y<ownerLabel.y-4 && token.y>ownerLabel.y-23));
+  const account=text.match(/bluAccount\s*-\s*((?:\d{4}\s*){3})/i);
+  if(account)metadata.accountMasked=account[1].replace(/\s/g,'');
+  for(const [key,pattern] of [['openingBalance',/^Saldo Awal/i],['incomingTotal',/^Total Pemasukan/i],['outgoingTotal',/^Total Pengeluaran/i],['closingBalance',/^Saldo Akhir/i]]){
+    const value=layoutSummaryValue(tokens,pattern,pageWidth);
+    if(value!==null)metadata[key]=key==='outgoingTotal'?Math.abs(value):value;
+  }
+  return metadata;
+}
+
+function parseBluPage({tokens,pageWidth,pageHeight,pageNumber,accountId,accountMap,merchantRules,metadata}) {
+  const starts=tokens.filter(token=>token.x/pageWidth<.20 && /^\d{1,2}\s+[A-Za-z]+\s+20\d{2}$/.test(token.text)).sort((a,b)=>b.y-a.y);
+  const summaryY=tokens.filter(token=>token.x<pageWidth*.4 && /^(Saldo Awal|Total Pemasukan|Total Pengeluaran|Saldo Akhir|Disclaimer)/i.test(token.text)).map(token=>token.y);
+  const rows=[];
+  starts.forEach((start,index)=>{
+    const bottom=starts[index+1]?.y ?? Math.max(pageHeight*.08,...summaryY.filter(y=>y<start.y));
+    const band=tokens.filter(token=>token.y<=start.y+3 && token.y>bottom+3);
+    const detailTokens=band.filter(token=>token.x/pageWidth>=.20 && token.x/pageWidth<.60);
+    const detailLines=tokensToLines(detailTokens).map(line=>line.tokens.map(token=>token.rawText ?? token.text).join(' ').trim());
+    const description=detailLines.join(' ');
+    const amount=layoutMoney(tokensReadingText(band.filter(token=>token.x/pageWidth>=.60 && token.x/pageWidth<.82)));
+    const balance=layoutMoney(tokensReadingText(band.filter(token=>token.x/pageWidth>=.82)));
+    if(!amount || !balance || !description)return;
+    const reference=description.match(/\|\s*([A-Za-z0-9_/-]{6,})\s*$/)?.[1] || '';
+    const title=detailLines[0] || '';
+    const merchant=/Pembayaran QRIS/i.test(title) ? (detailLines.slice(1).join(' ').split('|')[0].trim() || title) : title.replace(/^(?:Dana Masuk dari|Transfer ke)\s+/i,'');
+    const incoming=amount.signedAmount>=0;
+    const owner=normalizeComparableName(metadata.ownerName);
+    const own=owner.length>=6 && /^(?:Dana Masuk dari|Transfer ke)\s+/i.test(title) && normalizeComparableName(description).includes(owner);
+    const other=own?inferKnownBankAccount(description,accountMap,'blu'):'';
+    const candidate=createBaseCandidate({bank:'blu',type:own?'transfer':incoming?'income':'expense',date:parseDateFromText(start.text),time:parseTimeFromText(tokensReadingText(band.filter(token=>token.x/pageWidth<.20 && token!==start))),amount:amount.amount,signedAmount:amount.signedAmount,sourceAccountId:own&&incoming?other:accountId,destinationAccountId:own?(incoming?accountId:other):'',category:own?'Transfer Internal':/^Bunga$/i.test(title)?'Bunga':/^Pajak/i.test(title)?'Pajak Bunga':inferCategory(description,merchant,merchantRules),merchant,description,balanceAfter:balance.signedAmount,pageNumber,rowNumber:index+1,method:'blu-native-layout',confidence:.99,statementAccountName:'bluAccount',statementAccountNumber:metadata.accountMasked,reference,selected:!own,internalMovement:own,possibleOwnTransfer:own});
+    candidate.transferNeedsMapping=own&&!other;rows.push(candidate);
+  });
+  return rows;
+}
+
+function parseMandiriConsolidatedMetadata({tokens,pageText,pageWidth,existing}) {
+  const metadata={...existing,format:'mandiri-consolidated'};
+  const period=pageText.match(/(\d{1,2}\/\d{2}\/\d{2,4})\s*s\/d\s*(\d{1,2}\/\d{2}\/\d{2,4})/i);
+  const fullDate=value=>{const [d,m,y]=value.split('/');return `${y.length===2?'20'+y:y}-${m}-${d.padStart(2,'0')}`;};
+  if(period){metadata.periodStart=fullDate(period[1]);metadata.periodEnd=fullDate(period[2]);}
+  const account=tokens.find(token=>/^\d{3}-\d{2}-\d{7}-\d$/.test(token.text));
+  if(account)metadata.accountMasked=account.text;
+  for(const [key,pattern] of [['openingBalance',/^Saldo Awal\s*\//i],['incomingTotal',/^Mutasi Kredit\s*\//i],['outgoingTotal',/^Mutasi Debit\s*\//i],['closingBalance',/^Saldo Akhir\s*\//i]]){
+    const value=layoutSummaryValue(tokens,pattern,pageWidth);
+    if(value!==null)metadata[key]=value;
+  }
+  return metadata;
+}
+
+function parseMandiriConsolidatedPage({tokens,pageWidth,pageHeight,pageNumber,accountId,merchantRules,metadata,parserState}) {
+  const header=tokens.find(token=>/^Rincian Transaksi\s*\//i.test(token.text));
+  if(!header || !metadata.periodStart)return [];
+  const bottom=Math.max(pageHeight*.055,...tokens.filter(token=>/^Saldo Awal\s*\//i.test(token.text)).map(token=>token.y));
+  const starts=tokens.filter(token=>token.x/pageWidth<.12 && /^\d{2}\/\d{2}$/.test(token.text) && token.y<header.y-35 && token.y>bottom).sort((a,b)=>b.y-a.y);
+  const details=band=>tokensReadingText(band.filter(token=>token.x/pageWidth>=.20 && token.x/pageWidth<.65));
+  const continuation=details(tokens.filter(token=>token.y<header.y-35 && token.y>(starts[0]?.y ?? bottom)+3));
+  if(continuation && parserState.mandiriLast){
+    const previous=parserState.mandiriLast;
+    previous.description+=' '+continuation;previous.merchant=merchantFromDescription(previous.description);previous.category=inferCategory(previous.description,previous.merchant,merchantRules);
+  }
+  const rows=[];
+  starts.forEach((start,index)=>{
+    const band=tokens.filter(token=>token.y<=start.y+3 && token.y>(starts[index+1]?.y ?? bottom)+3);
+    const description=details(band);
+    if(/^Saldo Awal\b/i.test(description))return;
+    const amountText=tokensReadingText(band.filter(token=>token.x/pageWidth>=.65 && token.x/pageWidth<.82));
+    const amount=layoutMoney(amountText),balance=layoutMoney(tokensReadingText(band.filter(token=>token.x/pageWidth>=.82)));
+    if(!description || !amount || !balance)return;
+    const debit=/\bD\s*$/i.test(amountText),merchant=merchantFromDescription(description);
+    const candidate=createBaseCandidate({bank:'mandiri',type:debit?'expense':'income',date:parseDateFromText(start.text,Number(metadata.periodStart.slice(0,4))),amount:amount.amount,signedAmount:debit?-amount.amount:amount.amount,sourceAccountId:accountId,category:inferCategory(description,merchant,merchantRules),merchant,description,balanceAfter:balance.signedAmount,pageNumber,rowNumber:index+1,method:'mandiri-consolidated-native',confidence:.99,statementAccountName:'Mandiri Tabungan',statementAccountNumber:metadata.accountMasked,reference:explicitBankReference(description)});
+    rows.push(candidate);parserState.mandiriLast=candidate;
+  });
+  return rows;
+}
+
 function parseMandiriMetadata(pageText, lines, tokens, pageWidth) {
   const metadata = {};
 
@@ -689,9 +803,17 @@ function parseMandiriPage({
   return candidates;
 }
 
+function isEmptyBcaPocket(pageText) {
+  return /FASILITAS\s*:\s*POKET RUPIAH/i.test(pageText) &&
+    /TRANSAKSI TIDAK TERSEDIA/i.test(pageText);
+}
+
 function parseBcaMetadata(pageText, existing = {}) {
   const metadata = { ...existing };
   const text = String(pageText || "");
+
+  // A pocket appendix has its own totals, separate from the main account.
+  if (isEmptyBcaPocket(text)) return metadata;
 
   const period = text.match(
     /PERIODE\s*:?\s*([A-Z]+)\s+(20\d{2})/i
@@ -1686,6 +1808,8 @@ function mergeMetadata(base, incoming) {
 }
 
 function validateRunningBalances(candidates, metadata) {
+  const cents=value=>Math.round(Number(value)*100);
+  const rounded=value=>cents(value)/100;
   const sorted = [...candidates].sort((a, b) => {
     if ((a.sourceFileOrder || 0) !== (b.sourceFileOrder || 0)) {
       return (a.sourceFileOrder || 0) - (b.sourceFileOrder || 0);
@@ -1719,20 +1843,20 @@ function validateRunningBalances(candidates, metadata) {
     }
 
     const expected =
-      previous + Number(candidate.signedAmount || 0);
+      (cents(previous) + cents(candidate.signedAmount || 0))/100;
     const difference =
-      Number(candidate.balanceAfter) - expected;
+      rounded(Number(candidate.balanceAfter) - expected);
 
     candidate.validationDifference = difference;
 
     if (candidate.balanceSource === "calculated") {
       candidate.validationStatus =
-        Math.abs(difference) <= 1
+        difference === 0
           ? "calculated"
           : "mismatch";
     } else {
       candidate.validationStatus =
-        Math.abs(difference) <= 1
+        difference === 0
           ? "valid"
           : "mismatch";
     }
@@ -1742,37 +1866,37 @@ function validateRunningBalances(candidates, metadata) {
 
   const totalIncoming = sorted
     .filter((item) => item.signedAmount > 0)
-    .reduce((sum, item) => sum + item.amount, 0);
+    .reduce((sum, item) => sum + cents(item.amount), 0)/100;
 
   const totalOutgoing = sorted
     .filter((item) => item.signedAmount < 0)
-    .reduce((sum, item) => sum + item.amount, 0);
+    .reduce((sum, item) => sum + cents(item.amount), 0)/100;
 
   const expectedClosing =
     Number.isFinite(metadata.openingBalance)
-      ? metadata.openingBalance + totalIncoming - totalOutgoing
+      ? (cents(metadata.openingBalance) + cents(totalIncoming) - cents(totalOutgoing))/100
       : null;
 
   const closingDifference =
     expectedClosing !== null &&
     Number.isFinite(metadata.closingBalance)
-      ? metadata.closingBalance - expectedClosing
+      ? rounded(metadata.closingBalance - expectedClosing)
       : null;
 
   const incomingDifference =
     Number.isFinite(metadata.incomingTotal)
-      ? metadata.incomingTotal - totalIncoming
+      ? rounded(metadata.incomingTotal - totalIncoming)
       : null;
 
   const outgoingDifference =
     Number.isFinite(metadata.outgoingTotal)
-      ? metadata.outgoingTotal - totalOutgoing
+      ? rounded(metadata.outgoingTotal - totalOutgoing)
       : null;
 
   const summaryBalanced =
     [closingDifference, incomingDifference, outgoingDifference]
       .filter((value) => value !== null)
-      .every((value) => Math.abs(value) <= 2);
+      .every((value) => value === 0);
 
   return {
     candidates: sorted,
@@ -1789,7 +1913,7 @@ function validateRunningBalances(candidates, metadata) {
         incomingDifference === null &&
         outgoingDifference === null
           ? null
-          : summaryBalanced,
+          : summaryBalanced && !sorted.some(item=>item.validationStatus==='mismatch'),
       rowMismatchCount: sorted.filter(
         (item) => item.validationStatus === "mismatch"
       ).length,
@@ -1905,6 +2029,7 @@ function parseNativePage({
     bankAccountMap.generic;
 
   if (bank === "mandiri") {
+    if(metadata.format==='mandiri-consolidated')return parseMandiriConsolidatedPage({tokens,pageWidth,pageHeight,pageNumber,accountId,merchantRules,metadata,parserState});
     return parseMandiriPage({
       tokens,
       pageWidth,
@@ -1914,6 +2039,8 @@ function parseNativePage({
       merchantRules
     });
   }
+
+  if(bank==='blu')return parseBluPage({tokens,pageWidth,pageHeight,pageNumber,accountId,accountMap:bankAccountMap,merchantRules,metadata});
 
   if (bank === "bca") {
     return parseBcaPage({
@@ -1953,7 +2080,9 @@ function metadataForPage({
   pageWidth,
   existing
 }) {
+  if(bank==='blu')return parseBluMetadata({tokens,pageWidth,existing});
   if (bank === "mandiri") {
+    if(existing.format==='mandiri-consolidated' || /Rekening Koran\s*\/|Rincian Transaksi\s*\/\s*Nomor Referensi/i.test(pageText))return parseMandiriConsolidatedMetadata({tokens,pageText,pageWidth,existing});
     return mergeMetadata(
       existing,
       parseMandiriMetadata(pageText, lines, tokens, pageWidth)
@@ -2119,12 +2248,16 @@ function isExpectedTransactionPage(bank, pageText) {
 
   if (bank === "mandiri") {
     return (
+      /Rincian Transaksi\s*\/\s*Nomor Referensi/i.test(text) ||
       /No\s+Tanggal\s+Keterangan/i.test(text) ||
       /Nominal\s*\(IDR\).*Saldo\s*\(IDR\)/is.test(text)
     );
   }
 
+  if(bank==='blu')return /Tanggal\s*&\s*Jam|^\d{1,2}\s+[A-Za-z]+\s+20\d{2}/m.test(text);
+
   if (bank === "bca") {
+    if (isEmptyBcaPocket(text)) return false;
     return (
       /TANGGAL\s+KETERANGAN\s+CBG\s+MUTASI\s+SALDO/i.test(text) ||
       /^\d{2}\/\d{2}\s+/m.test(text)
@@ -2245,8 +2378,7 @@ async function readPdfStatement({
       merchantRules,
       metadata,
       parserState
-    }).map((item) => ({
-      ...item,
+    }).map((item) => Object.assign(item, {
       sourceFile: file.name,
       sourceFileOrder: fileOrder
     }));
@@ -2258,7 +2390,10 @@ async function readPdfStatement({
       const expectedTransactionPage =
         isExpectedTransactionPage(bank, pageText);
 
-      if (tokens.length < 35 || (visionReader && expectedTransactionPage)) {
+      const readableBluDisclaimer=bank==='blu' && !expectedTransactionPage && /\bDisclaimer\b/i.test(pageText) && /Laporan ini|This report/i.test(pageText);
+      if(readableBluDisclaimer || (bank === 'bca' && isEmptyBcaPocket(pageText))){
+        informationalPages += 1;
+      } else if (tokens.length < 35 || (visionReader && expectedTransactionPage)) {
         fallbackPages.push({
           pageNumber,
           expectedTransactionPage
@@ -2614,8 +2749,7 @@ export function parseStatementTokenPagesForTest({
       merchantRules,
       metadata,
       parserState
-    }).map((item) => ({
-      ...item,
+    }).map((item) => Object.assign(item, {
       sourceFile: fileName,
       sourceFileOrder: 0
     }));

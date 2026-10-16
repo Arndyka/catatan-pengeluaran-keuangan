@@ -7,3 +7,5 @@ backend_nvidia/.env
 **/__pycache__/
 **/.venv/
 *.pyc
+# Private bank-statement samples used only for local verification.
+Estatement-*/
