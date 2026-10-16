@@ -87,6 +87,8 @@ def get_client() -> OpenAI:
     return OpenAI(
         base_url=NVIDIA_BASE_URL,
         api_key=api_key,
+        timeout=90,
+        max_retries=0,
     )
 
 
@@ -365,7 +367,7 @@ normalization.
             max_tokens=8192,
             extra_body={
                 "chat_template_kwargs": {
-                    "thinking": False
+                    ("enable_thinking" if NVIDIA_TEXT_MODEL.startswith("nvidia/nemotron-") else "thinking"): False
                 }
             },
             stream=False,

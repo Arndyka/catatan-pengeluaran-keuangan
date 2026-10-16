@@ -8,6 +8,10 @@ Backend ini menyimpan NVIDIA API key secara aman dan menyediakan:
 
 ## Model
 
+Model teks dapat dipilih melalui `NVIDIA_TEXT_MODEL` pada `.env`. Untuk Nemotron 3.5 Lightning, gunakan `nvidia/nemotron-3.5-lightning-30b-a3b`. Backend memakai `enable_thinking=false` untuk keluarga Nemotron, agar respons normalisasi berupa JSON tanpa keluaran reasoning. Konfigurasi DeepSeek lama tetap memakai parameter `thinking=false`.
+
+Permintaan ke penyedia dibatasi timeout 90 detik tanpa retry otomatis, lebih pendek dari batas tunggu frontend 120 detik. `/health` hanya memeriksa konfigurasi; panggilan normalisasi dengan data sintetis diperlukan untuk memastikan model benar-benar merespons. Jangan memasukkan API key ke kode frontend atau Git.
+
 ### DeepSeek V4 Pro
 
 Dipakai untuk:
