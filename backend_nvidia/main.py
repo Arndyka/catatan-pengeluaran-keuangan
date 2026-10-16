@@ -22,12 +22,12 @@ NVIDIA_BASE_URL = os.getenv(
 
 NVIDIA_TEXT_MODEL = os.getenv(
     "NVIDIA_TEXT_MODEL",
-    "deepseek-ai/deepseek-v4-pro",
+    "nvidia/nemotron-3.5-lightning-30b-a3b",
 )
 
 NVIDIA_VISION_MODEL = os.getenv(
     "NVIDIA_VISION_MODEL",
-    "nvidia/nemotron-nano-12b-v2-vl",
+    "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
 )
 
 MAX_CANDIDATES_PER_REQUEST = int(
@@ -473,6 +473,7 @@ Return JSON only.
             ],
             temperature=0.1,
             max_tokens=8192,
+            extra_body={"reasoning_budget": 1024} if NVIDIA_VISION_MODEL == "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning" else {},
             stream=False,
         )
     except Exception as exc:

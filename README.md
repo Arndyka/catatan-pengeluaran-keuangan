@@ -7,6 +7,8 @@ GitHub Pages memublikasikan frontend statis dari branch `main`. Backend AI Pytho
 
 ## Pembacaan e-statement — 16 Oktober 2026
 
+**Uji AI Vision langsung:** Nemotron 3 Nano Omni berhasil membaca satu screenshot transaksi sintetis dan PDF berisi gambar yang sama melalui UI SPENDLY. Keduanya menghasilkan tepat satu transaksi Rp12.500 bertanggal 16 Oktober 2026; saldo, promo, dan transfer tertunda tidak masuk. Tidak ada transaksi disimpan. Ini verifikasi terhadap dua contoh tersebut, bukan jaminan akurasi untuk semua dokumen. Backend harus dijalankan terpisah; GitHub Pages tidak menjalankan server Python atau menyimpan API key.
+
 **BCA → saran AI:** pilih e-statement myBCA dan **Baca mutasi** pada mode **Pembaca PDF & OCR lokal**. Setelah muncul hasil, buka pengaturan AI, isi URL backend aktif, lalu setujui pengiriman data dan tekan **Minta saran NVIDIA AI**. Saran baru diterapkan setelah pengguna memilih **Terapkan**. Endpoint kesehatan kini memeriksa bahwa backend memiliki konfigurasi API key; status terkonfigurasi belum membuktikan key valid atau kuota model tersedia. Alur BCA → saran AI diuji dengan PDF sintetis dan respons AI simulasi; panggilan model sungguhan memerlukan backend beserta API key pengguna.
 
 Pembaca PDF lokal mendukung bluAccount, rekening koran konsolidasi Mandiri (termasuk PDF berpassword), dan rekening utama myBCA Tahapan Xpresi dengan lampiran Poket Rupiah kosong. Halaman informasi, ringkasan kartu kredit, dan disclaimer tidak menjadi transaksi. Deskripsi Mandiri yang bersambung ke halaman berikutnya tetap digabungkan. Nominal pecahan rupiah dipertahankan, dan rekonsiliasi memeriksa total serta saldo per baris sampai sen.

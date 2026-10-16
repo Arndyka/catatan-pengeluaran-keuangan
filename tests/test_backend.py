@@ -1,4 +1,5 @@
 import os
+import json
 import sys
 import unittest
 import tempfile
@@ -13,6 +14,18 @@ from fastapi.testclient import TestClient
 import main
 
 class BackendTests(unittest.TestCase):
+    def test_omni_vision_bounds_reasoning_and_filters_nontransactions(self):
+        provider = MagicMock()
+        good = {'record_kind':'transaction','status':'completed','date':'2026-10-16','amount':12500,'direction':'outgoing'}
+        provider.chat.completions.create.return_value = SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=json.dumps({'bank':'bca','transactions':[good,{**good,'record_kind':'advertisement'}]})))])
+        with patch.object(main, 'NVIDIA_VISION_MODEL', 'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning'), patch.object(main, 'get_client', return_value=provider), TestClient(main.app) as client:
+            response = client.post('/api/nvidia/read-page',json={'image_data_url':'data:image/png;base64,AAAA','bank_hint':'bca'})
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['result']['transactions'],[good])
+        arguments = provider.chat.completions.create.call_args.kwargs
+        self.assertEqual(arguments['extra_body']['reasoning_budget'],1024)
+        self.assertLess(arguments['extra_body']['reasoning_budget'],arguments['max_tokens'])
+
     def test_provider_timeout_is_bounded_below_frontend_deadline(self):
         with patch.dict(os.environ, {'NVIDIA_API_KEY':'test-only'}), patch.object(main, 'OpenAI') as provider:
             main.get_client()

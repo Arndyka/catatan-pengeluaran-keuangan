@@ -12,7 +12,7 @@ Model teks dapat dipilih melalui `NVIDIA_TEXT_MODEL` pada `.env`. Untuk Nemotron
 
 Permintaan ke penyedia dibatasi timeout 90 detik tanpa retry otomatis, lebih pendek dari batas tunggu frontend 120 detik. `/health` hanya memeriksa konfigurasi; panggilan normalisasi dengan data sintetis diperlukan untuk memastikan model benar-benar merespons. Jangan memasukkan API key ke kode frontend atau Git.
 
-### DeepSeek V4 Pro
+### Nemotron 3.5 Lightning
 
 Dipakai untuk:
 
@@ -24,10 +24,12 @@ Dipakai untuk:
 
 Model ini menerima **teks**, bukan gambar.
 
-### Nemotron Nano 12B V2 VL
+### Nemotron 3 Nano Omni
 
 Route optional `/api/nvidia/read-page` memakai model vision untuk gambar
 halaman yang tidak dapat dibaca parser lokal.
+
+Default vision saat ini `nvidia/nemotron-3-nano-omni-30b-a3b-reasoning`, menggantikan `nvidia/nemotron-nano-12b-v2-vl` yang tidak lagi muncul di katalog API saat pemeriksaan 16 Oktober 2026. Batas reasoning 1.024 token menyisakan ruang dalam batas keluaran 8.192 token untuk JSON transaksi. Lihat [referensi API NVIDIA](https://docs.api.nvidia.com/nim/reference/nvidia-nemotron-3-nano-omni-30b-a3b-reasoning-infer). Ketersediaan di katalog bukan bukti bahwa inferensi sedang berhasil; uji dengan gambar sintetis sebelum penggunaan.
 
 ## Menjalankan lokal
 
