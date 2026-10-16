@@ -13,7 +13,7 @@ export function validateRecurringRule(input,accounts){
  if(['transfer','investment','credit_payment'].includes(rule.type)){
   const target=accounts.find(a=>a.id===rule.destinationAccountId&&a.active!==false);
   if(!target||target.id===source.id)throw new Error('Pilih rekening tujuan aktif yang berbeda.');
-  if((rule.type==='credit_payment'&&(target.type!=='liability'||target.subtype!=='credit_card'))||(rule.type!=='credit_payment'&&target.type!=='asset')||(rule.type==='investment'&&target.subtype!=='investment'))throw new Error('Jenis akun tujuan tidak sesuai.');
+  if((rule.type==='credit_payment'&&(target.type!=='liability'||!['credit_card','paylater'].includes(target.subtype)))||(rule.type!=='credit_payment'&&target.type!=='asset')||(rule.type==='investment'&&target.subtype!=='investment'))throw new Error('Jenis akun tujuan tidak sesuai.');
  }else rule.destinationAccountId='';
  return rule;
 }

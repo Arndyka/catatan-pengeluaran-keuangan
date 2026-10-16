@@ -3,6 +3,12 @@
 - [Aplikasi](https://arndyka.github.io/catatan-pengeluaran-keuangan/)
 - [Demo terpisah](https://arndyka.github.io/catatan-pengeluaran-keuangan/?demo=1)
 
+## Kartu Kredit & PayLater
+
+PayLater memiliki tab tersendiri dengan periode tagihan, jatuh tempo, status lunas, dan total kewajiban. Limit tersedia mengikuti snapshot penyedia, terpisah dari jumlah tagihan yang mungkin mencakup biaya. Jadwal awal menambah kewajiban tanpa membuat pengeluaran atau mengurangi saldo bank. Pokok dan biaya tidak ditebak.
+
+Gunakan **Catat lunas** setelah pembayaran benar-benar terjadi. Tautkan mutasi bank yang sudah tercatat, atau catat pembayaran baru jika belum ada. Penautan mempertahankan identitas sumber scan untuk mencegah impor ulang. Pembayaran penuh dicatat secara atomik; menghapus transaksi pembayaran membuka kembali tagihannya. Pembayaran sebagian dan pembaruan limit penyedia belum didukung oleh formulir ini. Pinjaman yang dikonfirmasi lunas dapat diarsipkan tanpa menghapus jurnal bank historis.
+
 ## Scanner lokal dan referensi pribadi — 16 Oktober 2026
 
 Scanner memakai teks asli PDF dan OCR lokal untuk halaman gambar. Panggilan NVIDIA/LLM dinonaktifkan; frontend tidak memerlukan backend AI, API key, Render, atau kartu pembayaran. Folder backend lama hanya merupakan arsip implementasi sebelumnya.

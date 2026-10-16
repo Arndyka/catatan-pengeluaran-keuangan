@@ -32,7 +32,7 @@ const PAGE_META = {
   investments: ["Growth", "Investasi"],
   transactions: ["Journal", "Transaksi"],
   recurring: ["Automation", "Transaksi Berulang"],
-  "credit-card": ["Liability", "Kartu Kredit"],
+  "credit-card": ["Liability", "Kartu Kredit & PayLater"],
   budget: ["Planning", "Budget"],
   reports: ["Accounting Reports", "Laporan Bulanan"],
   scanner: ["OCR / PDF", "Review Transaksi"],
@@ -132,7 +132,7 @@ function renderAccountSelects() {
     const element = $(id);
     if (!element || element.form?.contains(document.activeElement)) return;
     const previous = element.value;
-    element.innerHTML = accountOptionsHtml(previous,id==='sourceAccount'?($('transactionType').value==='credit_purchase'?{includeAssets:false,includeLiabilities:true,subtype:'credit_card'}:{includeAssets:true,includeLiabilities:false}):{});
+    element.innerHTML = accountOptionsHtml(previous,id==='sourceAccount'?($('transactionType').value==='credit_purchase'?{includeAssets:false,includeLiabilities:true,subtype:['credit_card','paylater']}:{includeAssets:true,includeLiabilities:false}):{});
   });
 
   const cardAccountId = state.creditSettings.cardAccountId;
@@ -223,7 +223,7 @@ function updateTransactionFormMode() {
   if (type === "credit_purchase") {
     $("sourceAccount").innerHTML = accountOptionsHtml(
       state.creditSettings.cardAccountId,
-      { includeAssets: false, includeLiabilities: true, subtype: "credit_card" }
+      { includeAssets: false, includeLiabilities: true, subtype: ["credit_card", "paylater"] }
     );
     $("sourceAccount").value = state.creditSettings.cardAccountId;
   } else {
@@ -235,7 +235,7 @@ function updateTransactionFormMode() {
   if (type === "credit_payment") {
     $("destinationAccount").innerHTML = accountOptionsHtml(
       state.creditSettings.cardAccountId,
-      { includeAssets: false, includeLiabilities: true, subtype: "credit_card" }
+      { includeAssets: false, includeLiabilities: true, subtype: ["credit_card", "paylater"] }
     );
     $("destinationAccount").value = state.creditSettings.cardAccountId;
   }
@@ -290,7 +290,7 @@ function renderTransactions() {
           ${rows.map((tx) => `
             <tr>
               <td>${escapeHtml(tx.date)}</td>
-              <td><span class="badge ${tx.type}">${escapeHtml(tx.sourceMeta?.pendingAllocation?'Perlu rincian':transactionTypeLabel(tx.type))}</span></td>
+              <td><span class="badge ${tx.type}">${escapeHtml(tx.sourceMeta?.loanSettled?'Lunas · arsip':tx.sourceMeta?.pendingAllocation?'Perlu rincian':transactionTypeLabel(tx.type))}</span></td>
               <td>${escapeHtml(accountName(tx.sourceAccountId))}</td>
               <td>${escapeHtml(accountName(tx.destinationAccountId))}</td>
               <td>${escapeHtml(tx.category)}</td>
@@ -1768,6 +1768,7 @@ async function initializeUser(user) {
   if(generation!==authGeneration||state.user?.uid!==user.uid)return;
   state.settings = loaded.profile;
   state.creditSettings = loaded.credit;
+  state.paylater = loaded.paylater;
   state.scannerKnowledge = loaded.knowledge;
   renderKnowledgeSummary();
   state.hideBalances = state.settings.hideBalanceDefault !== false;

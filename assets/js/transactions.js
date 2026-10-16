@@ -16,8 +16,8 @@ export function transactionTypeLabel(type) {
     income: "Pemasukan",
     expense: "Pengeluaran",
     transfer: "Transfer",
-    credit_purchase: "Belanja Kartu Kredit",
-    credit_payment: "Bayar Kartu Kredit",
+    credit_purchase: "Belanja Kredit / PayLater",
+    credit_payment: "Bayar Kredit / PayLater",
     investment: "Investasi"
   };
 

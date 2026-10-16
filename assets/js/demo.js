@@ -1,4 +1,5 @@
 import { DEFAULT_SETTINGS, DEFAULT_CREDIT_SETTINGS, buildTransaction } from './accounting.js';
+import {settlePaylater} from './paylater-settlement.js';
 import { monthKey, formatDateLocal } from './utils.js';
 import {reopenRecurringTransaction,isSalaryRule,isSettled,validateSettlement} from './recurring-logic.js';
 
@@ -7,6 +8,7 @@ export const DEMO_UID = 'spendly-demo';
 const KEY = 'spendly:demo:v1';
 const listeners = new Map();
 let data;
+let paylaterQueue=Promise.resolve();
 const clone = value => structuredClone(value);
 function save() { localStorage.setItem(KEY, JSON.stringify(data)); }
 function notify(name) { for (const callback of listeners.get(name) || []) callback(clone(data[name] || [])); }
@@ -58,6 +60,15 @@ export async function initializeDemo() {
 export const demoRepository = {
   async getSettings(uid,id,fallback) { return clone(data.settings[id] || fallback); },
   async saveSettings(uid,id,value) { data.settings[id] = {...data.settings[id],...clone(value)}; save(); },
+  settlePaylaterBill(uid,billId,details) {
+    const task=paylaterQueue.then(async()=>{
+      const next=clone(data);
+      const result=await settlePaylater({getPlan:async()=>next.settings.paylater,getProfile:async()=>next.settings.profile,getTransaction:async id=>next.transactions.find(t=>t.id===id)||null,
+        putTransaction:tx=>{next.transactions=next.transactions.filter(t=>t.id!==tx.id);next.transactions.push(clone(tx));},putPlan:plan=>{next.settings.paylater=clone(plan);}},billId,details);
+      data=next;save();notify('transactions');return result;
+    });
+    paylaterQueue=task.catch(()=>{});return task;
+  },
   listenTransactions(uid,callback) { return listen('transactions',callback); },
   async createTransactionPermanent(uid,tx) { if(data.transactions.some(item=>item.id===tx.fingerprint)) return {created:false,duplicate:true,id:tx.fingerprint}; data.transactions.unshift({...clone(tx),id:tx.fingerprint}); data.transactions.sort((a,b)=>b.date.localeCompare(a.date)); save(); notify('transactions'); return {created:true,duplicate:false,id:tx.fingerprint}; },
   async deleteTransaction(uid,id) {

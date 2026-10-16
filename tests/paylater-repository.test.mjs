@@ -1,0 +1,28 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+globalThis.location={search:'?demo=1'};
+const memory=new Map();globalThis.localStorage={getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)};
+const {initializeDemo,demoRepository:repo,DEMO_UID}=await import('../assets/js/demo.js');
+const {buildTransaction}=await import('../assets/js/accounting.js');
+const {paylaterSnapshot}=await import('../assets/js/paylater.js');
+await initializeDemo();
+test('PayLater payment is atomic, reusable after deletion, and can link an imported payment exactly once',async()=>{
+ const settings=await repo.getSettings(DEMO_UID,'profile',{});settings.accounts.push({id:'liability-paylater-test',name:'Test',type:'liability',subtype:'paylater',active:true});await repo.saveSettings(DEMO_UID,'profile',settings);
+ const opening=await buildTransaction({type:'opening_balance',date:'2026-10-16',amount:1500,sourceAccountId:'liability-paylater-test'},settings);await repo.createTransactionPermanent(DEMO_UID,opening);
+ const plan={name:'Test',accountId:'liability-paylater-test',asOfDate:'2026-10-16',limit:2000,availableLimit:500,openingTransactionId:opening.id,bills:[{id:'a',period:'2026-09',dueDate:'2026-10-25',amount:500},{id:'b',period:'2026-10',dueDate:'2026-11-25',amount:1000}]};await repo.saveSettings(DEMO_UID,'paylater',plan);
+ const before=JSON.parse(memory.get('spendly:demo:v1')).transactions.length;
+ const expectedBill=b=>({accountId:plan.accountId,asOfDate:plan.asOfDate,dueDate:b.dueDate,amount:b.amount});
+ const details={expectedBill:expectedBill(plan.bills[0]),sourceAccountId:'asset-bca',date:'2026-10-16'};
+ await assert.rejects(()=>repo.settlePaylaterBill(DEMO_UID,'a',{...details,expectedBill:{...details.expectedBill,amount:501}}),/berubah/);
+ const results=await Promise.all([repo.settlePaylaterBill(DEMO_UID,'a',details),repo.settlePaylaterBill(DEMO_UID,'a',{...details,sourceAccountId:'asset-mandiri'})]);
+ assert.equal(results.filter(r=>r.created).length,1);assert.equal(results.filter(r=>r.duplicate).length,1);
+ assert.equal(JSON.parse(memory.get('spendly:demo:v1')).transactions.length,before+1);
+ await repo.deleteTransaction(DEMO_UID,results[0].id);
+ assert.equal(paylaterSnapshot(plan,JSON.parse(memory.get('spendly:demo:v1')).transactions,'2026-10-16').bills[0].status,'unpaid');
+ assert.equal((await repo.settlePaylaterBill(DEMO_UID,'a',details)).created,true);
+ const imported=await buildTransaction({type:'expense',date:'2026-10-16',amount:1000,sourceAccountId:'asset-bca',description:'Bank payment'},settings);await repo.createTransactionPermanent(DEMO_UID,imported);
+ const count=JSON.parse(memory.get('spendly:demo:v1')).transactions.length;
+ const linked=await repo.settlePaylaterBill(DEMO_UID,'b',{existingTransactionId:imported.id,expectedBill:expectedBill(plan.bills[1])});assert.equal(linked.linked,true);assert.equal(JSON.parse(memory.get('spendly:demo:v1')).transactions.length,count);
+ assert.equal((await repo.settlePaylaterBill(DEMO_UID,'b',{existingTransactionId:imported.id,expectedBill:expectedBill(plan.bills[1])})).duplicate,true);
+ await assert.rejects(()=>repo.settlePaylaterBill(DEMO_UID,'missing',details));
+});

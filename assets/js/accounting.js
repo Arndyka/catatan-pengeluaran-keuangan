@@ -183,11 +183,11 @@ export async function buildTransaction(input, settings) {
   if(input.type==='opening_balance'){
     if(!['asset','liability'].includes(source.type)||source.subtype==='clearing')throw new Error('Saldo awal memerlukan akun aset atau kewajiban.');
   }else if(input.type==='credit_purchase'){
-    if(source.type!=='liability'||source.subtype!=='credit_card')throw new Error('Pilih akun kartu kredit untuk belanja kartu.');
+    if(source.type!=='liability'||!['credit_card','paylater'].includes(source.subtype))throw new Error('Pilih akun kartu kredit atau PayLater untuk belanja kredit.');
   }else if(source.type!=='asset')throw new Error('Pilih akun aset. Belanja kartu dicatat sebagai Belanja Kartu Kredit.');
   if(['transfer','investment','credit_payment'].includes(input.type)){
     if(!target||target.active===false)throw new Error('Pilih akun tujuan yang aktif.');
-    if(input.type==='credit_payment'?(target.type!=='liability'||target.subtype!=='credit_card'):target.type!=='asset')throw new Error('Jenis akun tujuan tidak sesuai transaksi.');
+    if(input.type==='credit_payment'?(target.type!=='liability'||!['credit_card','paylater'].includes(target.subtype)):target.type!=='asset')throw new Error('Jenis akun tujuan tidak sesuai transaksi.');
     if(input.type==='investment'&&target.subtype!=='investment')throw new Error('Pembelian investasi harus menuju akun investasi. Untuk tabungan gunakan Transfer.');
   }
   const tenor=Number(input.installmentTenor||1);

@@ -8,6 +8,7 @@ import {
 } from "./repository.js";
 import { cleanText, slugText } from "./utils.js";
 import {validDate} from './recurring-logic.js';
+import {DEFAULT_PAYLATER} from './paylater.js';
 
 export async function loadUserSettings(uid) {
   const profile = structuredClone(await getSettings(uid, "profile", DEFAULT_SETTINGS));
@@ -51,7 +52,8 @@ export async function loadUserSettings(uid) {
   }
 
   const knowledge = await getSettings(uid, "scanner_knowledge", {version:1,statements:[],examples:[]});
-  return { profile, credit, knowledge };
+  const paylater = await getSettings(uid, "paylater", DEFAULT_PAYLATER);
+  return { profile, credit, knowledge, paylater };
 }
 
 export async function saveProfileSettings(uid, settings) {
@@ -81,7 +83,7 @@ export function addAccount(settings, { name, type, subtype }) {
   if (!cleanName) {
     throw new Error("Nama akun wajib diisi.");
   }
-  if(!['asset','liability'].includes(type)||!['bank','cash','ewallet','investment','credit_card','other'].includes(subtype)||(type==='asset'&&subtype==='credit_card')||(type==='liability'&&subtype!=='credit_card'&&subtype!=='other'))throw new Error('Jenis akun dan kategori akun tidak sesuai. Kartu kredit memakai tipe kewajiban.');
+  if(!['asset','liability'].includes(type)||!['bank','cash','ewallet','investment','credit_card','paylater','other'].includes(subtype)||(type==='asset'&&['credit_card','paylater'].includes(subtype))||(type==='liability'&&!['credit_card','paylater','other'].includes(subtype)))throw new Error('Jenis akun dan kategori akun tidak sesuai. Kartu kredit memakai tipe kewajiban.');
 
   const id = `${type}-${slugText(cleanName)}`;
   const duplicate = settings.accounts.some((account) => account.id === id);
@@ -126,7 +128,7 @@ export function accountOptions(settings, {
     .filter((account) => {
       if (!includeAssets && account.type === "asset") return false;
       if (!includeLiabilities && account.type === "liability") return false;
-      if (subtype && account.subtype !== subtype) return false;
+      if (subtype && !(Array.isArray(subtype)?subtype:[subtype]).includes(account.subtype)) return false;
       return true;
     });
 }

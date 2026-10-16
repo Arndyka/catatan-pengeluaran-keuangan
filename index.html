@@ -11,8 +11,8 @@
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <script>document.documentElement.dataset.theme='dark';try{document.documentElement.dataset.theme=localStorage.getItem('spendly:theme')||'dark'}catch{}</script>
-  <link rel="stylesheet" href="assets/styles.css?v=scan-mobile-20261015">
-  <link rel="stylesheet" href="assets/experience.css?v=scan-mobile-20261015">
+  <link rel="stylesheet" href="assets/styles.css?v=paylater-20261016">
+  <link rel="stylesheet" href="assets/experience.css?v=paylater-20261016">
 </head>
 <body>
   <a class="skip-link" href="#mainContent">Lewati ke konten</a>
@@ -59,7 +59,7 @@
         </div>
       </div>
 
-      <nav class="nav" aria-label="Navigasi utama"><p class="nav-caption">RUANG KEUANGANMU</p><button class="nav-link" data-page="dashboard" type="button"><span data-icon="grid"></span><span>Ringkasan</span></button><button class="nav-link" data-page="wallets" type="button"><span data-icon="wallet"></span><span>Dompet</span></button><button class="nav-link" data-page="transactions" type="button"><span data-icon="arrows"></span><span>Transaksi</span></button><button class="nav-link" data-page="budget" type="button"><span data-icon="pie"></span><span>Budget</span></button><button class="nav-link" data-page="goals" type="button"><span data-icon="target"></span><span>Goals</span></button><button class="nav-link" data-page="investments" type="button"><span data-icon="chart"></span><span>Investasi</span></button><button class="nav-link" data-page="scanner" type="button"><span data-icon="scan"></span><span>Scan mutasi</span></button><button class="nav-link" data-page="recurring" type="button"><span data-icon="repeat"></span><span>Transaksi rutin</span></button><button class="nav-link" data-page="credit-card" type="button"><span data-icon="card"></span><span>Kartu kredit</span></button><button class="nav-link" data-page="reports" type="button"><span data-icon="chart"></span><span>Laporan</span></button><button class="nav-link" data-page="settings" type="button"><span data-icon="settings"></span><span>Pengaturan</span></button></nav><div class="sidebar-tip"><span data-icon="sparkles"></span><strong>Sedikit demi sedikit.</strong><p>Kebiasaan baik hari ini, masa depan yang lebih tenang.</p></div>
+      <nav class="nav" aria-label="Navigasi utama"><p class="nav-caption">RUANG KEUANGANMU</p><button class="nav-link" data-page="dashboard" type="button"><span data-icon="grid"></span><span>Ringkasan</span></button><button class="nav-link" data-page="wallets" type="button"><span data-icon="wallet"></span><span>Dompet</span></button><button class="nav-link" data-page="transactions" type="button"><span data-icon="arrows"></span><span>Transaksi</span></button><button class="nav-link" data-page="budget" type="button"><span data-icon="pie"></span><span>Budget</span></button><button class="nav-link" data-page="goals" type="button"><span data-icon="target"></span><span>Goals</span></button><button class="nav-link" data-page="investments" type="button"><span data-icon="chart"></span><span>Investasi</span></button><button class="nav-link" data-page="scanner" type="button"><span data-icon="scan"></span><span>Scan mutasi</span></button><button class="nav-link" data-page="recurring" type="button"><span data-icon="repeat"></span><span>Transaksi rutin</span></button><button class="nav-link" data-page="credit-card" type="button"><span data-icon="card"></span><span>Kartu &amp; PayLater</span></button><button class="nav-link" data-page="reports" type="button"><span data-icon="chart"></span><span>Laporan</span></button><button class="nav-link" data-page="settings" type="button"><span data-icon="settings"></span><span>Pengaturan</span></button></nav><div class="sidebar-tip"><span data-icon="sparkles"></span><strong>Sedikit demi sedikit.</strong><p>Kebiasaan baik hari ini, masa depan yang lebih tenang.</p></div>
 
       <div class="sidebar-user">
         <p class="section-label">Login sebagai</p>
@@ -190,8 +190,8 @@
                 <option value="income">Pemasukan</option>
                 <option value="expense" selected>Pengeluaran</option>
                 <option value="transfer">Transfer Antar Akun</option>
-                <option value="credit_purchase">Belanja Kartu Kredit</option>
-                <option value="credit_payment">Bayar Kartu Kredit</option>
+                <option value="credit_purchase">Belanja Kredit / PayLater</option>
+                <option value="credit_payment">Bayar Kredit / PayLater</option>
                 <option value="investment">Pembelian Investasi</option>
               </select>
             </div>
@@ -269,8 +269,8 @@
                 <option value="income">Pemasukan</option>
                 <option value="expense">Pengeluaran</option>
                 <option value="transfer">Transfer</option>
-                <option value="credit_purchase">Belanja Kartu Kredit</option>
-                <option value="credit_payment">Bayar Kartu Kredit</option>
+                <option value="credit_purchase">Belanja Kredit / PayLater</option>
+                <option value="credit_payment">Bayar Kredit / PayLater</option>
                 <option value="investment">Investasi</option>
               </select>
               <input id="transactionSearch" type="search" placeholder="Cari transaksi...">
@@ -301,7 +301,7 @@
                 <option value="income">Pemasukan</option>
                 <option value="expense">Pengeluaran</option>
                 <option value="transfer">Transfer</option>
-                <option value="credit_payment">Bayar Kartu Kredit</option>
+                <option value="credit_payment">Bayar Kredit / PayLater</option>
                 <option value="investment">Investasi</option>
               </select>
             </div>
@@ -364,6 +364,8 @@
       </section>
 
       <section id="page-credit-card" class="page-section hidden">
+        <div class="investment-tabs credit-view-tabs" role="group" aria-label="Jenis kewajiban"><button type="button" data-credit-view="bank" aria-pressed="true" class="active">Kartu kredit</button><button type="button" data-credit-view="paylater" aria-pressed="false">PayLater</button></div>
+        <div id="creditBankView">
         <section class="stats-grid credit-stats">
           <article class="stat-card">
             <p>Total Limit</p>
@@ -452,6 +454,7 @@
           <div id="creditReconcileMessage" class="notice hidden"></div>
           <div id="creditReconcileSummary" class="reconcile-summary"></div>
         </section>
+        </div><section id="paylaterView" class="hidden" aria-label="Tagihan PayLater"></section>
       </section>
 
       <section id="page-budget" class="page-section hidden"><div id="monthlyBudgetCard" class="budget-limit-panel"></div>
@@ -723,7 +726,7 @@
                   <option value="cash">Tunai</option>
                   <option value="ewallet">E-Wallet</option>
                   <option value="investment">Investasi</option>
-                  <option value="credit_card">Kartu Kredit</option>
+                  <option value="credit_card">Kartu Kredit</option><option value="paylater">PayLater</option>
                   <option value="other">Lainnya</option>
                 </select>
               </div>
@@ -779,7 +782,7 @@
   <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
-  <script type="module" src="assets/js/boot.js?v=local-knowledge-20261016"></script>
+  <script type="module" src="assets/js/boot.js?v=paylater-20261016"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 

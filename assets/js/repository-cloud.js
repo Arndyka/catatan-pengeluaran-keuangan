@@ -1,4 +1,5 @@
 import { db } from "./firebase.js";
+import {settlePaylater} from './paylater-settlement.js';
 import {reopenRecurringTransaction,isSalaryRule,isSettled,validateSettlement} from './recurring-logic.js';
 import {
   collection,
@@ -21,6 +22,17 @@ function userCollection(uid, name) {
 
 function userDoc(uid, collectionName, docId) {
   return doc(db, "users", uid, collectionName, docId);
+}
+
+export async function settlePaylaterBill(uid,billId,details){
+ return runTransaction(db,async transaction=>{
+  const read=async(collection,id)=>{const snapshot=await transaction.get(userDoc(uid,collection,id));return snapshot.exists()?{...snapshot.data(),...(collection==='transactions'?{id:snapshot.id}:{})}:null;};
+  return settlePaylater({
+   getPlan:()=>read('settings','paylater'),getProfile:()=>read('settings','profile'),getTransaction:id=>read('transactions',id),
+   putTransaction:(tx,linked)=>transaction.set(userDoc(uid,'transactions',tx.id),{...tx,...(!linked?{createdAt:serverTimestamp()}:{}),updatedAt:serverTimestamp()}),
+   putPlan:plan=>transaction.set(userDoc(uid,'settings','paylater'),{...plan,updatedAt:serverTimestamp()})
+  },billId,details);
+ });
 }
 
 export async function getSettings(uid, docId, fallback) {

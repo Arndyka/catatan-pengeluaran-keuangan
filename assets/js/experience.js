@@ -1,3 +1,4 @@
+import {setupPaylaterUI,renderPaylaterUI,resetPaylaterUI} from './paylater-ui.js';
 import {setupRecurringUI} from './recurring-ui.js';
 import { $, escapeHtml as e, formatRupiah, formatDateLocal, monthKey, formatDateId, parseLocalDate } from './utils.js';
 import { state } from './state.js';
@@ -26,7 +27,7 @@ const descriptions = {
 const empty = (title,text,action='',label='Mulai sekarang') => `<div class="friendly-empty"><span class="empty-symbol">${icon('sparkles')}</span><h3>${title}</h3><p>${text}</p>${action?`<button class="btn btn-primary" data-action="${action}" type="button">${label}</button>`:''}</div>`;
 const dateLabel = value => formatDateId(parseLocalDate(value));
 
-export function resetExperience() {planningUid=null;planning=structuredClone(DEFAULT_PLANNING);dashboardPlan={items:[]};$('bottomNav').classList.add('hidden');$('spendlyDialog').close();}
+export function resetExperience() {resetPaylaterUI();planningUid=null;planning=structuredClone(DEFAULT_PLANNING);dashboardPlan={items:[]};$('bottomNav').classList.add('hidden');$('spendlyDialog').close();}
 export async function loadExperience(uid) {
  planningUid=uid;
  const [saved,plan] = await Promise.all([getSettings(uid,'planning',DEFAULT_PLANNING),getBudgetPlan(uid,monthKey())]);
@@ -100,6 +101,7 @@ export function setupExperience({setPage,updateTransactionFormMode}) {
  navigate=setPage;hydrateIcons();
  setupBankFeatures({getPlanning:()=>planning,savePlanning,dialog,toast,money});
  setupRecurringUI({dialog,toast,money});
+ setupPaylaterUI({dialog,toast,money});
  const dark=document.documentElement.dataset.theme==='dark';$('themeButton').innerHTML=icon(dark?'sun':'moon');$('themeButton').setAttribute('aria-label',dark?'Aktifkan tema terang':'Aktifkan tema gelap');
  document.querySelector('meta[name="theme-color"]').content=dark?'#211e25':'#faf8f6';
  document.querySelector('.skip-link').addEventListener('click',event=>{event.preventDefault();$('mainContent').focus();});
@@ -137,6 +139,7 @@ function smallGoal(goal) {
  return `<button class="goal-mini" data-edit-goal="${e(goal.id)}" type="button"><span class="goal-symbol">${icon(goal.icon)}</span><span class="goal-mini-body"><strong>${e(goal.name)}</strong><span>${money(goal.saved)} <small>/ ${money(goal.target)}</small></span><span class="progress-track"><span class="progress-fill" style="width:${state.hideBalances?0:progress.percent}%"></span></span></span><span class="goal-percent">${state.hideBalances?'••':Math.round(progress.percent)+'%'}</span></button>`;
 }
 export function renderExperience() {
+ renderPaylaterUI();
  if(!state.user || !state.settings)return;
  const today=formatDateLocal();const month=monthKey();
  const checks=financialHealth(state.transactions,state.settings,today);$('financialHealth').innerHTML=checks.length?`<section class="panel health-panel"><div><p class="section-label">PERIKSA CATATAN</p><h2>${checks.length} hal perlu ditinjau</h2></div>${checks.map(check=>`<div class="health-row">${icon('shield')}<p>${e(check.text)}</p><button class="text-button" data-page="${check.page}">Periksa</button></div>`).join('')}</section>`:'';
@@ -181,7 +184,7 @@ function renderWallets(transactions) {
  const accounts=state.settings.accounts.filter(a=>a.active!==false || ledger.accounts.some(l=>l.accountId===a.id&&l.balance!==0)).map(a=>({...a,balance:ledger.accounts.find(l=>l.accountId===a.id)?.balance || 0}));
  const assets=accounts.filter(a=>a.type==='asset').reduce((n,a)=>n+a.balance,0);const debt=accounts.filter(a=>a.type==='liability').reduce((n,a)=>n+a.balance,0);
  $('walletOverview').innerHTML=`<div class="wallet-overview"><div><span>SALDO & ASET TERCATAT</span><strong>${money(assets)}</strong></div><div><span>KEWAJIBAN KARTU & AKUN</span><strong>${money(debt)}</strong></div><span class="wallet-decoration" aria-hidden="true">${icon('wallet')}</span></div>`;
- const types={bank:'Rekening bank',cash:'Uang tunai',ewallet:'Dompet digital',investment:'Investasi',credit_card:'Kartu kredit',clearing:'Perlu dipetakan',other:'Lainnya'};
+ const types={bank:'Rekening bank',cash:'Uang tunai',ewallet:'Dompet digital',investment:'Investasi',credit_card:'Kartu kredit',paylater:'PayLater',clearing:'Perlu dipetakan',other:'Lainnya'};
  $('walletCards').innerHTML=accounts.map((a,i)=>`<article class="wallet-card ${a.type==='liability'?'debt-card':''}"><div class="wallet-card-top">${accountBrand(a)}<span class="account-kind">${e(types[a.subtype]||a.type)}${a.active===false?' · Nonaktif':''}</span></div><h3>${e(a.name)}</h3><strong>${money(a.balance)}</strong><div class="wallet-card-bottom"><span>${a.subtype==='clearing'?'Periksa pemetaan transfer':'Saldo berdasarkan transaksi'}</span>${!a.system&&a.active!==false&&!state.transactions.some(tx=>tx.type==='opening_balance'&&tx.sourceAccountId===a.id)?`<button class="text-button" data-opening-account="${e(a.id)}" aria-label="Catat saldo awal ${e(a.name)}">Saldo awal ${icon('plus')}</button>`:icon(a.type==='liability'?'card':'wallet')}</div></article>`).join('');
 }
 function renderGoals() {

@@ -473,12 +473,45 @@ test('private scanner references survive reload without posting ledger entries',
 test('unallocated loan payment is visibly pending and does not become consumption expense',async({page})=>{
  const values=await page.evaluate(async()=>{
   const {state}=await import('/assets/js/state.js'),{saveTransaction}=await import('/assets/js/transactions.js'),{incomeStatement}=await import('/assets/js/accounting.js');
-  const before=incomeStatement(state.transactions,'2026-10').expense;
+  const before=incomeStatement(state.transactions,'2026-10').expenses;
   await saveTransaction(state.user.uid,{type:'transfer',date:'2026-10-01',amount:12345,sourceAccountId:'asset-bca',destinationAccountId:'asset-transfer-clearing',category:'Perlu rincian',description:'Pembayaran pinjaman contoh',sourceMeta:{pendingAllocation:'Rincian pokok, bunga, dan biaya belum tersedia.',categoryReviewed:false}},state.settings);
   return {before};
  });
  await page.evaluate(()=>location.hash='transactions');
  const row=page.locator('#transactionTableContainer tr').filter({hasText:'Pembayaran pinjaman contoh'});
  await expect(row).toContainText('Perlu rincian');await expect(row).toContainText('Rincian pokok, bunga, dan biaya belum tersedia.');
- expect(await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js'),{incomeStatement}=await import('/assets/js/accounting.js');return incomeStatement(state.transactions,'2026-10').expense;})).toBe(values.before);
+ expect(await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js'),{incomeStatement}=await import('/assets/js/accounting.js');return incomeStatement(state.transactions,'2026-10').expenses;})).toBe(values.before);
+});
+
+async function seedPaylater(page){
+ return page.evaluate(async()=>{
+  const {state}=await import('/assets/js/state.js'),{demoRepository:repo}=await import('/assets/js/demo.js'),{buildTransaction}=await import('/assets/js/accounting.js');
+  const profile=structuredClone(state.settings);profile.accounts.push({id:'liability-paylater-demo',name:'PayLater contoh',type:'liability',subtype:'paylater',active:true});await repo.saveSettings(state.user.uid,'profile',profile);
+  const bills=[300,200,175,125,100,50].map((amount,i)=>({id:'bill-'+i,period:['2026-09','2026-10','2026-11','2026-12','2027-01','2027-02'][i],dueDate:['2026-10-25','2026-11-25','2026-12-25','2027-01-25','2027-02-25','2027-03-25'][i],amount}));
+  const opening=await buildTransaction({type:'opening_balance',date:'2026-10-16',amount:950,sourceAccountId:'liability-paylater-demo'},profile);await repo.createTransactionPermanent(state.user.uid,opening);
+  const plan={version:1,name:'PayLater contoh',accountId:'liability-paylater-demo',asOfDate:'2026-10-16',limit:2000,availableLimit:1057,openingTransactionId:opening.id,bills};await repo.saveSettings(state.user.uid,'paylater',plan);return plan;
+ });
+}
+test('PayLater schedule separates limit snapshot, respects privacy and fits phone and laptop',async({page})=>{
+ await seedPaylater(page);await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='credit-card');
+ await expect(page.locator('#paylaterView')).toBeVisible();await expect(page.locator('[data-paylater-bill]')).toHaveCount(6);
+ await expect(page.locator('#paylaterOutstanding')).toContainText('950');await expect(page.locator('#paylaterView')).toContainText('lebih besar Rp 7');
+ await expect(page.locator('[data-paylater-bill="bill-0"]')).toContainText('25 Oktober 2026');await expect(page.locator('[data-paylater-bill="bill-5"]')).toContainText('25 Maret 2027');
+ for(const width of [1440,390,320]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ for(const theme of ['dark','light']){await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);const audit=await new AxeBuilder({page}).include('#paylaterView').withRules(['color-contrast','button-name']).analyze();expect(audit.violations.map(v=>({id:v.id,nodes:v.nodes.map(n=>n.target)}))).toEqual([]);}
+ await page.locator('#toggleBalanceButton').click();await expect(page.locator('#paylaterOutstanding')).toHaveText('Rp ••••••');await expect(page.locator('#paylaterView')).not.toContainText('Rp 950');
+ await page.locator('[data-credit-view="bank"]').click();await expect(page.locator('#ccUsed')).toBeVisible();
+});
+test('PayLater records actual payment once and linking a bank import never subtracts cash again',async({page})=>{
+ await seedPaylater(page);await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='credit-card');
+ const totals=()=>page.evaluate(async()=>{const {state}=await import('/assets/js/state.js'),{balanceSheet,incomeStatement}=await import('/assets/js/accounting.js');return {assets:balanceSheet(state.transactions).assets,liabilities:balanceSheet(state.transactions).liabilities,expenses:incomeStatement(state.transactions,'2026-10').expenses,count:state.transactions.length};});
+ const before=await totals();await page.locator('[data-paylater-pay="bill-0"]').click();await page.locator('#paylaterPaymentForm [name="existing"]').selectOption('new');await page.locator('#paylaterPaymentForm [name="source"]').selectOption('asset-bca');await page.locator('#paylaterPaymentForm [type="submit"]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();
+ await expect(page.locator('[data-paylater-bill]')).toHaveCount(5);const after=await totals();expect(after.assets).toBe(before.assets-300);expect(after.liabilities).toBe(before.liabilities-300);expect(after.expenses).toBe(before.expenses);
+ await page.reload();await waitForDemo(page);await expect(page.locator('[data-paylater-pay="bill-0"]')).toHaveCount(0);await page.locator('[data-paylater-filter="paid"]').click();await expect(page.locator('[data-paylater-bill="bill-0"]')).toContainText('Lunas');
+ const imported=await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js'),{saveTransaction}=await import('/assets/js/transactions.js');return saveTransaction(state.user.uid,{type:'expense',amount:200,date:'2026-10-16',sourceAccountId:'asset-bca',merchant:'Pembayaran contoh'},state.settings);});
+ const beforeLink=await totals();await page.locator('[data-paylater-filter="unpaid"]').click();await page.locator('[data-paylater-pay="bill-1"]').click();await page.locator('#paylaterPaymentForm [name="existing"]').selectOption(imported.id);await page.locator('#paylaterPaymentForm [type="submit"]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();
+ const afterLink=await totals();expect(afterLink.count).toBe(beforeLink.count);expect(afterLink.assets).toBe(beforeLink.assets);expect(afterLink.expenses).toBe(beforeLink.expenses-200);expect(afterLink.liabilities).toBe(beforeLink.liabilities-200);
+ const payment=await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js');return state.transactions.find(t=>t.sourceMeta?.paylaterBillId==='bill-0').id;});
+ await page.evaluate(async id=>{const {state}=await import('/assets/js/state.js'),{deleteTransaction}=await import('/assets/js/repository.js');await deleteTransaction(state.user.uid,id);},payment);
+ await expect(page.locator('[data-paylater-pay="bill-0"]')).toBeVisible();
 });

@@ -3,6 +3,7 @@ if (isDemo) await initializeDemo();
 const backend = isDemo ? demoRepository : await import('./repository-cloud.js');
 export const getSettings = (...args) => backend.getSettings(...args);
 export const saveSettings = (...args) => backend.saveSettings(...args);
+export const settlePaylaterBill = (...args) => backend.settlePaylaterBill(...args);
 export const listenTransactions = (...args) => backend.listenTransactions(...args);
 export const createTransactionPermanent = (...args) => backend.createTransactionPermanent(...args);
 export const deleteTransaction = (...args) => backend.deleteTransaction(...args);
