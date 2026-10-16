@@ -2,6 +2,7 @@ import json
 import os
 import re
 import math
+import secrets
 from datetime import date
 from typing import Any
 from pathlib import Path
@@ -11,6 +12,7 @@ load_dotenv(Path(__file__).with_name(".env"))
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
@@ -64,12 +66,35 @@ app = FastAPI(
     version="1.0.0",
 )
 
+
+def access_settings() -> tuple[bool, str]:
+    token = os.getenv("AI_ACCESS_TOKEN", "").strip()
+    required = bool(token) or os.getenv("RENDER", "").lower() == "true" or os.getenv("REQUIRE_AI_ACCESS_TOKEN", "").lower() == "true"
+    return required, token
+
+
+@app.middleware("http")
+async def protect_ai_access(request, call_next):
+    # Authenticate before reading uploaded images or invoking the paid provider.
+    if request.url.path.startswith("/api/nvidia/") and request.method != "OPTIONS":
+        required, token = access_settings()
+        if required:
+            if len(token) < 32:
+                return JSONResponse(status_code=503, content={"detail": "Kode akses AI belum dikonfigurasi pada server (minimal 32 karakter)."})
+            supplied = request.headers.get("Authorization", "")
+            if not secrets.compare_digest(supplied.encode(), f"Bearer {token}".encode()):
+                return JSONResponse(status_code=401, content={"detail": "Kode akses AI tidak sesuai. Periksa pengaturan AI."})
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "Authorization"],
 )
 
 
@@ -238,15 +263,23 @@ def validate_updates(
 
 @app.get("/health")
 def health() -> dict[str, Any]:
+    required, token = access_settings()
     return {
         "ok": True,
         "service": "spendly-nvidia-ai",
         "text_model": NVIDIA_TEXT_MODEL,
         "vision_model": NVIDIA_VISION_MODEL,
+        "auth_required": required,
+        "access_configured": not required or len(token) >= 32,
         "api_key_configured": bool(
             os.getenv("NVIDIA_API_KEY", "").strip()
         ),
     }
+
+
+@app.get("/api/nvidia/access")
+def check_access() -> dict[str, bool]:
+    return {"ok": True}
 
 
 @app.post("/api/nvidia/normalize-statement")

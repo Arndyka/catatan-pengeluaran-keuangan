@@ -5,6 +5,12 @@
 
 GitHub Pages memublikasikan frontend statis dari branch `main`. Backend AI Python harus dihosting terpisah melalui HTTPS dan URL-nya diisi pada pengaturan AI; API key hanya disimpan di backend.
 
+## Hosting AI di Render Free
+
+Konfigurasi `render.yaml` siap untuk satu backend pribadi pada paket Free. Ikuti [panduan deployment Render](backend_nvidia/README.md#render-free). NVIDIA API key diisi sebagai secret Render; kode akses scanner dibuat otomatis dan berbeda dari API key. Endpoint AI di Render menolak permintaan tanpa kode akses. Frontend menunggu server bangun sebelum mengirim dokumen dan tidak menyimpan kode akses dalam data keuangan.
+
+Persiapan hosting diverifikasi dengan 101 tes Node, 12 tes backend, serta 4 skenario browser terkait scanner, akses AI, dan tampilan HP/desktop. Ini bukan bukti deployment Render telah aktif; URL layanan dan uji AI online tetap perlu diverifikasi setelah login/deployment.
+
 ## Pembacaan e-statement — 16 Oktober 2026
 
 **Uji AI Vision langsung:** Nemotron 3 Nano Omni berhasil membaca satu screenshot transaksi sintetis dan PDF berisi gambar yang sama melalui UI SPENDLY. Keduanya menghasilkan tepat satu transaksi Rp12.500 bertanggal 16 Oktober 2026; saldo, promo, dan transfer tertunda tidak masuk. Tidak ada transaksi disimpan. Ini verifikasi terhadap dua contoh tersebut, bukan jaminan akurasi untuk semua dokumen. Backend harus dijalankan terpisah; GitHub Pages tidak menjalankan server Python atau menyimpan API key.

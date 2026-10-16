@@ -14,6 +14,27 @@ from fastapi.testclient import TestClient
 import main
 
 class BackendTests(unittest.TestCase):
+    def test_hosted_ai_rejects_missing_or_wrong_access_token_before_provider(self):
+        with patch.dict(os.environ, {'RENDER':'true','AI_ACCESS_TOKEN':'test-access-'+'x'*32}), patch.object(main, 'get_client') as provider, TestClient(main.app) as client:
+            for route, payload in [('/api/nvidia/read-page', {'image_data_url':'data:image/png;base64,AAAA'}), ('/api/nvidia/normalize-statement', {'candidates':[{'index':0}]})]:
+                for headers in [{}, {'Authorization':'Bearer wrong'}]:
+                    self.assertEqual(client.post(route, json=payload, headers=headers).status_code,401)
+            provider.assert_not_called()
+            self.assertEqual(client.get('/api/nvidia/access', headers={'Authorization':'Bearer test-access-'+'x'*32}).status_code,200)
+            self.assertTrue(client.get('/health').json()['auth_required'])
+
+    def test_hosted_ai_fails_closed_if_access_token_is_unconfigured(self):
+        for token in ['', 'too-short']:
+            with patch.dict(os.environ, {'RENDER':'true','AI_ACCESS_TOKEN':token}), TestClient(main.app) as client:
+                self.assertEqual(client.get('/api/nvidia/access').status_code,503)
+                self.assertFalse(client.get('/health').json()['access_configured'])
+
+    def test_authorized_browser_preflight_accepts_authorization_header(self):
+        with patch.dict(os.environ, {'RENDER':'true','AI_ACCESS_TOKEN':'x'*32}), TestClient(main.app) as client:
+            response=client.options('/api/nvidia/read-page', headers={'Origin':'https://arndyka.github.io','Access-Control-Request-Method':'POST','Access-Control-Request-Headers':'authorization,content-type'})
+            self.assertEqual(response.status_code,200)
+            self.assertEqual(response.headers['access-control-allow-origin'],'https://arndyka.github.io')
+
     def test_omni_vision_bounds_reasoning_and_filters_nontransactions(self):
         provider = MagicMock()
         good = {'record_kind':'transaction','status':'completed','date':'2026-10-16','amount':12500,'direction':'outgoing'}

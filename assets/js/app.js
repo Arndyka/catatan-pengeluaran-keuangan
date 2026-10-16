@@ -19,7 +19,7 @@ import {
   checkNvidiaBackend,
   readPageWithNvidia,
   optimizeCandidatesWithNvidia
-} from "./nvidia-ai.js?v=bca-ai-20261016";
+} from "./nvidia-ai.js?v=render-ai-20261016";
 
 const authScreen = $("authScreen");
 const appShell = $("appShell");
@@ -807,6 +807,8 @@ function setupEvents() {
   );
 
   $("nvidiaBackendUrlInput").addEventListener("change", async () => {
+    // Never carry a private access code to a newly selected server.
+    $("nvidiaAccessTokenInput").value = "";
     const url =
       cleanText($("nvidiaBackendUrlInput").value)
         .replace(/\/+$/, "");
@@ -827,7 +829,7 @@ function setupEvents() {
     updateNvidiaBackendBadge("checking");
 
     try {
-      await checkNvidiaBackend(url);
+      await checkNvidiaBackend(url, $("nvidiaAccessTokenInput").value);
       updateNvidiaBackendBadge("ready");
     } catch (error) {
       updateNvidiaBackendBadge("error");
@@ -837,6 +839,21 @@ function setupEvents() {
         `Backend NVIDIA AI belum dapat diakses: ${error.message}`
       );
     }
+  });
+
+  $("checkNvidiaBackendButton").addEventListener("click", async () => {
+    const button = $("checkNvidiaBackendButton");
+    button.disabled = true;
+    updateNvidiaBackendBadge("checking");
+    setNotice($("scanMessage"), "info", "Menghubungkan AI. Server gratis yang sedang tidur dapat memerlukan sekitar satu menit untuk aktif.");
+    try {
+      await checkNvidiaBackend($("nvidiaBackendUrlInput").value, $("nvidiaAccessTokenInput").value);
+      updateNvidiaBackendBadge("ready");
+      setNotice($("scanMessage"), "success", "Backend siap diakses. Scan AI akan dijalankan setelah persetujuanmu.");
+    } catch (error) {
+      updateNvidiaBackendBadge("error");
+      setNotice($("scanMessage"), "error", error.message);
+    } finally { button.disabled = false; }
   });
 
   $("scanButton").addEventListener("click", scanFiles);
@@ -945,6 +962,7 @@ async function optimizeCurrentScanWithNvidia() {
     const result =
       await optimizeCandidatesWithNvidia({
         baseUrl: backendUrl,
+        accessToken: $("nvidiaAccessTokenInput").value,
         candidates: scanCandidates,
         statements: scanStatements,
         accounts: state.settings.accounts,
@@ -1107,7 +1125,7 @@ async function scanFiles() {
   try {
     const result = await scanStatementFiles({
       files,
-      visionReader:useVision?options=>readPageWithNvidia({...options,baseUrl:$("nvidiaBackendUrlInput").value.trim()}):null,
+      visionReader:useVision?options=>readPageWithNvidia({...options,baseUrl:$("nvidiaBackendUrlInput").value.trim(),accessToken:$("nvidiaAccessTokenInput").value}):null,
       password: pdfPassword,
       bankAccountMap,
       merchantRules:

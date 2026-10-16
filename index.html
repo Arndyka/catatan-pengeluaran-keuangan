@@ -684,9 +684,17 @@
                     id="nvidiaBackendUrlInput"
                     type="url"
                     inputmode="url"
-                    placeholder="Contoh: https://spendly-nvidia-api.up.railway.app"
+                    placeholder="https://nama-backend-kamu.onrender.com"
                   >
                 </div>
+
+                <div class="field">
+                  <label for="nvidiaAccessTokenInput">Kode akses AI pribadi</label>
+                  <input id="nvidiaAccessTokenInput" type="password" autocomplete="off" spellcheck="false" aria-describedby="nvidiaAccessHelp" placeholder="Kode akses dari pengaturan backend">
+                  <small id="nvidiaAccessHelp">Kode ini berbeda dari API key NVIDIA. Hanya digunakan selama halaman terbuka dan tidak disimpan ke data keuangan.</small>
+                </div>
+                <button id="checkNvidiaBackendButton" type="button" class="btn btn-light">Hubungkan AI</button>
+                <p class="nvidia-ai-security-note">Saat server gratis sedang tidur, koneksi pertama dapat membutuhkan sekitar satu menit sebelum AI mulai memproses.</p>
 
                 <label class="ai-consent">
                   <input id="nvidiaAiConsent" type="checkbox">
@@ -697,7 +705,7 @@
                 </label>
 
                 <label class="ai-consent"><input id="visionConsent" type="checkbox"><span>Saya setuju mengirim screenshot atau gambar halaman PDF yang perlu dibaca ke backend dan penyedia NVIDIA AI. Gambar bisa memuat nomor rekening serta data pribadi. File PDF asli dan password tetap di browser.</span></label><p class="nvidia-ai-security-note">
-                  Jangan masukkan API key pada kolom ini. Yang diisi hanya URL backend.
+                  API key NVIDIA hanya disimpan pada server. Jangan masukkan API key NVIDIA ke kolom URL atau kode akses.
                 </p>
               </section></details>
 
@@ -811,7 +819,7 @@
   <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
-  <script type="module" src="assets/js/boot.js?v=bca-ai-20261016"></script>
+  <script type="module" src="assets/js/boot.js?v=render-ai-20261016"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 

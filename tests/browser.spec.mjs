@@ -166,7 +166,27 @@ test('failed budget writes show error and leave the saved plan unchanged',async(
  await page.locator('#budgetName').fill('Hiburan audit');await page.locator('#budgetCategory').selectOption('Hiburan');await page.locator('#budgetMethod').selectOption('nominal');await page.locator('#budgetValue').fill('50000');
  await page.locator('#budgetForm button[type="submit"]').click();await expect(page.locator('#budgetMessage')).toContainText('Simulasi koneksi terputus');await expect(page.locator('#budgetList')).toHaveText(before);
 });
-test.beforeEach(async({page})=>{await page.goto(`${BASE}/?demo=1`,{waitUntil:'domcontentloaded'});await expect(page.locator('#dailyAmount')).not.toHaveText('—');});
+test.beforeEach(async({page})=>{
+ await page.route('http://127.0.0.1:9999/health',route=>route.fulfill({json:{ok:true,api_key_configured:true}}));
+ await page.goto(`${BASE}/?demo=1`,{waitUntil:'domcontentloaded'});await expect(page.locator('#dailyAmount')).not.toHaveText('—');
+});
+
+test('hosted AI access works on phone and does not persist the private code',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.route('https://spendly-test.onrender.com/health',route=>route.fulfill({json:{ok:true,api_key_configured:true,auth_required:true,access_configured:true}}));
+ await page.route('https://spendly-test.onrender.com/api/nvidia/access',route=>route.fulfill({status:route.request().headers().authorization==='Bearer private-test-code'?200:401,json:{ok:true,detail:'Kode akses AI tidak sesuai.'}}));
+ await page.evaluate(()=>location.hash='scanner');await page.locator('.ai-options summary').click();
+ await page.locator('#nvidiaBackendUrlInput').fill('https://spendly-test.onrender.com');await page.locator('#nvidiaBackendUrlInput').press('Tab');
+ await expect(page.locator('#scanMessage')).toContainText('kode akses');
+ await page.locator('#nvidiaAccessTokenInput').fill('wrong');await page.locator('#checkNvidiaBackendButton').click();
+ await expect(page.locator('#scanMessage')).toContainText('tidak sesuai');
+ await page.locator('#nvidiaAccessTokenInput').fill('private-test-code');await page.locator('#checkNvidiaBackendButton').click();
+ await expect(page.locator('#nvidiaAiStatusBadge')).toHaveText('Backend terkonfigurasi');
+ expect(await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}))).not.toContain('private-test-code');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.reload();await waitForDemo(page);
+ await expect(page.locator('#nvidiaAccessTokenInput')).toHaveValue('');
+});
 test('all pages fit desktop and phone widths in light and dark themes',async({page})=>{
  const errors=[];page.on('pageerror',err=>errors.push(err.message));
  const pages=['dashboard','wallets','goals','investments','transactions','budget','recurring','credit-card','reports','scanner','settings'];

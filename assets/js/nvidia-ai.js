@@ -1,16 +1,30 @@
 const DEFAULT_TIMEOUT_MS = 120000;
 const BATCH_SIZE = 35;
 
-export async function readPageWithNvidia({baseUrl,imageDataUrl,bankHint='generic',pageNumber=1}) {
+export async function readPageWithNvidia({baseUrl,accessToken='',imageDataUrl,bankHint='generic',pageNumber=1}) {
  const normalized=normalizeBaseUrl(baseUrl);
  if(!normalized)throw new Error('Isi URL backend AI sebelum memakai scan AI.');
- const response=await fetchJson(`${normalized}/api/nvidia/read-page`,{method:'POST',body:JSON.stringify({image_data_url:imageDataUrl,bank_hint:bankHint,page_number:pageNumber})});
+ await checkNvidiaBackend(normalized,accessToken);
+ const response=await fetchJson(`${normalized}/api/nvidia/read-page`,{method:'POST',headers:accessHeaders(accessToken),body:JSON.stringify({image_data_url:imageDataUrl,bank_hint:bankHint,page_number:pageNumber})});
  if(!Array.isArray(response.result?.transactions))throw new Error('AI tidak mengembalikan daftar transaksi. Coba OCR lokal atau gambar lebih jelas.');
  return response.result;
 }
 
 function normalizeBaseUrl(value) {
-  return String(value || "").trim().replace(/\/+$/, "");
+  const text = String(value || "").trim().replace(/\/+$/, "");
+  if (!text) return "";
+  let url;
+  try { url = new URL(text); } catch { throw new Error("URL backend AI tidak valid."); }
+  const local = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+  if ((url.protocol !== 'https:' && !(local && url.protocol === 'http:')) || url.username || url.password || url.search || url.hash) {
+    throw new Error("Gunakan URL backend HTTPS tanpa password atau parameter. HTTP hanya diizinkan untuk localhost.");
+  }
+  return url.href.replace(/\/+$/, "");
+}
+
+function accessHeaders(token) {
+  const value = String(token || '').trim();
+  return value ? {Authorization: `Bearer ${value}`} : {};
 }
 
 async function fetchJson(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
@@ -20,6 +34,8 @@ async function fetchJson(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
   try {
     const response = await fetch(url, {
       ...options,
+      redirect: "error",
+      cache: "no-store",
       signal: controller.signal,
       headers: {
         "Content-Type": "application/json",
@@ -49,7 +65,7 @@ async function fetchJson(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
   }
 }
 
-export async function checkNvidiaBackend(baseUrl) {
+export async function checkNvidiaBackend(baseUrl, accessToken = '') {
   const normalized = normalizeBaseUrl(baseUrl);
 
   if (!normalized) {
@@ -58,12 +74,17 @@ export async function checkNvidiaBackend(baseUrl) {
 
   const health = await fetchJson(`${normalized}/health`, {
     method: "GET"
-  }, 20000);
+  }, 90000);
   if (health.ok !== true) {
     throw new Error("Backend AI belum siap. Periksa layanan backend.");
   }
   if (health.api_key_configured !== true) {
     throw new Error("API key NVIDIA belum dikonfigurasi di backend. Isi NVIDIA_API_KEY pada server, bukan di browser.");
+  }
+  if (health.auth_required) {
+    if (health.access_configured !== true) throw new Error("Kode akses AI belum dikonfigurasi pada server.");
+    if (!String(accessToken || '').trim()) throw new Error("Isi kode akses AI pada pengaturan scanner.");
+    await fetchJson(`${normalized}/api/nvidia/access`, {method:'GET', headers:accessHeaders(accessToken)});
   }
   return health;
 }
@@ -100,6 +121,7 @@ function sanitizeCandidate(candidate, index) {
 
 export async function optimizeCandidatesWithNvidia({
   baseUrl,
+  accessToken = '',
   candidates,
   statements,
   accounts,
@@ -116,6 +138,7 @@ export async function optimizeCandidatesWithNvidia({
   }
 
   const allUpdates = [];
+  await checkNvidiaBackend(normalized, accessToken);
   const totalBatches = Math.ceil(candidates.length / BATCH_SIZE);
 
   for (let start = 0; start < candidates.length; start += BATCH_SIZE) {
@@ -137,6 +160,7 @@ export async function optimizeCandidatesWithNvidia({
       `${normalized}/api/nvidia/normalize-statement`,
       {
         method: "POST",
+        headers: accessHeaders(accessToken),
         body: JSON.stringify({
           statements: (statements || []).map((statement) => ({
             fileName: statement.fileName || "",

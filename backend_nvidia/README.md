@@ -66,6 +66,22 @@ Pada Spendly isi:
 URL Backend NVIDIA AI = http://127.0.0.1:8000
 ```
 
+## Render Free
+
+Repository root menyediakan `render.yaml` untuk satu web service Python paket **Free**, region Singapore, tanpa database atau disk berbayar. Konfigurasi mengikuti [Render Blueprint](https://render.com/docs/blueprint-spec) dan [panduan FastAPI](https://render.com/docs/deploy-fastapi).
+
+1. Login Render, pilih **New > Blueprint**, lalu repository `Arndyka/catatan-pengeluaran-keuangan`, branch `main`.
+2. Pastikan paket tetap **Free**. Isi `NVIDIA_API_KEY` lewat isian secret Render, bukan di repository.
+3. Render membuat `AI_ACCESS_TOKEN` acak secara otomatis. Setelah deploy, salin nilainya dari Environment ke kolom **Kode akses AI pribadi** di scanner SPENDLY. Ini berbeda dari API key NVIDIA.
+4. Salin URL HTTPS layanan yang benar dari Render ke **URL Backend NVIDIA AI** dan tekan **Hubungkan AI**.
+5. Uji dengan kuitansi sintetis dahulu. `/health` hanya memeriksa konfigurasi; hasil scan/saran yang berhasil diperlukan untuk memastikan NVIDIA merespons.
+
+Jika membuat Web Service manual: root directory `backend_nvidia`, build `pip install -r requirements.txt`, start `uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1`. Isi variabel sesuai `render.yaml`, termasuk `AI_ACCESS_TOKEN` acak minimal 32 karakter dan `REQUIRE_AI_ACCESS_TOKEN=true`.
+
+Render Free dapat tidur setelah 15 menit tidak aktif. Frontend menunggu health hingga 90 detik sebelum mengirim data untuk pemrosesan AI (batas 120 detik terpisah); tidak mengulang otomatis permintaan AI yang gagal. Kode akses hanya berada di kolom halaman yang sedang terbuka, tidak masuk localStorage, database, atau backup. Mengubah URL backend mengosongkan kode akses.
+
+Pada Render, semua endpoint `/api/nvidia/` menolak akses tanpa kode yang benar dan menolak pemrosesan jika kode belum dikonfigurasi. CORS bukan pengganti autentikasi. Backend tidak menyimpan ledger atau dokumen; penyimpanan data SPENDLY yang sudah ada tetap dipakai. Layanan ini ditujukan untuk pemakaian pribadi; kode akses bersama bukan sistem akun multi-pengguna.
+
 ## Railway
 
 1. Upload repository backend ke Railway.
@@ -73,6 +89,8 @@ URL Backend NVIDIA AI = http://127.0.0.1:8000
 3. Tambahkan Variables:
    - `NVIDIA_API_KEY`
    - `ALLOWED_ORIGINS=https://arndyka.github.io`
+   - `REQUIRE_AI_ACCESS_TOKEN=true`
+   - `AI_ACCESS_TOKEN` acak minimal 32 karakter
 4. Deploy.
 5. Salin URL Railway ke kolom backend di Spendly.
 
@@ -80,5 +98,5 @@ URL Backend NVIDIA AI = http://127.0.0.1:8000
 
 - Jangan menaruh `NVIDIA_API_KEY` di `index.html` atau JavaScript.
 - Jangan commit `.env`.
-- Frontend hanya menyimpan URL backend.
+- Frontend hanya menyimpan URL backend; kode akses diisi ulang setelah halaman dimuat ulang.
 - Endpoint normalisasi tidak menerima PDF atau password PDF.
