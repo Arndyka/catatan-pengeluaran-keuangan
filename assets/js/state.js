@@ -7,6 +7,7 @@ export const state = {
     items: []
   },
   settings: null,
+  scannerKnowledge: null,
   creditSettings: null,
   hideBalances: true,
   unsubscribe: []
@@ -18,6 +19,7 @@ export function resetState() {
   state.recurringRules = [];
   state.budgetPlan = { month: "", items: [] };
   state.settings = null;
+  state.scannerKnowledge = null;
   state.creditSettings = null;
   state.hideBalances = true;
 

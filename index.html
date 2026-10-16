@@ -80,6 +80,7 @@
         </div>
       </header>
 
+      <div id="accountCoverageNotice" class="notice info hidden" role="status"></div>
       <section id="page-dashboard" class="page-section">
         <div class="welcome-row"><div><span class="eyebrow">SELANGKAH LEBIH TERARAH</span><h2 id="welcomeTitle">Halo, Teman Spendly <span class="wave">✦</span></h2><p>Rencana besar dimulai dari kebiasaan kecil.</p></div><button class="btn btn-primary" data-action="transaction" type="button"><span data-icon="plus"></span> Catat transaksi</button></div>
         <div class="hero-grid"><article class="daily-card"><div class="daily-top"><span><span data-icon="sparkles"></span> RUANG BELANJA HARI INI</span><span class="hero-chip" id="heroMonth"></span></div><h2 id="dailyAmount">—</h2><p id="dailyHint">Atur batas belanja untuk mulai merencanakan.</p><div class="daily-bottom"><div><span>Terpakai hari ini</span><strong id="todaySpent">—</strong></div><button data-action="limit" class="hero-action" type="button">Atur budget <span data-icon="chevron"></span></button></div><div class="hero-orbit" aria-hidden="true"></div></article>
@@ -251,7 +252,7 @@
             </div>
 
 
-          <section class="manual-review form-span"><div class="manual-review-header"><div><p class="section-label">SEBELUM DISIMPAN</p><h3>Saran perbaikan</h3><p class="helper-note">Periksa typo, kategori, dan input yang tidak biasa. Saran tidak mengubah transaksi sampai kamu menerapkannya.</p></div><button id="checkManualButton" type="button" class="btn btn-light">Periksa input</button></div><details><summary>Minta saran AI (opsional)</summary><p class="helper-note">Menggunakan URL backend pada halaman Scan mutasi. Tanggal dan nominal tidak diubah AI.</p><label class="ai-consent"><input id="manualAiConsent" type="checkbox"><span>Izinkan pengiriman rincian input ini ke backend dan penyedia NVIDIA AI.</span></label><button id="manualAiButton" type="button" class="btn btn-light">Minta saran AI</button></details><div id="manualReviewMessage" class="notice hidden" role="status"></div><div id="manualSuggestions" aria-live="polite"></div></section><button id="saveTransactionButton" class="btn btn-primary form-submit" type="submit">Simpan Transaksi</button></form>
+          <section class="manual-review form-span"><div class="manual-review-header"><div><p class="section-label">SEBELUM DISIMPAN</p><h3>Saran perbaikan</h3><p class="helper-note">Periksa typo, kategori, dan input yang tidak biasa. Saran tidak mengubah transaksi sampai kamu menerapkannya.</p></div><button id="checkManualButton" type="button" class="btn btn-light">Periksa input</button></div><div id="manualReviewMessage" class="notice hidden" role="status"></div><div id="manualSuggestions" aria-live="polite"></div></section><button id="saveTransactionButton" class="btn btn-primary form-submit" type="submit">Simpan Transaksi</button></form>
 
           <div id="transactionMessage" class="notice hidden"></div>
         </section>
@@ -634,7 +635,7 @@
           <div class="scanner-grid">
             <div class="upload-card">
               <div class="field">
-                <label for="scanMode">Cara membaca dokumen</label><select id="scanMode"><option value="local">Pembaca PDF &amp; OCR lokal</option><option value="ai">AI Vision · screenshot &amp; PDF yang perlu fallback</option></select><p class="helper-note">E-statement myBCA, Mandiri, dan blu bertulisan dibaca langsung. Setelah hasil muncul, gunakan Minta saran NVIDIA AI untuk saran kategori dan keterangan. Screenshot dan PDF hasil scan bisa memakai AI Vision. Periksa hasil sebelum menyimpan.</p><label for="scanInput">Pilih PDF atau screenshot mutasi</label>
+                <p class="helper-note">PDF bertulisan dibaca langsung; screenshot dan PDF hasil scan dibaca dengan OCR lokal. Dokumen tidak dikirim ke LLM. Periksa hasil sebelum menyimpan.</p><label for="scanInput">Pilih PDF atau screenshot mutasi</label>
                 <input id="scanInput" type="file" accept="image/*,.pdf,application/pdf" multiple>
               </div>
 
@@ -665,50 +666,9 @@
                 </span>
               </label>
 
-<details class="ai-options"><summary>Pengaturan AI · gambar &amp; kategori <span>Opsional</span></summary>              <section class="nvidia-ai-box">
-                <div class="nvidia-ai-header">
-                  <div>
-                    <strong>NVIDIA AI Optimizer</strong>
-                    <p>
-                      AI memberi saran kategori dan keterangan setelah PDF atau screenshot dibaca.
-                      Pilih Terapkan untuk menerima saran; hasil asli tidak berubah otomatis.
-                      API key tetap berada di backend.
-                    </p>
-                  </div>
-                  <span id="nvidiaAiStatusBadge" class="pill">Belum dikonfigurasi</span>
-                </div>
+<section class="nvidia-ai-box" aria-label="Pengetahuan scanner lokal"><strong>Scanner lokal · tanpa LLM</strong><p id="scannerKnowledgeSummary">Memuat contoh belajar akun...</p><p class="helper-note">Dokumen dibaca di perangkat ini. Kategori yang belum dikonfirmasi tidak dipakai sebagai label belajar. Koreksi yang kamu simpan membantu saran berikutnya.</p></section>
 
-                <div class="field">
-                  <label for="nvidiaBackendUrlInput">URL Backend NVIDIA AI</label>
-                  <input
-                    id="nvidiaBackendUrlInput"
-                    type="url"
-                    inputmode="url"
-                    placeholder="https://nama-backend-kamu.onrender.com"
-                  >
-                </div>
-
-                <div class="field">
-                  <label for="nvidiaAccessTokenInput">Kode akses AI pribadi</label>
-                  <input id="nvidiaAccessTokenInput" type="password" autocomplete="off" spellcheck="false" aria-describedby="nvidiaAccessHelp" placeholder="Kode akses dari pengaturan backend">
-                  <small id="nvidiaAccessHelp">Kode ini berbeda dari API key NVIDIA. Hanya digunakan selama halaman terbuka dan tidak disimpan ke data keuangan.</small>
-                </div>
-                <button id="checkNvidiaBackendButton" type="button" class="btn btn-light">Hubungkan AI</button>
-                <p class="nvidia-ai-security-note">Saat server gratis sedang tidur, koneksi pertama dapat membutuhkan sekitar satu menit sebelum AI mulai memproses.</p>
-
-                <label class="ai-consent">
-                  <input id="nvidiaAiConsent" type="checkbox">
-                  <span>
-                    Saya setuju mengirim keterangan transaksi yang sedang direview
-                    ke backend NVIDIA AI. File PDF dan password tidak dikirim.
-                  </span>
-                </label>
-
-                <label class="ai-consent"><input id="visionConsent" type="checkbox"><span>Saya setuju mengirim screenshot atau gambar halaman PDF yang perlu dibaca ke backend dan penyedia NVIDIA AI. Gambar bisa memuat nomor rekening serta data pribadi. File PDF asli dan password tetap di browser.</span></label><p class="nvidia-ai-security-note">
-                  API key NVIDIA hanya disimpan pada server. Jangan masukkan API key NVIDIA ke kolom URL atau kode akses.
-                </p>
-              </section></details>
-
+              <div id="importCoverageNotice" class="notice info hidden" role="status"></div>
               <div id="scanPreview" class="preview-box">File pilihanmu akan ditampilkan di sini.</div>
 
               <div id="scanProgressWrap" class="scan-progress-wrap hidden">
@@ -819,7 +779,7 @@
   <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
-  <script type="module" src="assets/js/boot.js?v=render-ai-20261016"></script>
+  <script type="module" src="assets/js/boot.js?v=local-knowledge-20261016"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 

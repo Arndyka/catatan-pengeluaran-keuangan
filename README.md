@@ -1,29 +1,21 @@
-## Coba Spendly
+# Spendly — Budget, Dompet & Goals
 
-- Aplikasi: https://arndyka.github.io/catatan-pengeluaran-keuangan/
-- Demo terpisah: https://arndyka.github.io/catatan-pengeluaran-keuangan/?demo=1
+- [Aplikasi](https://arndyka.github.io/catatan-pengeluaran-keuangan/)
+- [Demo terpisah](https://arndyka.github.io/catatan-pengeluaran-keuangan/?demo=1)
 
-GitHub Pages memublikasikan frontend statis dari branch `main`. Backend AI Python harus dihosting terpisah melalui HTTPS dan URL-nya diisi pada pengaturan AI; API key hanya disimpan di backend.
+## Scanner lokal dan referensi pribadi — 16 Oktober 2026
 
-## Hosting AI di Render Free
+Scanner memakai teks asli PDF dan OCR lokal untuk halaman gambar. Panggilan NVIDIA/LLM dinonaktifkan; frontend tidak memerlukan backend AI, API key, Render, atau kartu pembayaran. Folder backend lama hanya merupakan arsip implementasi sebelumnya.
 
-Konfigurasi `render.yaml` siap untuk satu backend pribadi pada paket Free. Ikuti [panduan deployment Render](backend_nvidia/README.md#render-free). NVIDIA API key diisi sebagai secret Render; kode akses scanner dibuat otomatis dan berbeda dari API key. Endpoint AI di Render menolak permintaan tanpa kode akses. Frontend menunggu server bangun sebelum mengirim dokumen dan tidak menyimpan kode akses dalam data keuangan.
+Pembaca mendukung format sampel myBCA Tahapan Xpresi, bluAccount, dan rekening koran konsolidasi Mandiri, termasuk PDF berpassword. Ringkasan, informasi kartu, disclaimer dan transaksi gagal tidak menjadi transaksi. Nominal, total dan saldo per baris diperiksa hingga pecahan rupiah. Format lain tetap memerlukan peninjauan.
 
-Persiapan hosting diverifikasi dengan 101 tes Node, 12 tes backend, serta 4 skenario browser terkait scanner, akses AI, dan tampilan HP/desktop. Ini bukan bukti deployment Render telah aktif; URL layanan dan uji AI online tetap perlu diverifikasi setelah login/deployment.
+Referensi scanner disimpan terpisah dari pembukuan pada akun yang login. Konsolidasi membandingkan bank, rekening, periode, saldo, total, dan seluruh urutan transaksi; nominal yang kebetulan sama tidak membuktikan duplikat. File asli tidak dihapus. Hasil ekstraksi belum otomatis menjadi label kategori yang benar.
 
-## Pembacaan e-statement — 16 Oktober 2026
+Saran kategori menggunakan pencocokan karakter lokal dari sedikitnya dua contoh berbeda yang sudah dikonfirmasi. Saran yang bertentangan atau kurang mirip tidak ditampilkan. Nominal dan tanggal tidak diubah model; pengguna tetap memilih apakah menerapkan saran. Data contoh dan koreksi hanya menjadi pengetahuan akun tersebut.
 
-**Uji AI Vision langsung:** Nemotron 3 Nano Omni berhasil membaca satu screenshot transaksi sintetis dan PDF berisi gambar yang sama melalui UI SPENDLY. Keduanya menghasilkan tepat satu transaksi Rp12.500 bertanggal 16 Oktober 2026; saldo, promo, dan transfer tertunda tidak masuk. Tidak ada transaksi disimpan. Ini verifikasi terhadap dua contoh tersebut, bukan jaminan akurasi untuk semua dokumen. Backend harus dijalankan terpisah; GitHub Pages tidak menjalankan server Python atau menyimpan API key.
+Mutasi yang tujuan ekonominya belum jelas dapat ditampung sementara dengan penanda **Perlu rincian**. Saldo bank tetap mengikuti statement, tetapi pendapatan, pengeluaran, utang, kekayaan bersih dan budget belum final sampai transaksi tersebut diklasifikasi. Pembayaran pinjaman tanpa pembagian pokok/bunga tidak otomatis dianggap seluruhnya sebagai beban.
 
-**Uji saran teks langsung:** Nemotron 3.5 Lightning mengembalikan HTTP 200 pada kandidat transaksi sintetis, menyarankan `ALFAMRT` → `ALFAMART` dan kategori Belanja. Waktu uji sekitar 57 detik; beberapa percobaan sebelumnya timeout, sehingga latensi layanan tetap perlu diperhatikan. Pengujian otomatis tambahan: 99 tes Node, 9 tes backend, dan 3 skenario browser terkait scanner/AI lulus.
-
-**BCA → saran AI:** pilih e-statement myBCA dan **Baca mutasi** pada mode **Pembaca PDF & OCR lokal**. Setelah muncul hasil, buka pengaturan AI, isi URL backend aktif, lalu setujui pengiriman data dan tekan **Minta saran NVIDIA AI**. Saran baru diterapkan setelah pengguna memilih **Terapkan**. Endpoint kesehatan kini memeriksa bahwa backend memiliki konfigurasi API key; status terkonfigurasi belum membuktikan key valid atau kuota model tersedia. Alur BCA → saran AI diuji dengan PDF sintetis dan respons AI simulasi; panggilan model sungguhan memerlukan backend beserta API key pengguna.
-
-Pembaca PDF lokal mendukung bluAccount, rekening koran konsolidasi Mandiri (termasuk PDF berpassword), dan rekening utama myBCA Tahapan Xpresi dengan lampiran Poket Rupiah kosong. Halaman informasi, ringkasan kartu kredit, dan disclaimer tidak menjadi transaksi. Deskripsi Mandiri yang bersambung ke halaman berikutnya tetap digabungkan. Nominal pecahan rupiah dipertahankan, dan rekonsiliasi memeriksa total serta saldo per baris sampai sen.
-
-Verifikasi lokal: **16 PDF, 80 halaman, 638 baris transaksi**; semua cocok dengan total tercetak dan saldo, tanpa OCR/AI. Angka baris mencakup tiga salinan statement Mei myBCA, bukan jumlah transaksi unik. Berkas identik dikenali sebagai duplikat; versi dokumen berbeda dengan transaksi serupa memerlukan keputusan pengguna. Transfer milik sendiri yang belum diketahui rekening pasangannya tetap tidak dipilih untuk disimpan.
-
-Sampel asli dan password tidak disertakan dalam Git. Pengujian tidak menambahkan transaksi ke akun pengguna. Dukungan ini diverifikasi terhadap format sampel tersebut; Poket Rupiah berisi transaksi, dokumen multi-rekening aktif, PDF rusak, dan variasi format lain perlu diperiksa tersendiri. Selalu tinjau hasil sebelum memilih **Simpan Terpilih**.
+GitHub Pages hanya menyajikan kode/aset frontend. Statement, kredensial dan hasil konsolidasi pribadi tidak disertakan dalam Git atau paket frontend. Login dan sinkronisasi akun tetap memakai Firebase; OCR berjalan di browser, dengan unduhan pustaka/model saat pertama digunakan.
 
 ## Audit akhir keuangan dan UI — 15 Oktober 2026
 
@@ -31,7 +23,7 @@ Jurnal dan presisi uang, saldo awal, arus kas, siklus/minimum kartu, deduplikasi
 
 Validasi terbaru: **88 unit Node + 6 backend + 21 skenario browser lulus**, OCR lokal asli pada bukti sintetis lulus. Audit axe pada **11 halaman × 2 ukuran layar** tidak menemukan pelanggaran pada aturan yang diuji atau overflow halaman. Firebase produksi dan model NVIDIA live belum diuji.
 
-Paket frontend: `artifacts/spendly-web-redesign.zip`. Buat ulang dengan `python tools/package-frontend.py`; paket tidak menyertakan API key, backend, atau data pribadi. Backend AI tetap dipasang terpisah sesuai panduannya.
+Paket frontend: `artifacts/spendly-web-redesign.zip`. Buat ulang dengan `python tools/package-frontend.py`; paket tidak menyertakan API key, backend, atau data pribadi. Backend AI lama tidak digunakan oleh alur saat ini.
 
 ## Scan lebih selektif, Suggestion Edit, dan gaji bulanan
 
@@ -39,7 +31,7 @@ Filter informasi di luar transaksi, saran perbaikan yang harus diterapkan penggu
 
 ## Tambahan scan dan tabungan (15 Oktober 2026)
 
-Scan screenshot/PDF + review duplikat, AI Vision opsional, tabungan bersama Krom, pengingat biaya bank, default dark mode, dan perbaikan jarak kartu kredit. Lihat [panduan lengkap](docs/SCAN_SAVINGS.md). AI membutuhkan backend dan API key pada `.env`; OCR lokal dapat digunakan tanpa key.
+Scan screenshot/PDF + review duplikat, pemeriksaan lokal, tabungan bersama Krom, pengingat biaya bank, default dark mode, dan perbaikan jarak kartu kredit. Lihat [panduan lengkap](docs/SCAN_SAVINGS.md). Alur aktif sekarang memakai OCR lokal tanpa API key; petunjuk AI pada dokumentasi lama merupakan riwayat implementasi.
 
 # Spendly — Budget, Dompet & Goals
 
@@ -62,15 +54,15 @@ Di folder SPENDLY, jalankan `npm.cmd start` pada Windows (atau `npm start` di sh
 - Dompet: semua rekening, termasuk saldo nol, dengan saldo dari jurnal.
 - Investasi: saldo tercatat dan riwayat alokasi. Belum ada harga pasar langsung atau perhitungan keuntungan pasar.
 - Tema tersimpan per browser, privasi saldo, navigasi bawah, animasi yang mengikuti pengaturan reduced motion.
-- Scanner: unggah file lebih mudah; detail parser dan AI opsional bisa dibuka saat diperlukan.
+- Scanner: unggah file lebih mudah; hasil pembacaan ditinjau bersama saran lokal sebelum disimpan.
 
 ## Dipasang di HP
 
 Manifest, ikon 192/512, mode standalone, dan service worker sudah disiapkan. Setelah frontend dipublikasikan lewat HTTPS, gunakan **Pasang di HP** pada Pengaturan. Android Chrome mendukung instalasi; iPhone memakai Bagikan → Tambahkan ke Layar Utama. Dukungan mengikuti browser/perangkat. Lihat [persyaratan PWA](https://developer.mozilla.org/en-US/docs/Web/Progressive_web_apps/Guides/Making_PWAs_installable).
 
-Ini fondasi PWA, belum APK atau aplikasi App Store. Saat offline, halaman pemberitahuan ditampilkan; login, sinkronisasi, dan AI membutuhkan internet. Service worker menyimpan aset statis saja. Dokumen bank dan permintaan cloud/AI tidak masuk cache service worker.
+Ini fondasi PWA, belum APK atau aplikasi App Store. Saat offline, halaman pemberitahuan ditampilkan; login dan sinkronisasi membutuhkan internet. Service worker menyimpan aset statis saja. Dokumen bank dan permintaan cloud/AI tidak masuk cache service worker.
 
-Untuk GitHub Pages, salin `index.html`, `offline.html`, `manifest.webmanifest`, `sw.js`, dan seluruh `assets/`. Semua path relatif mendukung `/catatan-pengeluaran-keuangan/`. Backend Python di-host terpisah. Folder ini belum di-push atau dipublikasikan oleh proses redesign.
+Untuk GitHub Pages, salin `index.html`, `offline.html`, `manifest.webmanifest`, `sw.js`, dan seluruh `assets/`. Semua path relatif mendukung `/catatan-pengeluaran-keuangan/`. Backend Python tidak diperlukan untuk alur scanner saat ini.
 
 ## Pengujian
 

@@ -95,3 +95,12 @@ test('same bank-local reference from different banks cannot collide at permanent
  const sameBankMeta={...bca,bank:'',sourceMeta:{...bca.sourceMeta,bank:'bca'}};
  assert.equal(importIdentity(bca),importIdentity(sameBankMeta));
 });
+
+test('private consolidated source aliases catch copies even after accounting classification changed',()=>{
+ const stored={...tx,type:'transfer',destinationAccountId:'clearing',sourceMeta:{bank:'bca',fileHash:'original',page:2,row:3,provenanceAliases:[{fileHash:'copy',page:2,row:3}]}};
+ const candidate={...tx,bank:'bca',sourceMeta:null,sourceHash:'copy',sourcePage:2,sourceRow:3};
+ assert.equal(matchImport(candidate,[stored]).status,'duplicate');
+ assert.equal(matchImport({...candidate,amount:60000},[stored]).status,'review');
+ assert.equal(matchImport({...candidate,sourceRow:4},[stored]).status,'new');
+ assert.equal(matchImport({...candidate,bank:'mandiri'},[stored]).status,'new');
+});

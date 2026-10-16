@@ -1,7 +1,7 @@
 import {$,escapeHtml as e,setNotice,formatDateLocal} from './utils.js';
 import {state} from './state.js';
-import {suggestTransaction,stageAiSuggestions,suggestionKey} from './transaction-quality.js';
-import {optimizeCandidatesWithNvidia} from './nvidia-ai.js';
+import {suggestTransaction,suggestionKey} from './transaction-quality.js';
+import {predictLocalCategory} from './scanner-knowledge.js';
 const FIELDS={type:'Jenis transaksi',category:'Kategori',merchant:'Merchant',description:'Keterangan',sourceAccountId:'Rekening sumber/penerima',destinationAccountId:'Rekening tujuan',amount:'Nominal',date:'Tanggal'};
 const INPUTS={type:'transactionType',category:'transactionCategory',merchant:'transactionMerchant',description:'transactionDescription',sourceAccountId:'sourceAccount',destinationAccountId:'destinationAccount',amount:'transactionAmount',date:'transactionDate'};
 export const transactionSignature=tx=>JSON.stringify(Object.keys(FIELDS).map(key=>String(tx[key]??'')));
@@ -10,6 +10,9 @@ export function remainingAiSuggestions(items,before,after,applied){
 }
 export function suggestionsFor(tx){
  const suggestions=[...suggestTransaction(tx,{history:state.transactions,accounts:state.settings?.accounts||[],today:formatDateLocal()}),...(tx.aiSuggestions||[]).filter(s=>s.snapshot===transactionSignature(tx))];
+ const reviewed=state.transactions.filter(t=>t.id!==tx.id&&t.sourceMeta?.categoryReviewed===true).map(t=>({...t,labelStatus:'reviewed'}));
+ const prediction=predictLocalCategory(tx,[...(state.scannerKnowledge?.examples||[]),...reviewed]);
+ if(prediction&&prediction.category!==tx.category)suggestions.push({field:'category',before:tx.category||'',after:prediction.category,source:'Belajar lokal',reason:`Kategori dari ${prediction.support} contoh serupa yang sudah kamu konfirmasi. Periksa sebelum menerapkan.`});
  const seen=new Set();return suggestions.filter(s=>{const key=suggestionKey(s);if(seen.has(key)||(tx.dismissedSuggestions||[]).includes(key))return false;seen.add(key);return true;});
 }
 export function suggestionsHtml(items,scanIndex=null){
@@ -30,16 +33,5 @@ export function setupManualSuggestions(updateMode){
   const tx={...read(),aiSuggestions:ai,dismissedSuggestions:dismissed},s=suggestionsFor(tx)[Number(button.dataset.suggestionIndex)];if(!s)return;
   if(button.dataset.suggestionAction==='apply'&&!s.warning){const input=$(INPUTS[s.field]);if(input.tagName==='SELECT'&&![...input.options].some(o=>o.value===s.after))input.add(new Option(s.after,s.after));input.value=s.after;if(s.field==='type')updateMode();requestVersion++;ai=remainingAiSuggestions(ai,tx,read(),s);}
   else dismissed.push(suggestionKey(s));render();
- };
- $('manualAiButton').onclick=async()=>{
-  if(!$('manualAiConsent').checked){setNotice($('manualReviewMessage'),'error','Centang persetujuan sebelum mengirim rincian input ini ke AI.');return;}
-  const tx=read(),snapshot=transactionSignature(tx),version=requestVersion,uid=state.user?.uid;
-  const button=$('manualAiButton');button.disabled=true;
-  try{
-   const result=await optimizeCandidatesWithNvidia({baseUrl:$('nvidiaBackendUrlInput').value.trim(),candidates:[tx],statements:[],accounts:state.settings.accounts});
-   if(version!==requestVersion||snapshot!==transactionSignature(read())||uid!==state.user?.uid){setNotice($('manualReviewMessage'),'info','Input berubah saat AI memeriksa. Jalankan pemeriksaan lagi untuk input terbaru.');return;}
-   ai=(result.updates||[]).filter(u=>Number(u.index)===0).flatMap(u=>stageAiSuggestions(tx,u,state.settings.accounts)).map(s=>({...s,snapshot}));render();
-   setNotice($('manualReviewMessage'),'success',`${ai.length} saran AI tersedia. Input dan nominal belum diubah.`);
-  }catch(error){setNotice($('manualReviewMessage'),'error',error.message);}finally{button.disabled=false;}
  };
 }

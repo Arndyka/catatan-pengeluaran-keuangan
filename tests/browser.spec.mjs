@@ -3,32 +3,31 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
-test('native myBCA PDF connects to AI suggestions without overwriting financial facts',async({page,context})=>{
+
+async function localOcr(page,text){
+ await page.evaluate(text=>{window.Tesseract={createWorker:async()=>({setParameters:async()=>{},recognize:async()=>({data:{text}}),terminate:async()=>{}})};},text);
+}
+async function statementPdf(context){
  const fixture=await context.newPage();
  const tokens=[['REKENING TAHAPAN XPRESI',30,800],['NO. REKENING : 0000000001',300,740],['PERIODE : AGUSTUS 2026',300,700],
-  ['14/08',44,558],['TRANSAKSI DEBIT',89,558],['TOKO CONTOH',194,558],['100.25 DB',410,558],['899.75',532,558],
-  ['SALDO AWAL : 1,000.00',210,300],['MUTASI CR : 0.00',210,280],['MUTASI DB : 100.25',210,260],['SALDO AKHIR : 899.75',210,240]];
+ ['14/08',44,558],['TRANSAKSI DEBIT',89,558],['TOKO CONTOH',194,558],['100.25 DB',410,558],['899.75',532,558],
+ ['15/08',44,510],['TRANSAKSI DEBIT',89,510],['TOKO KEDUA',194,510],['20.00 DB',410,510],['879.75',532,510],
+ ['SALDO AWAL : 1,000.00',210,300],['MUTASI CR : 0.00',210,280],['MUTASI DB : 120.25',210,260],['SALDO AKHIR : 879.75',210,240]];
  await fixture.setContent(`<body style="margin:0"><div style="position:relative;width:600pt;height:840pt">${tokens.map(([text,x,y])=>`<span style="position:absolute;left:${x}pt;top:${840-y}pt;font:8pt Arial;white-space:nowrap">${text}</span>`).join('')}</div></body>`);
- const buffer=await fixture.pdf({width:'800px',height:'1120px',margin:{top:0,right:0,bottom:0,left:0}});await fixture.close();
- let requests=0,configured=false;
- await page.route('http://127.0.0.1:9999/health',route=>route.fulfill({json:{ok:true,api_key_configured:configured}}));
- await page.route('http://127.0.0.1:9999/api/nvidia/normalize-statement',route=>{
-  const body=route.request().postDataJSON();requests++;
-  expect(body.candidates).toHaveLength(1);expect(body.candidates[0]).toMatchObject({bank:'bca',amount:100.25,date:'2026-08-14',extractionMethod:'bca-native-layout-v3'});
-  return route.fulfill({json:{updates:[{index:0,category:'Belanja',description:'Belanja di toko',reason:'Kategori pembelian',amount:1,date:'2020-01-01'}]}});
- });
- await page.evaluate(()=>location.hash='scanner');await page.locator('#scanInput').setInputFiles({name:'synthetic-mybca.pdf',mimeType:'application/pdf',buffer});await page.locator('#scanButton').click();
- const row=page.locator('[data-scan-index="0"]');await expect(page.locator('[data-scan-index]')).toHaveCount(1);
+ const buffer=await fixture.pdf({width:'800px',height:'1120px',margin:{top:0,right:0,bottom:0,left:0}});await fixture.close();return buffer;
+}
+
+test('native myBCA PDF uses local suggestions and preserves original financial facts',async({page,context})=>{
+ let calls=0;await page.route('**/api/nvidia/**',route=>{calls++;return route.abort();});
+ await page.evaluate(()=>location.hash='scanner');
+ await page.locator('#scanInput').setInputFiles({name:'synthetic-mybca.pdf',mimeType:'application/pdf',buffer:await statementPdf(context)});
+ await page.locator('#scanButton').click();await expect(page.locator('[data-scan-index]')).toHaveCount(2);
  await expect(page.locator('#statementSummaryContainer')).toContainText('Rekonsiliasi sesuai');
- await page.locator('.ai-options summary').click();await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');await page.locator('#nvidiaBackendUrlInput').press('Tab');
- await expect(page.locator('#scanMessage')).toContainText('API key');await expect(page.locator('#nvidiaAiStatusBadge')).not.toHaveText('Backend siap');
- configured=true;await page.locator('#nvidiaBackendUrlInput').dispatchEvent('change');await expect(page.locator('#nvidiaAiStatusBadge')).toHaveText('Backend terkonfigurasi');
- await page.locator('#optimizeWithNvidiaButton').click();expect(requests).toBe(0);await expect(page.locator('#scanMessage')).toContainText('persetujuan');
- await page.locator('#nvidiaAiConsent').check();await page.locator('#optimizeWithNvidiaButton').click();await expect(page.locator('#scanMessage')).toContainText('saran AI tersedia');
- await expect(row.locator('[data-scan-field="description"]')).not.toHaveValue('Belanja di toko');
- await row.locator('.suggestion-card').filter({hasText:'Belanja di toko'}).getByRole('button',{name:'Terapkan saran'}).click();
- await expect(row.locator('[data-scan-field="description"]')).toHaveValue('Belanja di toko');
- await expect(row.locator('[data-scan-field="amount"]')).toHaveValue('100.25');await expect(row.locator('[data-scan-field="date"]')).toHaveValue('2026-08-14');expect(requests).toBe(1);
+ await page.locator('#optimizeWithNvidiaButton').click();await expect(page.locator('#scanMessage')).toContainText('Saran lokal');
+ const row=page.locator('[data-scan-index="0"]');
+ await expect(row.locator('[data-scan-field="amount"]')).toHaveValue('100.25');
+ await expect(row.locator('[data-scan-field="date"]')).toHaveValue('2026-08-14');expect(calls).toBe(0);
+ await expect(page.locator('#scannerKnowledgeSummary')).toContainText('0 contoh referensi');
 });
 
 test('native blu PDF keeps cent amounts editable and unknown transfer accounts blank',async({page,context})=>{
@@ -60,13 +59,9 @@ test('native blu PDF keeps cent amounts editable and unknown transfer accounts b
 
 test('phone scan uses compact cards and keeps edits when switching to desktop',async({page})=>{
  await page.setViewportSize({width:390,height:844});
- await page.route('http://127.0.0.1:9999/api/nvidia/read-page',route=>route.fulfill({json:{result:{bank:'bca',transactions:[
-  {record_kind:'transaction',status:'posted',date:'2026-10-13',amount:76543,direction:'outgoing',description:'Pembelian contoh',merchant:'Mobile scan',reference:'MOBILE001',confidence:0.95},
-  {record_kind:'transaction',status:'posted',date:'2026-10-14',amount:20000,direction:'internal_transfer',description:'Transfer ke tabungan',merchant:'Tabungan sendiri',reference:'MOBILE002',confidence:0.9}
- ]}}}));
- await page.evaluate(()=>location.hash='scanner');await page.locator('.ai-options summary').click();
- await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');await page.locator('#visionConsent').check();
- await page.locator('#scanMode').selectOption('ai');await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ await localOcr(page,'BCA Mutasi rekening\n13/10/2026 Mobile scan -76.543,00\n14/10/2026 Pembelian kedua -20.000,00');
+ await page.evaluate(()=>location.hash='scanner');
+ await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
  const row=page.locator('[data-scan-index="0"]');await expect(row).toContainText('Mobile scan');
  for(const width of [320,390,600]){
   await page.setViewportSize({width,height:844});
@@ -91,7 +86,7 @@ test('phone scan uses compact cards and keeps edits when switching to desktop',a
  await page.setViewportSize({width:1440,height:950});await expect(page.locator('.compact-review-table thead')).toBeVisible();
  await expect(row.locator('[data-scan-field="amount"]')).toHaveValue('54321');await expect(row.locator('[data-scan-field="merchant"]')).toHaveValue('Mobile edit');
  await expect(page.locator('[data-scan-field="amount"]')).toHaveCount(2);
- await page.setViewportSize({width:390,height:844});await row.locator('[data-scan-field="selected"]').check();
+ await page.setViewportSize({width:390,height:844});await page.locator('[data-scan-index="1"] [data-scan-field="selected"]').uncheck();await row.locator('[data-scan-field="selected"]').check();
  await page.locator('#saveScanCandidates').click();await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
  const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.filter(tx=>tx.merchant==='Mobile edit'));
  expect(saved).toHaveLength(1);expect(saved[0].amount).toBe(54321);
@@ -99,17 +94,11 @@ test('phone scan uses compact cards and keeps edits when switching to desktop',a
 
 test('populated scan summaries and sticky review columns stay readable in both themes',async({page,context})=>{
  test.setTimeout(120000);
- await page.route('http://127.0.0.1:9999/api/nvidia/read-page',route=>route.fulfill({json:{result:{bank:'mandiri',transactions:[
-  {record_kind:'transaction',status:'posted',date:'2026-10-01',amount:15000,direction:'incoming',description:'Transfer masuk contoh',merchant:'Pengirim contoh',reference:'THEME001',confidence:0.99},
-  {record_kind:'transaction',status:'posted',date:'2026-10-02',amount:6000,direction:'internal_transfer',description:'Transfer tabungan contoh',merchant:'Tabungan sendiri',reference:'THEME002',confidence:0.9}
- ]}}}));
  await page.evaluate(()=>location.hash='scanner');
- const fixture=await context.newPage();await fixture.setContent('<h1>Statement layout test</h1>');const pdf=await fixture.pdf();await fixture.close();
- await page.locator('#scanInput').setInputFiles({name:'contoh-e-statement.pdf',mimeType:'application/pdf',buffer:pdf});
- await page.locator('.ai-options summary').click();await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');
- await page.locator('#visionConsent').check();await page.locator('#scanMode').selectOption('ai');await page.locator('#scanButton').click();
+ await page.locator('#scanInput').setInputFiles({name:'contoh-e-statement.pdf',mimeType:'application/pdf',buffer:await statementPdf(context)});
+ await page.locator('#scanButton').click();
  await expect(page.locator('.statement-summary-header h3')).toHaveText('contoh-e-statement.pdf');
- await expect(page.locator('.internal-movement-row')).toHaveCount(1);
+ await expect(page.locator('[data-scan-index]')).toHaveCount(2);
  for(const theme of ['dark','light']){
   await page.evaluate(theme=>document.documentElement.dataset.theme=theme,theme);
   for(const width of [1440,390]){
@@ -167,26 +156,20 @@ test('failed budget writes show error and leave the saved plan unchanged',async(
  await page.locator('#budgetForm button[type="submit"]').click();await expect(page.locator('#budgetMessage')).toContainText('Simulasi koneksi terputus');await expect(page.locator('#budgetList')).toHaveText(before);
 });
 test.beforeEach(async({page})=>{
- await page.route('http://127.0.0.1:9999/health',route=>route.fulfill({json:{ok:true,api_key_configured:true}}));
  await page.goto(`${BASE}/?demo=1`,{waitUntil:'domcontentloaded'});await expect(page.locator('#dailyAmount')).not.toHaveText('—');
 });
 
-test('hosted AI access works on phone and does not persist the private code',async({page})=>{
- await page.setViewportSize({width:390,height:844});
- await page.route('https://spendly-test.onrender.com/health',route=>route.fulfill({json:{ok:true,api_key_configured:true,auth_required:true,access_configured:true}}));
- await page.route('https://spendly-test.onrender.com/api/nvidia/access',route=>route.fulfill({status:route.request().headers().authorization==='Bearer private-test-code'?200:401,json:{ok:true,detail:'Kode akses AI tidak sesuai.'}}));
- await page.evaluate(()=>location.hash='scanner');await page.locator('.ai-options summary').click();
- await page.locator('#nvidiaBackendUrlInput').fill('https://spendly-test.onrender.com');await page.locator('#nvidiaBackendUrlInput').press('Tab');
- await expect(page.locator('#scanMessage')).toContainText('kode akses');
- await page.locator('#nvidiaAccessTokenInput').fill('wrong');await page.locator('#checkNvidiaBackendButton').click();
- await expect(page.locator('#scanMessage')).toContainText('tidak sesuai');
- await page.locator('#nvidiaAccessTokenInput').fill('private-test-code');await page.locator('#checkNvidiaBackendButton').click();
- await expect(page.locator('#nvidiaAiStatusBadge')).toHaveText('Backend terkonfigurasi');
- expect(await page.evaluate(()=>JSON.stringify({...localStorage,...sessionStorage}))).not.toContain('private-test-code');
+test('phone scanner has no remote AI configuration or document transmission',async({page})=>{
+ await page.setViewportSize({width:390,height:844});let calls=0;
+ await page.route('**/api/nvidia/**',route=>{calls++;return route.abort();});
+ await page.evaluate(()=>location.hash='scanner');await expect(page.locator('#scannerKnowledgeSummary')).toBeVisible();
+ await expect(page.locator('#nvidiaBackendUrlInput')).toHaveCount(0);await expect(page.locator('#manualAiButton')).toHaveCount(0);
+ await localOcr(page,'BCA Transfer berhasil\n15/10/2026\nNominal Rp76.543\nNo Referensi LOCAL123456');
+ await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-index]')).toHaveCount(1);expect(calls).toBe(0);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
- await page.reload();await waitForDemo(page);
- await expect(page.locator('#nvidiaAccessTokenInput')).toHaveValue('');
 });
+
 test('all pages fit desktop and phone widths in light and dark themes',async({page})=>{
  const errors=[];page.on('pageerror',err=>errors.push(err.message));
  const pages=['dashboard','wallets','goals','investments','transactions','budget','recurring','credit-card','reports','scanner','settings'];
@@ -350,45 +333,25 @@ test('shared savings and bank rules persist, respect privacy, and do not post le
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.length)).toBe(before);
 });
 
-test('AI image and PDF import require consent, save once, and match across formats',async({page,context})=>{
+test('local OCR screenshot saves once and recognizes a repeat upload',async({page})=>{
  const errors=[];page.on('pageerror',err=>errors.push(err.message));
- let calls=0;
- await page.route('http://127.0.0.1:9999/api/nvidia/read-page',async route=>{
-  calls++;const data=route.request().postDataJSON();expect(data.image_data_url).toMatch(/^data:image\/jpeg;base64,/);
-  await route.fulfill({json:{result:{bank:'bca',transactions:[{record_kind:'transaction',status:'completed',date:'2026-10-15',time:'12:30:11',amount:76543,direction:'outgoing',description:'Test scan receipt',merchant:'QA Scan',reference:'TESTREF123456',confidence:0.9}]}}});
- });
+ await localOcr(page,'BCA Transfer berhasil\n15/10/2026 12:30:11\nNominal Rp76.543\nNo Referensi LOCAL123456');
  await page.evaluate(()=>location.hash='scanner');
- await page.locator('#scanInput').setInputFiles('assets/icon-192.png');
- await page.locator('#scanMode').selectOption('ai');
- await page.locator('#scanButton').click();
- await expect(page.locator('#scanMessage')).toContainText('setujui');expect(calls).toBe(0);
- await page.locator('.ai-options summary').click();
- await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');
- await page.locator('#visionConsent').check();
- await page.locator('#scanButton').click();
- await expect(page.locator('#scanReviewContainer')).toContainText('Transaksi baru');
- await page.locator('[data-scan-field="selected"]').check();
- await page.locator('#saveScanCandidates').click();
+ await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-index]')).toHaveCount(1);
+ await page.locator('[data-scan-field="selected"]').check();await page.locator('#saveScanCandidates').click();
  await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
- const fixture=await context.newPage();await fixture.setContent('<h1>Sample bank statement for automated testing</h1>');
- const pdf=await fixture.pdf();await fixture.close();
- await page.locator('#scanInput').setInputFiles({name:'test-statement.pdf',mimeType:'application/pdf',buffer:pdf});
- await page.locator('#scanButton').click();
- await expect(page.locator('#scanReviewContainer')).toContainText('Duplikat · dilewati');
+ await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
  await expect(page.locator('[data-scan-field="selected"]')).toBeDisabled();
+ await expect(page.locator('#scanReviewContainer')).toContainText('Duplikat');
  const data=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')));
- expect(data.transactions.filter(tx=>tx.merchant==='QA Scan')).toHaveLength(1);
- expect(data.transactions.find(tx=>tx.merchant==='QA Scan').sourceAccountId).toBe('asset-bca');
- expect(calls).toBe(2);
- expect(errors).toEqual([]);
+ expect(data.transactions.filter(tx=>tx.sourceMeta?.reference==='LOCAL123456')).toHaveLength(1);expect(errors).toEqual([]);
 });
 
 for(const width of [1440,390]) test(`ambiguous imports require an explicit decision and distinct payments are preserved at ${width}px`,async({page})=>{
  await page.setViewportSize({width,height:950});
- await page.route('http://127.0.0.1:9999/api/nvidia/read-page',route=>route.fulfill({json:{result:{bank:'krom',transactions:[{record_kind:'transaction',status:'completed',date:'2026-10-15',amount:87654,direction:'outgoing',description:'Repeated payment',merchant:'QA Similar',confidence:0.8}]}}}));
+ await localOcr(page,'Krom Mutasi rekening\n15/10/2026 QA Similar -87.654,00');
  await page.evaluate(()=>location.hash='scanner');
- await page.locator('.ai-options summary').click();await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');
- await page.locator('#visionConsent').check();await page.locator('#scanMode').selectOption('ai');
  await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
  await expect(page.locator('#scanReviewContainer')).toContainText('Transaksi baru');
  await page.locator('[data-scan-field="selected"]').check();await page.locator('#saveScanCandidates').click();
@@ -460,39 +423,25 @@ test('salary confirmation links an existing imported transaction without adding 
  await expect(page.locator('#salaryOverview')).toContainText('2.345.678');
 });
 
-test('manual typo and AI suggestions need acceptance and stale AI replies cannot replace edited input',async({page})=>{
+test('manual local learning uses only reviewed examples and requires acceptance',async({page})=>{
  await page.evaluate(()=>location.hash='transactions');await page.locator('#transactionMerchant').fill('Alfamrt');
  await page.locator('#checkManualButton').click();await expect(page.locator('#manualSuggestions')).toContainText('Alfamart');
  await expect(page.locator('#transactionMerchant')).toHaveValue('Alfamrt');
  await page.locator('#manualSuggestions').getByRole('button',{name:'Terapkan saran'}).first().click();
  await expect(page.locator('#transactionMerchant')).toHaveValue('Alfamart');
- await page.evaluate(()=>location.hash='scanner');await page.locator('.ai-options summary').click();await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');
- await page.evaluate(()=>location.hash='transactions');await page.locator('.manual-review summary').click();await page.locator('#manualAiConsent').check();
- let release,requested;const seen=new Promise(resolve=>requested=resolve);
- await page.route('http://127.0.0.1:9999/api/nvidia/normalize-statement',async route=>{requested();await new Promise(resolve=>release=resolve);await route.fulfill({json:{updates:[{index:0,merchant:'Usulan AI',amount:1,date:'2000-01-01',reason:'Perbaiki penulisan'}]}});});
- await page.locator('#manualAiButton').click();await seen;
- await page.locator('#transactionMerchant').fill('Input yang lebih baru');release();
- await expect(page.locator('#manualReviewMessage')).toContainText('Input berubah');
- await expect(page.locator('#transactionMerchant')).toHaveValue('Input yang lebih baru');
+ await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js');state.scannerKnowledge={examples:[1,2].map(id=>({id:String(id),type:'expense',merchant:'Alfamart',description:'',category:'Kebutuhan Rumah',labelStatus:'reviewed'}))};});
+ await page.locator('#checkManualButton').click();await expect(page.locator('#manualSuggestions')).toContainText('Belajar lokal');
+ await expect(page.locator('#transactionCategory')).not.toHaveValue('Kebutuhan Rumah');
+ await page.locator('#manualSuggestions').getByRole('button',{name:'Terapkan saran'}).first().click();
+ await expect(page.locator('#transactionCategory')).toHaveValue('Kebutuhan Rumah');
 });
 
-test('nontransaction AI rows are excluded and scan edits stay suggestions until accepted',async({page})=>{
- await page.route('http://127.0.0.1:9999/api/nvidia/read-page',route=>route.fulfill({json:{result:{bank:'bca',transactions:[
-  {record_kind:'transaction',status:'completed',date:'2026-10-15',amount:55555,direction:'outgoing',merchant:'Alfamrt',description:'Pembayaran belanja'},
-  {record_kind:'summary',status:'completed',date:'2026-10-15',amount:999999,direction:'incoming',description:'Saldo akhir'},
-  {record_kind:'transaction',status:'pending',date:'2026-10-15',amount:12345,direction:'outgoing',description:'Belum dibayar'}
- ]}}}));
- await page.route('http://127.0.0.1:9999/api/nvidia/normalize-statement',route=>route.fulfill({json:{updates:[{index:0,description:'Belanja kebutuhan',category:'Kebutuhan Rumah',reason:'Rapikan keterangan',amount:1}]}}));
- await page.evaluate(()=>location.hash='scanner');await page.locator('.ai-options summary').click();
- await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');await page.locator('#visionConsent').check();await page.locator('#nvidiaAiConsent').check();
- await page.locator('#scanMode').selectOption('ai');await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
- await expect(page.locator('[data-scan-index]')).toHaveCount(1);await expect(page.locator('#scanExcludedContainer')).toContainText('2 baris');
- await page.locator('#optimizeWithNvidiaButton').click();await expect(page.locator('#scanMessage')).toContainText('saran AI tersedia');
- await expect(page.locator('[data-scan-field="description"]')).toHaveValue('Pembayaran belanja');
- await page.locator('.suggestion-card').filter({hasText:'Belanja kebutuhan'}).getByRole('button',{name:'Terapkan saran'}).click();
- await expect(page.locator('[data-scan-field="description"]')).toHaveValue('Belanja kebutuhan');
- await page.locator('.suggestion-card').filter({hasText:'Kebutuhan Rumah'}).getByRole('button',{name:'Terapkan saran'}).click();
- await expect(page.locator('[data-scan-field="category"]')).toHaveValue('Kebutuhan Rumah');
+test('local OCR excludes summaries and pending payments',async({page})=>{
+ await localOcr(page,'BCA Mutasi rekening\n15/10/2026 Pembayaran belanja -55.555,00\n15/10/2026 Saldo akhir +999.999,00\n15/10/2026 Belum dibayar -12.345,00');
+ await page.evaluate(()=>location.hash='scanner');
+ await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-index]')).toHaveCount(1);
+ await page.locator('#optimizeWithNvidiaButton').click();await expect(page.locator('#scanMessage')).toContainText('Saran lokal');
  await expect(page.locator('[data-scan-field="amount"]')).toHaveValue('55555');
 });
 
@@ -507,4 +456,29 @@ test('manual salary entry warns about a confirmed salary and can cancel the dupl
  page.once('dialog',async dialog=>{expect(dialog.message()).toContain('sudah tercatat');await dialog.dismiss();});
  await page.locator('#transactionForm button[type="submit"]').click();await expect(page.locator('#transactionMessage')).toContainText('Tidak ada transaksi tambahan');
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.length)).toBe(before);
+});
+
+test('private scanner references survive reload without posting ledger entries',async({page})=>{
+ const before=await page.evaluate(async()=>{
+  const {state}=await import('/assets/js/state.js'),{demoRepository}=await import('/assets/js/demo.js');
+  const count=state.transactions.length;
+  await demoRepository.saveSettings(state.user.uid,'scanner_knowledge',{version:1,statements:[{id:'synthetic'}],examples:[{id:'reference',type:'expense',category:'',suggestedCategory:'Belanja',labelStatus:'unreviewed'}],coverageNote:'Cakupan belum lengkap; laporan sementara.'});return count;
+ });
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='scanner');
+ await expect(page.locator('#scannerKnowledgeSummary')).toContainText('1 contoh referensi · 0 label kategori terkonfirmasi');
+ await expect(page.locator('#accountCoverageNotice')).toContainText('laporan sementara');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.length)).toBe(before);
+});
+
+test('unallocated loan payment is visibly pending and does not become consumption expense',async({page})=>{
+ const values=await page.evaluate(async()=>{
+  const {state}=await import('/assets/js/state.js'),{saveTransaction}=await import('/assets/js/transactions.js'),{incomeStatement}=await import('/assets/js/accounting.js');
+  const before=incomeStatement(state.transactions,'2026-10').expense;
+  await saveTransaction(state.user.uid,{type:'transfer',date:'2026-10-01',amount:12345,sourceAccountId:'asset-bca',destinationAccountId:'asset-transfer-clearing',category:'Perlu rincian',description:'Pembayaran pinjaman contoh',sourceMeta:{pendingAllocation:'Rincian pokok, bunga, dan biaya belum tersedia.',categoryReviewed:false}},state.settings);
+  return {before};
+ });
+ await page.evaluate(()=>location.hash='transactions');
+ const row=page.locator('#transactionTableContainer tr').filter({hasText:'Pembayaran pinjaman contoh'});
+ await expect(row).toContainText('Perlu rincian');await expect(row).toContainText('Rincian pokok, bunga, dan biaya belum tersedia.');
+ expect(await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js'),{incomeStatement}=await import('/assets/js/accounting.js');return incomeStatement(state.transactions,'2026-10').expense;})).toBe(values.before);
 });

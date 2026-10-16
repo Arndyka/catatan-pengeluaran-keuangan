@@ -1,6 +1,7 @@
+import {knowledgeSummary} from './scanner-knowledge.js';
 import {renderRecurringUI} from './recurring-ui.js';
 import {setupManualSuggestions,suggestionsFor,suggestionsHtml,transactionSignature,remainingAiSuggestions} from './suggestions-ui.js';
-import {stageAiSuggestions,suggestionKey,scanExclusionReason,manualRecurringMatches} from './transaction-quality.js';
+import {suggestionKey,scanExclusionReason,manualRecurringMatches} from './transaction-quality.js';
 import { setupExperience, loadExperience, resetExperience, renderExperience, onPageChange, refreshBudgetPreview } from './experience.js';
 import { isDemo } from './demo.js';
 import {matchImport,reconcileImports,importIdentity} from './import-reconciliation.js';
@@ -15,11 +16,7 @@ import { budgetAnalysis,validateBudgetItem } from "./budget.js";
 import { creditCardSnapshot } from "./credit-card.js";
 import { buildMonthlyReport } from "./reports.js";
 import { scanStatementFiles } from "./scanner.js?v=statements-20261016";
-import {
-  checkNvidiaBackend,
-  readPageWithNvidia,
-  optimizeCandidatesWithNvidia
-} from "./nvidia-ai.js?v=render-ai-20261016";
+
 
 const authScreen = $("authScreen");
 const appShell = $("appShell");
@@ -293,12 +290,12 @@ function renderTransactions() {
           ${rows.map((tx) => `
             <tr>
               <td>${escapeHtml(tx.date)}</td>
-              <td><span class="badge ${tx.type}">${escapeHtml(transactionTypeLabel(tx.type))}</span></td>
+              <td><span class="badge ${tx.type}">${escapeHtml(tx.sourceMeta?.pendingAllocation?'Perlu rincian':transactionTypeLabel(tx.type))}</span></td>
               <td>${escapeHtml(accountName(tx.sourceAccountId))}</td>
               <td>${escapeHtml(accountName(tx.destinationAccountId))}</td>
               <td>${escapeHtml(tx.category)}</td>
               <td>${money(tx.amount)}</td>
-              <td>${escapeHtml(tx.description || tx.merchant || "-")}</td>
+              <td>${escapeHtml(tx.description || tx.merchant || "-")}${tx.sourceMeta?.pendingAllocation?`<p class="helper-note">${escapeHtml(tx.sourceMeta.pendingAllocation)}</p>`:''}</td>
               <td>${validateJournal(tx.journal||[]).valid ? "Seimbang" : "Periksa"}${tx.date>formatDateLocal()?'<br><small>Belum masuk saldo aktual</small>':''}</td>
               <td>
                 <button class="small-btn danger" data-delete-transaction="${tx.id}" type="button">Hapus</button>
@@ -601,7 +598,8 @@ function setupEvents() {
           merchant: $("transactionMerchant").value,
           description: $("transactionDescription").value,
           installmentTenor: Number($("installmentTenor").value || 1),
-          origin: "manual"
+          origin: "manual",
+          sourceMeta: {categoryReviewed:true}
         };
       const matches=manualRecurringMatches(input,state.transactions);
       if(matches.length){
@@ -794,68 +792,6 @@ function setupEvents() {
       showPassword ? "Sembunyikan" : "Tampilkan";
   });
 
-  const savedNvidiaBackendUrl =
-    localStorage.getItem("spendlyNvidiaBackendUrl") || "";
-
-  $("nvidiaBackendUrlInput").value =
-    savedNvidiaBackendUrl;
-
-  updateNvidiaBackendBadge(
-    savedNvidiaBackendUrl
-      ? "configured"
-      : "missing"
-  );
-
-  $("nvidiaBackendUrlInput").addEventListener("change", async () => {
-    // Never carry a private access code to a newly selected server.
-    $("nvidiaAccessTokenInput").value = "";
-    const url =
-      cleanText($("nvidiaBackendUrlInput").value)
-        .replace(/\/+$/, "");
-
-    $("nvidiaBackendUrlInput").value = url;
-
-    if (!url) {
-      localStorage.removeItem("spendlyNvidiaBackendUrl");
-      updateNvidiaBackendBadge("missing");
-      return;
-    }
-
-    localStorage.setItem(
-      "spendlyNvidiaBackendUrl",
-      url
-    );
-
-    updateNvidiaBackendBadge("checking");
-
-    try {
-      await checkNvidiaBackend(url, $("nvidiaAccessTokenInput").value);
-      updateNvidiaBackendBadge("ready");
-    } catch (error) {
-      updateNvidiaBackendBadge("error");
-      setNotice(
-        $("scanMessage"),
-        "error",
-        `Backend NVIDIA AI belum dapat diakses: ${error.message}`
-      );
-    }
-  });
-
-  $("checkNvidiaBackendButton").addEventListener("click", async () => {
-    const button = $("checkNvidiaBackendButton");
-    button.disabled = true;
-    updateNvidiaBackendBadge("checking");
-    setNotice($("scanMessage"), "info", "Menghubungkan AI. Server gratis yang sedang tidur dapat memerlukan sekitar satu menit untuk aktif.");
-    try {
-      await checkNvidiaBackend($("nvidiaBackendUrlInput").value, $("nvidiaAccessTokenInput").value);
-      updateNvidiaBackendBadge("ready");
-      setNotice($("scanMessage"), "success", "Backend siap diakses. Scan AI akan dijalankan setelah persetujuanmu.");
-    } catch (error) {
-      updateNvidiaBackendBadge("error");
-      setNotice($("scanMessage"), "error", error.message);
-    } finally { button.disabled = false; }
-  });
-
   $("scanButton").addEventListener("click", scanFiles);
 
   $("cancelScanButton").addEventListener("click", () => {
@@ -879,144 +815,8 @@ function setupEvents() {
 let scanCandidates = [];
 let scanStatements = [];
 let scanCancelled = false;
-let nvidiaOptimizationRunning = false;
 let scanBatchVersion=0;
 let scanSaving = false;
-
-function updateNvidiaBackendBadge(status) {
-  const badge = $("nvidiaAiStatusBadge");
-
-  if (!badge) return;
-
-  const states = {
-    missing: ["Belum dikonfigurasi", ""],
-    configured: ["URL tersimpan", ""],
-    checking: ["Memeriksa...", ""],
-    ready: ["Backend terkonfigurasi", "validation-ok"],
-    error: ["Backend bermasalah", "validation-error"],
-    running: ["AI memproses...", ""],
-    done: ["AI selesai", "validation-ok"]
-  };
-
-  const [label, className] =
-    states[status] || states.missing;
-
-  badge.textContent = label;
-  badge.className =
-    `pill ${className}`.trim();
-}
-
-async function optimizeCurrentScanWithNvidia() {
-  if (nvidiaOptimizationRunning) {
-    return;
-  }
-
-  syncScanCandidates();
-
-  if (!scanCandidates.length) {
-    setNotice(
-      $("scanMessage"),
-      "error",
-      "Belum ada hasil scan yang dapat dioptimalkan."
-    );
-    return;
-  }
-
-  if (!$("nvidiaAiConsent").checked) {
-    setNotice(
-      $("scanMessage"),
-      "error",
-      "Centang persetujuan pengiriman keterangan transaksi ke NVIDIA AI."
-    );
-    return;
-  }
-
-  const backendUrl =
-    cleanText($("nvidiaBackendUrlInput").value)
-      .replace(/\/+$/, "");
-
-  if (!backendUrl) {
-    setNotice(
-      $("scanMessage"),
-      "error",
-      "Isi URL backend NVIDIA AI terlebih dahulu."
-    );
-    return;
-  }
-
-  nvidiaOptimizationRunning = true;
-  const startedBatch=scanBatchVersion;
-  const originals=scanCandidates.map(item=>({...item}));
-  updateNvidiaBackendBadge("running");
-
-  const button =
-    $("optimizeWithNvidiaButton");
-
-  if (button) {
-    button.disabled = true;
-    button.textContent =
-      "NVIDIA AI memproses...";
-  }
-
-  try {
-    const result =
-      await optimizeCandidatesWithNvidia({
-        baseUrl: backendUrl,
-        accessToken: $("nvidiaAccessTokenInput").value,
-        candidates: scanCandidates,
-        statements: scanStatements,
-        accounts: state.settings.accounts,
-        onProgress(progress) {
-          setNotice(
-            $("scanMessage"),
-            "info",
-            `NVIDIA AI memproses batch ${progress.batchNumber}/${progress.totalBatches}...`
-          );
-        }
-      });
-
-    if(startedBatch!==scanBatchVersion)throw new Error('Dokumen berubah saat AI memeriksa. Jalankan ulang pada dokumen terbaru.');
-    syncScanCandidates();
-    let applied = 0;
-
-    (result.updates || []).forEach((update) => {
-      const index = Number(update.index);
-      const candidate = scanCandidates[index];
-
-      if (!candidate || transactionSignature(candidate)!==transactionSignature(originals[index]||{})) return;
-
-      candidate.aiSuggestions=stageAiSuggestions(candidate,update,state.settings.accounts).map(s=>({...s,snapshot:transactionSignature(candidate)}));
-      applied+=candidate.aiSuggestions.length;
-    });
-
-    renderScanCandidates();
-    updateNvidiaBackendBadge("done");
-
-    setNotice(
-      $("scanMessage"),
-      "success",
-      `${applied} saran AI tersedia. Pilih Terapkan atau Abaikan; data asli belum diubah.`
-    );
-  } catch (error) {
-    updateNvidiaBackendBadge("error");
-    setNotice(
-      $("scanMessage"),
-      "error",
-      `Optimasi NVIDIA AI gagal: ${error.message}`
-    );
-  } finally {
-    nvidiaOptimizationRunning = false;
-
-    const currentButton =
-      $("optimizeWithNvidiaButton");
-
-    if (currentButton) {
-      currentButton.disabled = false;
-      currentButton.textContent =
-        "Minta saran NVIDIA AI";
-    }
-  }
-}
 
 async function scanFiles() {
   const files = [...($("scanInput").files || [])];
@@ -1026,11 +826,6 @@ async function scanFiles() {
     setNotice($("scanMessage"), "error", "Pilih file terlebih dahulu.");
     return;
   }
-  const useVision=$("scanMode").value==='ai';
-  if(useVision&&(!$("visionConsent").checked||!$("nvidiaBackendUrlInput").value.trim())){
-    setNotice($("scanMessage"),"error","Untuk scan AI, isi URL backend dan setujui pengiriman gambar. Kamu juga bisa memilih OCR lokal.");return;
-  }
-
   const assetAccounts = state.settings.accounts.filter(
     (account) =>
       account.type === "asset" &&
@@ -1125,7 +920,7 @@ async function scanFiles() {
   try {
     const result = await scanStatementFiles({
       files,
-      visionReader:useVision?options=>readPageWithNvidia({...options,baseUrl:$("nvidiaBackendUrlInput").value.trim(),accessToken:$("nvidiaAccessTokenInput").value}):null,
+      visionReader:null,
       password: pdfPassword,
       bankAccountMap,
       merchantRules:
@@ -1471,7 +1266,7 @@ function renderScanCandidates() {
             </button>
 
             <button id="optimizeWithNvidiaButton" class="btn btn-ai" type="button">
-              Minta saran NVIDIA AI
+              Periksa saran lokal
             </button>
 
             <button id="saveScanCandidates" class="btn btn-primary" type="button">
@@ -1737,6 +1532,7 @@ function syncScanCandidates() {
       } else if (field === "amount") {
         item.amount = Number(input.value || 0);
       } else {
+        if(field==='category'&&item[field]!==input.value)item.categoryReviewed=true;
         item[field] = input.value;
       }
     });
@@ -1765,12 +1561,13 @@ async function handleScanReviewClick(event) {
   if(suggestionButton){
     const item=scanCandidates[Number(suggestionButton.dataset.suggestionScan)],suggestion=item&&suggestionsFor(item)[Number(suggestionButton.dataset.suggestionIndex)];
     if(!suggestion)return;
-    if(suggestionButton.dataset.suggestionAction==='apply'&&!suggestion.warning){const before={...item};item[suggestion.field]=suggestion.after;item.aiSuggestions=remainingAiSuggestions(item.aiSuggestions,before,item,suggestion);item.importDecision='';item.selected=false;item.aiOptimized=suggestion.source==='NVIDIA AI';}
+    if(suggestionButton.dataset.suggestionAction==='apply'&&!suggestion.warning){const before={...item};item[suggestion.field]=suggestion.after;if(suggestion.field==='category')item.categoryReviewed=true;item.aiSuggestions=remainingAiSuggestions(item.aiSuggestions,before,item,suggestion);item.importDecision='';item.selected=false;}
     else item.dismissedSuggestions=[...(item.dismissedSuggestions||[]),suggestionKey(suggestion)];
     renderScanCandidates();return;
   }
   if (event.target.id === "optimizeWithNvidiaButton") {
-    await optimizeCurrentScanWithNvidia();
+    renderScanCandidates();
+    setNotice($("scanMessage"),"info","Saran lokal diperbarui. Nominal dan tanggal tidak diubah otomatis.");
     return;
   }
 
@@ -1847,6 +1644,7 @@ async function handleScanReviewClick(event) {
             : item.description,
         sourceMeta: {
           fileName: item.sourceFile || '',
+          categoryReviewed: item.categoryReviewed === true,
           fileHash: item.sourceHash || '',
           reference:item.reference || item.movementReference || '',
           time:item.time || '',
@@ -1907,6 +1705,7 @@ async function handleScanReviewClick(event) {
 
     if (
       $("learnMerchantRules").checked &&
+      item.categoryReviewed === true &&
       cleanText(item.merchant) &&
       cleanText(item.category) &&
       item.type !== "transfer"
@@ -1969,6 +1768,8 @@ async function initializeUser(user) {
   if(generation!==authGeneration||state.user?.uid!==user.uid)return;
   state.settings = loaded.profile;
   state.creditSettings = loaded.credit;
+  state.scannerKnowledge = loaded.knowledge;
+  renderKnowledgeSummary();
   state.hideBalances = state.settings.hideBalanceDefault !== false;
 
   $("toggleBalanceButton").textContent =
@@ -2059,3 +1860,14 @@ observeAuth((user) => {
     showAuth();
   }
 });
+
+function renderKnowledgeSummary() {
+ const summary=knowledgeSummary(state.scannerKnowledge);
+ $('scannerKnowledgeSummary').textContent=summary;
+ const notice=$('importCoverageNotice');
+ notice.textContent=state.scannerKnowledge?.coverageNote||'';
+ notice.classList.toggle('hidden',!notice.textContent);
+ const accountNotice=$('accountCoverageNotice');
+ accountNotice.textContent=notice.textContent;
+ accountNotice.classList.toggle('hidden',!accountNotice.textContent);
+}

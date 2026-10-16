@@ -32,6 +32,13 @@ export function matchImport(candidate, existing) {
   const a=reference(candidate),b=reference(other),p=provenance(candidate),q=provenance(other);
   const candidateBank=candidate.bank||meta(candidate).bank, otherBank=other.bank||meta(other).bank;
   const differentBanks=candidateBank&&otherBank&&candidateBank!=='generic'&&otherBank!=='generic'&&candidateBank!==otherBank;
+  // Whole-document consolidation proves these byte-identical source rows.
+  // A reviewed bookkeeping classification may differ from the parser's guess.
+  const aliases=meta(other).provenanceAliases||[];
+  if(!differentBanks&&p&&aliases.some(alias=>`${alias.fileHash}:${alias.page}:${alias.row}`===p)){
+   if(candidate.date===other.date&&Number(candidate.amount)>0&&Number(candidate.amount)===Number(other.amount))return {status:'duplicate',reason:'Baris statement sudah masuk melalui impor awal',matchId:other.id||'',matched:other};
+   possible={status:'review',reason:'Baris statement sudah ada, tetapi tanggal atau nominal berbeda. Periksa sebelum menyimpan.',matchId:other.id||'',matched:other};continue;
+  }
   if(differentBanks&&!isMovement(candidate))continue;
   if(!sameCore(candidate,other)) {
    if(!differentBanks&&sameAccounts(candidate,other)&&((a&&a===b)||(p&&p===q)))possible={status:'review',reason:'Referensi atau baris dokumen sama, tetapi tanggal atau nominal berbeda. Periksa catatan lama sebelum menyimpan lagi.',matchId:other.id||'',matched:other};

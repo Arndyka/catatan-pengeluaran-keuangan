@@ -50,7 +50,8 @@ export async function loadUserSettings(uid) {
     await saveSettings(uid, "profile", profile);
   }
 
-  return { profile, credit };
+  const knowledge = await getSettings(uid, "scanner_knowledge", {version:1,statements:[],examples:[]});
+  return { profile, credit, knowledge };
 }
 
 export async function saveProfileSettings(uid, settings) {
