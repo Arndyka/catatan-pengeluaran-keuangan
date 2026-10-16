@@ -56,9 +56,16 @@ export async function checkNvidiaBackend(baseUrl) {
     throw new Error("URL backend NVIDIA AI belum diisi.");
   }
 
-  return fetchJson(`${normalized}/health`, {
+  const health = await fetchJson(`${normalized}/health`, {
     method: "GET"
   }, 20000);
+  if (health.ok !== true) {
+    throw new Error("Backend AI belum siap. Periksa layanan backend.");
+  }
+  if (health.api_key_configured !== true) {
+    throw new Error("API key NVIDIA belum dikonfigurasi di backend. Isi NVIDIA_API_KEY pada server, bukan di browser.");
+  }
+  return health;
 }
 
 function sanitizeCandidate(candidate, index) {

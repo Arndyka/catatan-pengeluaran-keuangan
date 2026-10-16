@@ -7,6 +7,8 @@ GitHub Pages memublikasikan frontend statis dari branch `main`. Backend AI Pytho
 
 ## Pembacaan e-statement — 16 Oktober 2026
 
+**BCA → saran AI:** pilih e-statement myBCA dan **Baca mutasi** pada mode **Pembaca PDF & OCR lokal**. Setelah muncul hasil, buka pengaturan AI, isi URL backend aktif, lalu setujui pengiriman data dan tekan **Minta saran NVIDIA AI**. Saran baru diterapkan setelah pengguna memilih **Terapkan**. Endpoint kesehatan kini memeriksa bahwa backend memiliki konfigurasi API key; status terkonfigurasi belum membuktikan key valid atau kuota model tersedia. Alur BCA → saran AI diuji dengan PDF sintetis dan respons AI simulasi; panggilan model sungguhan memerlukan backend beserta API key pengguna.
+
 Pembaca PDF lokal mendukung bluAccount, rekening koran konsolidasi Mandiri (termasuk PDF berpassword), dan rekening utama myBCA Tahapan Xpresi dengan lampiran Poket Rupiah kosong. Halaman informasi, ringkasan kartu kredit, dan disclaimer tidak menjadi transaksi. Deskripsi Mandiri yang bersambung ke halaman berikutnya tetap digabungkan. Nominal pecahan rupiah dipertahankan, dan rekonsiliasi memeriksa total serta saldo per baris sampai sen.
 
 Verifikasi lokal: **16 PDF, 80 halaman, 638 baris transaksi**; semua cocok dengan total tercetak dan saldo, tanpa OCR/AI. Angka baris mencakup tiga salinan statement Mei myBCA, bukan jumlah transaksi unik. Berkas identik dikenali sebagai duplikat; versi dokumen berbeda dengan transaksi serupa memerlukan keputusan pengguna. Transfer milik sendiri yang belum diketahui rekening pasangannya tetap tidak dipilih untuk disimpan.

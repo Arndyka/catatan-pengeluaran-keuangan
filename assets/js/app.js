@@ -19,7 +19,7 @@ import {
   checkNvidiaBackend,
   readPageWithNvidia,
   optimizeCandidatesWithNvidia
-} from "./nvidia-ai.js";
+} from "./nvidia-ai.js?v=bca-ai-20261016";
 
 const authScreen = $("authScreen");
 const appShell = $("appShell");
@@ -875,7 +875,7 @@ function updateNvidiaBackendBadge(status) {
     missing: ["Belum dikonfigurasi", ""],
     configured: ["URL tersimpan", ""],
     checking: ["Memeriksa...", ""],
-    ready: ["Backend siap", "validation-ok"],
+    ready: ["Backend terkonfigurasi", "validation-ok"],
     error: ["Backend bermasalah", "validation-error"],
     running: ["AI memproses...", ""],
     done: ["AI selesai", "validation-ok"]

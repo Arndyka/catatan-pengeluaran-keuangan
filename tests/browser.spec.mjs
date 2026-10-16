@@ -3,6 +3,34 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('native myBCA PDF connects to AI suggestions without overwriting financial facts',async({page,context})=>{
+ const fixture=await context.newPage();
+ const tokens=[['REKENING TAHAPAN XPRESI',30,800],['NO. REKENING : 0000000001',300,740],['PERIODE : AGUSTUS 2026',300,700],
+  ['14/08',44,558],['TRANSAKSI DEBIT',89,558],['TOKO CONTOH',194,558],['100.25 DB',410,558],['899.75',532,558],
+  ['SALDO AWAL : 1,000.00',210,300],['MUTASI CR : 0.00',210,280],['MUTASI DB : 100.25',210,260],['SALDO AKHIR : 899.75',210,240]];
+ await fixture.setContent(`<body style="margin:0"><div style="position:relative;width:600pt;height:840pt">${tokens.map(([text,x,y])=>`<span style="position:absolute;left:${x}pt;top:${840-y}pt;font:8pt Arial;white-space:nowrap">${text}</span>`).join('')}</div></body>`);
+ const buffer=await fixture.pdf({width:'800px',height:'1120px',margin:{top:0,right:0,bottom:0,left:0}});await fixture.close();
+ let requests=0,configured=false;
+ await page.route('http://127.0.0.1:9999/health',route=>route.fulfill({json:{ok:true,api_key_configured:configured}}));
+ await page.route('http://127.0.0.1:9999/api/nvidia/normalize-statement',route=>{
+  const body=route.request().postDataJSON();requests++;
+  expect(body.candidates).toHaveLength(1);expect(body.candidates[0]).toMatchObject({bank:'bca',amount:100.25,date:'2026-08-14',extractionMethod:'bca-native-layout-v3'});
+  return route.fulfill({json:{updates:[{index:0,category:'Belanja',description:'Belanja di toko',reason:'Kategori pembelian',amount:1,date:'2020-01-01'}]}});
+ });
+ await page.evaluate(()=>location.hash='scanner');await page.locator('#scanInput').setInputFiles({name:'synthetic-mybca.pdf',mimeType:'application/pdf',buffer});await page.locator('#scanButton').click();
+ const row=page.locator('[data-scan-index="0"]');await expect(page.locator('[data-scan-index]')).toHaveCount(1);
+ await expect(page.locator('#statementSummaryContainer')).toContainText('Rekonsiliasi sesuai');
+ await page.locator('.ai-options summary').click();await page.locator('#nvidiaBackendUrlInput').fill('http://127.0.0.1:9999');await page.locator('#nvidiaBackendUrlInput').press('Tab');
+ await expect(page.locator('#scanMessage')).toContainText('API key');await expect(page.locator('#nvidiaAiStatusBadge')).not.toHaveText('Backend siap');
+ configured=true;await page.locator('#nvidiaBackendUrlInput').dispatchEvent('change');await expect(page.locator('#nvidiaAiStatusBadge')).toHaveText('Backend terkonfigurasi');
+ await page.locator('#optimizeWithNvidiaButton').click();expect(requests).toBe(0);await expect(page.locator('#scanMessage')).toContainText('persetujuan');
+ await page.locator('#nvidiaAiConsent').check();await page.locator('#optimizeWithNvidiaButton').click();await expect(page.locator('#scanMessage')).toContainText('saran AI tersedia');
+ await expect(row.locator('[data-scan-field="description"]')).not.toHaveValue('Belanja di toko');
+ await row.locator('.suggestion-card').filter({hasText:'Belanja di toko'}).getByRole('button',{name:'Terapkan saran'}).click();
+ await expect(row.locator('[data-scan-field="description"]')).toHaveValue('Belanja di toko');
+ await expect(row.locator('[data-scan-field="amount"]')).toHaveValue('100.25');await expect(row.locator('[data-scan-field="date"]')).toHaveValue('2026-08-14');expect(requests).toBe(1);
+});
+
 test('native blu PDF keeps cent amounts editable and unknown transfer accounts blank',async({page,context})=>{
  const fixture=await context.newPage();
  const tokens=[['bluAccount',500,800],['Nama / Name',30,740],['NASABAH CONTOH',30,727],['Periode / Period',195,740],['June 2026',195,727],

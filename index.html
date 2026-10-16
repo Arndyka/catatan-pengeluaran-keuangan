@@ -634,7 +634,7 @@
           <div class="scanner-grid">
             <div class="upload-card">
               <div class="field">
-                <label for="scanMode">Cara membaca dokumen</label><select id="scanMode"><option value="local">OCR lokal · PDF &amp; screenshot</option><option value="ai">AI Vision · screenshot &amp; PDF yang perlu fallback</option></select><p class="helper-note">PDF bertulisan dibaca langsung. Screenshot dan PDF hasil scan bisa memakai AI. Semua hasil diperiksa sebelum disimpan.</p><label for="scanInput">Pilih PDF atau screenshot mutasi</label>
+                <label for="scanMode">Cara membaca dokumen</label><select id="scanMode"><option value="local">Pembaca PDF &amp; OCR lokal</option><option value="ai">AI Vision · screenshot &amp; PDF yang perlu fallback</option></select><p class="helper-note">E-statement myBCA, Mandiri, dan blu bertulisan dibaca langsung. Setelah hasil muncul, gunakan Minta saran NVIDIA AI untuk saran kategori dan keterangan. Screenshot dan PDF hasil scan bisa memakai AI Vision. Periksa hasil sebelum menyimpan.</p><label for="scanInput">Pilih PDF atau screenshot mutasi</label>
                 <input id="scanInput" type="file" accept="image/*,.pdf,application/pdf" multiple>
               </div>
 
@@ -670,7 +670,8 @@
                   <div>
                     <strong>NVIDIA AI Optimizer</strong>
                     <p>
-                      DeepSeek V4 Pro merapikan hasil OCR setelah parser lokal selesai.
+                      AI memberi saran kategori dan keterangan setelah PDF atau screenshot dibaca.
+                      Pilih Terapkan untuk menerima saran; hasil asli tidak berubah otomatis.
                       API key tetap berada di backend.
                     </p>
                   </div>
@@ -810,7 +811,7 @@
   <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
-  <script type="module" src="assets/js/boot.js?v=statements-20261016"></script>
+  <script type="module" src="assets/js/boot.js?v=bca-ai-20261016"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 
