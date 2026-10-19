@@ -9,3 +9,4 @@ backend_nvidia/.env
 *.pyc
 # Private bank-statement samples used only for local verification.
 Estatement-*/
+SOURCE/

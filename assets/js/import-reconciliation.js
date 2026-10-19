@@ -32,12 +32,15 @@ export function matchImport(candidate, existing) {
   const a=reference(candidate),b=reference(other),p=provenance(candidate),q=provenance(other);
   const candidateBank=candidate.bank||meta(candidate).bank, otherBank=other.bank||meta(other).bank;
   const differentBanks=candidateBank&&otherBank&&candidateBank!=='generic'&&otherBank!=='generic'&&candidateBank!==otherBank;
-  // Whole-document consolidation proves these byte-identical source rows.
-  // A reviewed bookkeeping classification may differ from the parser's guess.
+  // Reviewed consolidation retains exact source rows, including evidence from
+  // both banks of one transfer. Amount alone never establishes this link.
   const aliases=meta(other).provenanceAliases||[];
-  if(!differentBanks&&p&&aliases.some(alias=>`${alias.fileHash}:${alias.page}:${alias.row}`===p)){
-   if(candidate.date===other.date&&Number(candidate.amount)>0&&Number(candidate.amount)===Number(other.amount))return {status:'duplicate',reason:'Baris statement sudah masuk melalui impor awal',matchId:other.id||'',matched:other};
-   possible={status:'review',reason:'Baris statement sudah ada, tetapi tanggal atau nominal berbeda. Periksa sebelum menyimpan.',matchId:other.id||'',matched:other};continue;
+  const sourceAlias=p&&aliases.find(alias=>`${alias.fileHash}:${alias.page}:${alias.row}`===p&&(!differentBanks||alias.bank===candidateBank));
+  if(sourceAlias){
+   const signed=candidate.signedAmount??meta(candidate).statementSignedAmount;
+   const directionConflict=Number.isFinite(signed)&&Number.isFinite(sourceAlias.signedAmount)&&signed!==sourceAlias.signedAmount;
+   if(!directionConflict&&candidate.date===other.date&&Number(candidate.amount)>0&&Number(candidate.amount)===Number(other.amount))return {status:'duplicate',reason:'Baris sumber sudah tercatat dalam hasil konsolidasi',matchId:other.id||'',matched:other};
+   possible={status:'review',reason:'Baris sumber sudah ada, tetapi tanggal, nominal, atau arah dana berbeda. Periksa sebelum menyimpan.',matchId:other.id||'',matched:other};continue;
   }
   if(differentBanks&&!isMovement(candidate))continue;
   if(!sameCore(candidate,other)) {

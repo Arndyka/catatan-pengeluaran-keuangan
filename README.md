@@ -5,6 +5,8 @@
 
 ## Kartu Kredit & PayLater
 
+Dompet menampilkan saldo dari bukti terakhir secara terpisah dari jurnal. Selisih memerlukan pemeriksaan jenis saldo dan kelengkapan mutasi; snapshot tidak membuat transaksi penyeimbang. Angka bukti mengikuti pilihan sembunyikan saldo. Referensi dari dua bank yang telah diverifikasi sebagai satu transfer dapat dipertahankan bersama agar pemindaian ulang tidak menggandakan transaksi. Folder `SOURCE/` berisi dokumen pribadi dan dikecualikan dari Git.
+
 PayLater memiliki tab tersendiri dengan periode tagihan, jatuh tempo, status lunas, dan total kewajiban. Limit tersedia mengikuti snapshot penyedia, terpisah dari jumlah tagihan yang mungkin mencakup biaya. Jadwal awal menambah kewajiban tanpa membuat pengeluaran atau mengurangi saldo bank. Pokok dan biaya tidak ditebak.
 
 Gunakan **Catat lunas** setelah pembayaran benar-benar terjadi. Tautkan mutasi bank yang sudah tercatat, atau catat pembayaran baru jika belum ada. Penautan mempertahankan identitas sumber scan untuk mencegah impor ulang. Pembayaran penuh dicatat secara atomik; menghapus transaksi pembayaran membuka kembali tagihannya. Pembayaran sebagian dan pembaruan limit penyedia belum didukung oleh formulir ini. Pinjaman yang dikonfirmasi lunas dapat diarsipkan tanpa menghapus jurnal bank historis.

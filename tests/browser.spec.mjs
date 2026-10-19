@@ -470,6 +470,29 @@ test('private scanner references survive reload without posting ledger entries',
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.length)).toBe(before);
 });
 
+test('wallet evidence snapshots remain separate from the ledger and respect balance privacy',async({page})=>{
+ const before=await page.evaluate(async()=>{
+  const {state}=await import('/assets/js/state.js'),{demoRepository:repo}=await import('/assets/js/demo.js');
+  await repo.saveSettings(state.user.uid,'scanner_knowledge',{balanceObservations:[{accountId:'asset-bca',date:'2026-10-19',amount:3210.34,kind:'active-balance'},{accountId:'asset-blu',date:'2099-01-01',amount:555,kind:'balance'}]});return JSON.stringify(state.transactions);
+ });
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='wallets');
+ await expect(page.locator('[data-balance-observation]')).toHaveCount(1);
+ await expect(page.locator('#walletReconciliation')).toContainText('Saldo aktif dari bukti');
+ if((await page.locator('#toggleBalanceButton').textContent()).includes('Tampilkan'))await page.locator('#toggleBalanceButton').click();
+ await expect(page.locator('#walletReconciliation')).toContainText('3.210,34');
+ await page.locator('#toggleBalanceButton').click();await expect(page.locator('#walletReconciliation')).not.toContainText('3.210,34');
+ for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ expect(await page.evaluate(async()=>JSON.stringify((await import('/assets/js/state.js')).state.transactions))).toBe(before);
+});
+test('wallet evidence tolerates damaged journal entries and still reports the issue',async({page})=>{
+ await page.evaluate(async()=>{
+  const {state}=await import('/assets/js/state.js');state.scannerKnowledge={balanceObservations:[{accountId:'asset-bca',date:'2026-10-19',amount:10}]};
+  state.transactions.push({id:'damaged',date:'2026-10-19',type:'expense',amount:1,sourceAccountId:'asset-bca',journal:[null]});
+  (await import('/assets/js/experience.js')).renderExperience();
+ });
+ await page.evaluate(()=>location.hash='wallets');await expect(page.locator('#walletReconciliation')).toBeVisible();await expect(page.locator('#financialHealth')).toContainText('jurnal kosong/tidak seimbang');
+});
+
 test('unallocated loan payment is visibly pending and does not become consumption expense',async({page})=>{
  const values=await page.evaluate(async()=>{
   const {state}=await import('/assets/js/state.js'),{saveTransaction}=await import('/assets/js/transactions.js'),{incomeStatement}=await import('/assets/js/accounting.js');

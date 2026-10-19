@@ -2,6 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {matchImport, reconcileImports, importIdentity} from '../assets/js/import-reconciliation.js';
 import {buildTransaction,DEFAULT_SETTINGS} from '../assets/js/accounting.js';
+test('reviewed cross-bank evidence aliases survive transfer consolidation and flag changed direction',()=>{
+ const stored={date:'2026-10-16',type:'transfer',amount:100,sourceAccountId:'blu',destinationAccountId:'bca',sourceMeta:{bank:'blu',provenanceAliases:[{bank:'bca',fileHash:'bca-proof',page:1,row:2,signedAmount:100}]}};
+ const candidate={date:stored.date,type:'income',amount:100,signedAmount:100,sourceAccountId:'bca',bank:'bca',sourceHash:'bca-proof',sourcePage:1,sourceRow:2};
+ assert.equal(matchImport(candidate,[stored]).status,'duplicate');
+ assert.equal(matchImport({...candidate,signedAmount:-100},[stored]).status,'review');
+ assert.equal(matchImport({...candidate,bank:'mandiri'},[stored]).status,'new');
+ assert.equal(matchImport({...candidate,sourceHash:'unproven'},[stored]).status,'new');
+});
 const tx={date:'2026-10-15',type:'expense',amount:50000,sourceAccountId:'bca',destinationAccountId:'',description:'Kopi',sourceMeta:{reference:'ABC123456'}};
 test('same bank reference deduplicates across screenshot and PDF wording',()=>{
  assert.equal(matchImport({...tx,sourceMeta:null,reference:'ABC123456',description:'QRIS coffee'},[tx]).status,'duplicate');
