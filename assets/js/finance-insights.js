@@ -1,4 +1,22 @@
 import { formatDateLocal } from './utils.js';
+import {journalEntries,validateJournal} from './accounting.js';
+
+// Cash, not profit: card purchases affect debt; payments affect available funds.
+export function cashPosition(transactions,settings,month,today=formatDateLocal()){
+ const accounts=new Map(settings.accounts.map(a=>[a.id,a]));
+ let baseline=0,inflow=0,outflow=0,adjustments=0,valid=true;
+ for(const tx of transactions){
+  if(!tx.date||tx.date>today||tx.date.slice(0,7)>month)continue;
+  const entries=journalEntries(tx.journal).filter(j=>{const a=accounts.get(j.accountId);return (a?.type||j.accountType)==='asset'&&!['investment','clearing'].includes(a?.subtype||j.accountSubtype);});
+  if(!entries.length)continue;
+  if(!validateJournal(tx.journal).valid)valid=false;
+  const delta=entries.reduce((n,j)=>n+Math.round(Number(j.debit)*100)-Math.round(Number(j.credit)*100),0);
+  if(tx.date.slice(0,7)<month||tx.type==='opening_balance')baseline+=delta;
+  else if(tx.type==='balance_adjustment')adjustments+=delta;
+  else if(delta>0)inflow+=delta;else outflow-=delta;
+ }
+ return {baseline:baseline/100,inflow:inflow/100,outflow:outflow/100,adjustments:adjustments/100,balance:(baseline+inflow-outflow+adjustments)/100,valid};
+}
 
 export function dailyAllowance(transactions, limit, today = formatDateLocal()) {
   const [year, month, day] = today.split('-').map(Number);

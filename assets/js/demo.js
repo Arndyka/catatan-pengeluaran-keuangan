@@ -2,6 +2,7 @@ import { DEFAULT_SETTINGS, DEFAULT_CREDIT_SETTINGS, buildTransaction } from './a
 import {settlePaylater} from './paylater-settlement.js';
 import { monthKey, formatDateLocal } from './utils.js';
 import {reopenRecurringTransaction,isSalaryRule,isSettled,validateSettlement} from './recurring-logic.js';
+import {updateStoredTransaction,transactionKeys,editVersion} from './transaction-edit.js';
 
 export const isDemo = new URLSearchParams(location.search).get('demo') === '1';
 export const DEMO_UID = 'spendly-demo';
@@ -70,7 +71,21 @@ export const demoRepository = {
     paylaterQueue=task.catch(()=>{});return task;
   },
   listenTransactions(uid,callback) { return listen('transactions',callback); },
-  async createTransactionPermanent(uid,tx) { if(data.transactions.some(item=>item.id===tx.fingerprint)) return {created:false,duplicate:true,id:tx.fingerprint}; data.transactions.unshift({...clone(tx),id:tx.fingerprint}); data.transactions.sort((a,b)=>b.date.localeCompare(a.date)); save(); notify('transactions'); return {created:true,duplicate:false,id:tx.fingerprint}; },
+  async createTransactionPermanent(uid,tx) { const duplicate=data.transactions.find(item=>transactionKeys(item).includes(tx.fingerprint));if(duplicate) return {created:false,duplicate:true,id:duplicate.id}; data.transactions.unshift({...clone(tx),id:tx.fingerprint}); data.transactions.sort((a,b)=>b.date.localeCompare(a.date)); save(); notify('transactions'); return {created:true,duplicate:false,id:tx.fingerprint}; },
+  updateTransaction(uid,id,patch,expected) {
+    const task=paylaterQueue.then(async()=>{
+      let edited;
+      const result=await updateStoredTransaction({
+        getTransaction:async id=>clone(data.transactions.find(t=>t.id===id)||null),getProfile:async()=>clone(data.settings.profile),getPlan:async()=>clone(data.settings.paylater||null),getRule:async id=>clone(data.recurring.find(r=>r.id===id)||null),
+        keyOwner:async key=>data.transactions.find(t=>transactionKeys(t).includes(key))?.id,
+        putTransaction:tx=>{edited=clone(tx);},putKey:()=>{}
+      },id,patch,expected);
+      if(editVersion(data.transactions.find(t=>t.id===id))!==editVersion(expected))throw new Error('Transaksi berubah. Buka Edit kembali.');
+      if(data.transactions.some(t=>t.id!==id&&transactionKeys(t).some(k=>transactionKeys(edited).includes(k))))throw new Error('Koreksi identik dengan transaksi lain.');
+      const next={...data,transactions:data.transactions.map(t=>t.id===id?edited:t).sort((a,b)=>b.date.localeCompare(a.date))};
+      localStorage.setItem(KEY,JSON.stringify(next));data=next;notify('transactions');return result;
+    });paylaterQueue=task.catch(()=>{});return task;
+  },
   async deleteTransaction(uid,id) {
     const tx=data.transactions.find(tx=>tx.id===id);
     const rule=tx&&data.recurring.find(r=>r.id===tx.recurringRuleId);

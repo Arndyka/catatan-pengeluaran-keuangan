@@ -170,3 +170,33 @@ html{scroll-behavior:smooth;scroll-padding-bottom:110px}body{font-family:'Segoe 
 @media(max-width:400px){.history-endpoint-filters>div{grid-template-columns:1fr}}
 
 #netWorthCard{align-items:flex-start}#netWorthCard>div{min-width:0;width:100%}#netWorthDetails{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6}#netWorthDetails summary{cursor:pointer;min-height:32px;display:list-item;padding:5px 0;color:var(--text)}#netWorthDetails dl{margin:8px 0}#netWorthDetails dl>div{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;margin:8px 0}#netWorthDetails dd{margin:0;color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}#netWorthDetails p{font-size:12px;line-height:1.6;margin:10px 0 0;color:var(--muted)}
+
+
+.cash-position-card { margin-bottom: 24px; }
+.cash-position-total { display:flex; align-items:center; justify-content:space-between; gap:16px; }
+.cash-position-total strong { font-size:clamp(25px,3vw,36px); }
+.cash-position-total p:not(.section-label), #cashPositionDetails p { color:var(--muted); font-size:13px; line-height:1.6; }
+#cashPositionDetails { margin-top:14px; }
+#cashPositionDetails summary { cursor:pointer; min-height:32px; }
+#cashPositionDetails dl>div { display:flex; justify-content:space-between; gap:16px; padding:8px 0; }
+#cashPositionDetails dd { margin:0; text-align:right; }
+#transactionTableContainer td[data-label="Tanggal"] { white-space:nowrap; overflow-wrap:normal; }
+#transactionTableContainer td[data-label="Aksi"] .small-btn { margin:0 0 8px; min-height:44px; }
+#transactionEditForm textarea { width:100%; padding:12px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--text); font:inherit; resize:vertical; }
+#transactionEditForm [hidden] { display:none; }
+.edit-actions { display:flex; gap:12px; justify-content:flex-end; }
+.edit-review-confirm { display:flex; align-items:center; gap:12px; line-height:1.5; }
+#scanSelectionCount { display:block; margin-top:6px; color:var(--muted); }
+#scanReviewContainer input[type="checkbox"] { width:26px; height:26px; min-height:26px; cursor:pointer; }
+@media(max-width:700px){
+ .cash-position-total { align-items:flex-start; flex-wrap:wrap; }
+ #cashPositionDetails { font-size:13px; }
+ #transactionEditForm .form-pair { grid-template-columns:minmax(0,1fr); }
+ #transactionEditForm input,#transactionEditForm select,#transactionEditForm textarea { min-width:0; max-width:100%; font-size:16px; }
+ #transactionEditForm .edit-actions { display:grid; grid-template-columns:1fr 1fr; }
+ #transactionEditForm .edit-actions button { white-space:normal; padding:12px; }
+ #scanReviewContainer .compact-review-table td:first-child { min-height:44px; }
+}
+.statement-opening-note { margin:16px; padding:14px; border:1px solid var(--line); border-radius:14px; color:var(--text); background:var(--soft); font-size:13px; line-height:1.6; }
+.statement-opening-note label { display:flex; align-items:flex-start; gap:12px; cursor:pointer; }
+.statement-opening-note input[type=checkbox] { margin-top:4px; width:24px; height:24px; }

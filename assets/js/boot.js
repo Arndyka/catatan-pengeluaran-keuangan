@@ -1,6 +1,6 @@
 import { hydrateIcons } from './icons.js';
 hydrateIcons();
-try { await import('./app.js?v=card-ebilling-20261019'); }
+try { await import('./app.js?v=transaction-editor-20261019'); }
 catch(error) {
  console.error('Spendly startup failed',error);
  const notice=document.getElementById('authMessage');

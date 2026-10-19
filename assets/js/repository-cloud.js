@@ -1,6 +1,7 @@
 import { db } from "./firebase.js";
 import {settlePaylater} from './paylater-settlement.js';
 import {reopenRecurringTransaction,isSalaryRule,isSettled,validateSettlement} from './recurring-logic.js';
+import {updateStoredTransaction,transactionKeys} from './transaction-edit.js';
 import {
   collection,
   deleteDoc,
@@ -81,12 +82,13 @@ export async function createTransactionPermanent(uid, transactionData) {
 
   return runTransaction(db, async (transaction) => {
     const existing = await transaction.get(ref);
+    const alias=await transaction.get(userDoc(uid,'settings',`transaction-key-${transactionData.fingerprint}`));
 
-    if (existing.exists()) {
+    if (existing.exists()||alias.exists()) {
       return {
         created: false,
         duplicate: true,
-        id: existing.id
+        id: existing.exists()?existing.id:alias.data().transactionId
       };
     }
 
@@ -104,6 +106,17 @@ export async function createTransactionPermanent(uid, transactionData) {
   });
 }
 
+export async function updateTransaction(uid,id,patch,expected){
+ return runTransaction(db,async transaction=>{
+  const read=async(collection,id)=>{const s=await transaction.get(userDoc(uid,collection,id));return s.exists()?{...s.data(),...(collection==='transactions'||collection==='recurring_rules'?{id:s.id}:{})}:null;};
+  return updateStoredTransaction({getTransaction:id=>read('transactions',id),getProfile:()=>read('settings','profile'),getPlan:()=>read('settings','paylater'),getRule:id=>read('recurring_rules',id),
+   keyOwner:async key=>{const tx=await read('transactions',key),alias=await read('settings',`transaction-key-${key}`);return tx?.id||alias?.transactionId;},
+   putTransaction:tx=>transaction.set(userDoc(uid,'transactions',id),{...tx,updatedAt:serverTimestamp()}),
+   putKey:(key,owner)=>transaction.set(userDoc(uid,'settings',`transaction-key-${key}`),{transactionId:owner})
+  },id,patch,expected);
+ });
+}
+
 export async function deleteTransaction(uid, id) {
   const ref=userDoc(uid,'transactions',id);
   await runTransaction(db,async transaction=>{
@@ -113,6 +126,7 @@ export async function deleteTransaction(uid, id) {
       const ruleRef=userDoc(uid,'recurring_rules',tx.recurringRuleId),rule=await transaction.get(ruleRef);
       if(rule.exists())transaction.update(ruleRef,{...reopenRecurringTransaction(rule.data(),tx,id),updatedAt:serverTimestamp()});
     }
+    for(const key of transactionKeys({...tx,id}))if(key!==id)transaction.delete(userDoc(uid,'settings',`transaction-key-${key}`));
     transaction.delete(ref);
   });
 }

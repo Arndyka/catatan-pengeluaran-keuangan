@@ -7,6 +7,7 @@ export const settlePaylaterBill = (...args) => backend.settlePaylaterBill(...arg
 export const listenTransactions = (...args) => backend.listenTransactions(...args);
 export const createTransactionPermanent = (...args) => backend.createTransactionPermanent(...args);
 export const deleteTransaction = (...args) => backend.deleteTransaction(...args);
+export const updateTransaction = (...args) => backend.updateTransaction(...args);
 export const deleteAllTransactions = (...args) => backend.deleteAllTransactions(...args);
 export const listenRecurringRules = (...args) => backend.listenRecurringRules(...args);
 export const saveRecurringRule = (...args) => backend.saveRecurringRule(...args);

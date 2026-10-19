@@ -4,7 +4,7 @@ import { $, escapeHtml as e, formatRupiah, formatDateLocal, monthKey, formatDate
 import { state } from './state.js';
 import { deriveLedger, netWorthSnapshot, incomeStatement } from './accounting.js';
 import { budgetAnalysis } from './budget.js';
-import { dailyAllowance, goalProgress, validateGoal } from './finance-insights.js';
+import { dailyAllowance, goalProgress, validateGoal, cashPosition } from './finance-insights.js';
 import { getSettings, saveSettings, getBudgetPlan } from './repository.js';
 import { isDemo } from './demo.js';
 import { icon, hydrateIcons } from './icons.js';
@@ -180,6 +180,10 @@ export function renderExperience() {
  const worthOpen=$('netWorthDetails')?.open;
  const worthDetails=`<details id="netWorthDetails" ${worthOpen?'open':''}><summary>Lihat perhitungan</summary><dl><div><dt>Aset tercatat</dt><dd>${money(worth.assets)}</dd></div><div><dt>Total utang tercatat</dt><dd>${money(worth.liabilities)}</dd></div></dl><p>Aset dikurangi seluruh utang, termasuk sisa cicilan; bukan tagihan bulan ini. Akun sementara tidak dihitung sebagai aset. Aset yang belum dicatat belum termasuk.</p>${!worth.balanced?'<p>Ada jurnal yang perlu diperiksa.</p>':''}</details>`;
  $('modernStats').innerHTML=[['down','Pemasukan bulan ini',statement.income,'mint'],['up','Pengeluaran bulan ini',statement.expenses,'coral'],['wallet','Kekayaan bersih tercatat',worth.netWorth,'lavender']].map(([ico,label,value,color])=>`<article ${ico==='wallet'?'id="netWorthCard"':''} class="metric-card"><span class="metric-icon ${color}">${icon(ico)}</span><div><p>${label}</p><strong>${money(value)}</strong>${ico==='wallet'?worthDetails:''}</div></article>`).join('');
+ const cash=cashPosition(current,state.settings,month,today),cashOpen=$('cashPositionDetails')?.open;
+ const cashHtml=`<div class="cash-position-total"><div><p class="section-label">SALDO DANA</p><strong>${money(cash.balance)}</strong><p>Rekening, dompet digital, dan tunai · termasuk saldo awal</p></div><button class="text-button" data-page="wallets" type="button">Lihat dompet ↗</button></div><details id="cashPositionDetails" ${cashOpen?'open':''}><summary>Lihat perhitungan saldo</summary><dl><div><dt>Saldo bawaan + saldo awal</dt><dd>${money(cash.baseline)}</dd></div><div><dt>Uang masuk bulan ini</dt><dd>+ ${money(cash.inflow)}</dd></div><div><dt>Uang keluar bulan ini</dt><dd>− ${money(cash.outflow)}</dd></div>${cash.adjustments?`<div><dt>Penyesuaian pembukuan</dt><dd>${money(cash.adjustments)}</dd></div>`:''}<div><dt>Saldo terakhir</dt><dd>${money(cash.balance)}</dd></div></dl><p>Saldo bawaan berasal dari sebelum bulan ini. Transfer antar dompet sendiri tidak menambah total dana. Pembayaran kartu mengurangi dana; belanja kartu baru mengurangi dana saat dibayar. Investasi dan akun sementara tidak termasuk.</p>${!cash.valid?'<p class="danger-text">Ada jurnal bermasalah; periksa catatan sebelum mengandalkan saldo.</p>':''}</details>`;
+ if(!$('cashPositionCard'))$('modernStats').insertAdjacentHTML('beforebegin','<section id="cashPositionCard" class="panel cash-position-card" aria-label="Saldo dana"></section>');
+ $('cashPositionCard').innerHTML=cashHtml;
  renderChart(current,month);
  const budget=budgetAnalysis(current,month,dashboardPlan);
  $('budgetPreview').innerHTML=budget.rows.length?budget.rows.slice(0,4).map(row=>`<div class="budget-mini"><div><strong>${e(row.name)}</strong><span class="${row.overBudget?'danger-text':''}">${state.hideBalances?'••':Math.round(row.usage)+'%'}</span></div><div class="progress-track"><div class="progress-fill ${row.overBudget?'over':''}" style="width:${state.hideBalances?0:Math.min(100,row.usage)}%"></div></div><p>${money(row.actual)} <span>dari ${money(row.target)}</span></p></div>`).join(''):empty('Ruang untuk setiap kebutuhan.','Buat alokasi makan, transportasi, dan hal yang penting bagimu.');

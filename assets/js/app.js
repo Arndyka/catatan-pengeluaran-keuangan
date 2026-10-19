@@ -1,4 +1,6 @@
 import {knowledgeSummary} from './scanner-knowledge.js';
+import {openTransactionEditor} from './transaction-editor-ui.js';
+import {statementOpeningProposal} from './statement-opening.js';
 import {renderRecurringUI} from './recurring-ui.js';
 import {setupManualSuggestions,suggestionsFor,suggestionsHtml,transactionSignature,remainingAiSuggestions} from './suggestions-ui.js';
 import {suggestionKey,scanExclusionReason,manualRecurringMatches} from './transaction-quality.js';
@@ -17,7 +19,7 @@ import { creditCardSnapshot, confirmedCardSnapshot } from "./credit-card.js";
 import {filterTransactions,historyAccounts,accountActivity,transactionPresentation,sortTransactionHistory} from './transaction-filters.js';
 import {financialHealth,balanceEvidenceIssues} from './financial-health.js';
 import { buildMonthlyReport } from "./reports.js";
-import { scanStatementFiles } from "./scanner.js?v=statements-20261016";
+import { scanStatementFiles } from "./scanner.js?v=transaction-editor-20261019";
 
 
 const authScreen = $("authScreen");
@@ -315,6 +317,7 @@ function renderTransactions() {
               <td data-label="Keterangan">${escapeHtml(tx.description || tx.merchant || "-")}${tx.sourceMeta?.pendingAllocation?`<p class="helper-note">${escapeHtml(tx.sourceMeta.pendingAllocation)}</p>`:''}</td>
               <td data-label="Jurnal">${validateJournal(tx.journal||[]).valid ? "Seimbang" : "Periksa"}${tx.date>formatDateLocal()?'<br><small>Belum masuk saldo aktual</small>':''}</td>
               <td data-label="Aksi">
+                <button class="small-btn" data-edit-transaction="${escapeHtml(tx.id)}" type="button">Edit</button>
                 <button class="small-btn danger" data-delete-transaction="${tx.id}" type="button">Hapus</button>
               </td>
             </tr>
@@ -692,6 +695,8 @@ function setupEvents() {
   });
 
   $("transactionTableContainer").addEventListener("click", async (event) => {
+    const edit=event.target.closest('[data-edit-transaction]');
+    if(edit){try{await openTransactionEditor(edit.dataset.editTransaction);}catch(error){alert(error.message);}return;}
     const button = event.target.closest("[data-delete-transaction]");
     if (!button) return;
 
@@ -867,8 +872,14 @@ function setupEvents() {
   });
 
   $("scanReviewContainer").addEventListener("click", event => {handleScanReviewClick(event).catch(error=>setNotice($("scanMessage"),"error",error.message));});
+  $('statementSummaryContainer').addEventListener('change',event=>{
+    if(event.target.matches('[data-scan-opening]'))scanStatements[Number(event.target.dataset.scanOpening)].openingSelected=event.target.checked;
+  });
 
   $("scanReviewContainer").addEventListener("change", event=>{
+    if(event.target.dataset.scanField==='selected'){
+      syncScanCandidates();$('scanSelectionCount').textContent=`${scanCandidates.filter(i=>i.selected).length} dipilih`;return;
+    }
     if(['importDecision','date','amount','type','sourceAccountId','destinationAccountId'].includes(event.target.dataset.scanField)){
       syncScanCandidates();const item=scanCandidates[Number(event.target.closest('[data-scan-index]').dataset.scanIndex)];
       if(event.target.dataset.scanField==='importDecision')item.selected=event.target.value==='new';renderScanCandidates();
@@ -1025,7 +1036,7 @@ async function scanFiles() {
       }
     });
 
-    scanStatements = result.statements;
+    scanStatements = result.statements.map(statement=>({...statement,openingAccountId:bankAccountMap[statement.bank]||'',openingSelected:true}));
     $('scanExcludedContainer').innerHTML=(result.excluded||[]).length?`<details class="scan-excluded"><summary>${result.excluded.length} informasi pengecualian: tidak masuk transaksi</summary><ul>${result.excluded.map(item=>`<li><strong>${escapeHtml(item.fileName)}</strong>: ${escapeHtml(item.reason)}</li>`).join('')}</ul></details>`:'';
 
     const statementBankByFile = new Map(
@@ -1046,7 +1057,8 @@ async function scanFiles() {
         bankAccountMap.generic;
 
       const nextCandidate = {
-        ...candidate
+        ...candidate,
+        statementSignedAmount:candidate.signedAmount
       };
 
       // Pengeluaran/pemasukan biasa selalu memakai rekening
@@ -1204,6 +1216,7 @@ function renderStatementSummaries() {
                 </span>
               </div>
 
+              ${(()=>{const p=statementOpeningProposal(statement,scanStatements,state.transactions,state.settings),index=scanStatements.indexOf(statement);return `<div class="statement-opening-note">${p.status==='ready'?`<label><input type="checkbox" data-scan-opening="${index}" ${statement.openingSelected?'checked':''}><span><strong>Sertakan saldo awal ${money(p.input.amount)}</strong><br>${escapeHtml(p.reason)}</span></label>`:`<p>${escapeHtml(p.reason)}</p>`}${p.transactionId?`<button class="text-button" type="button" data-history-transaction="${escapeHtml(p.transactionId)}">Lihat saldo awal ↗</button>`:''}</div>`;})()}
               <div class="statement-summary-grid compact-summary-grid">
                 <div class="statement-summary-item summary-wide">
                   <p>Periode</p>
@@ -1307,18 +1320,19 @@ function renderScanCandidates() {
   const matched=reconcileImports(scanCandidates,state.transactions);
   scanCandidates=matched.map((next,index)=>{
     const old=scanCandidates[index];
-    const selected=next.importMatch.status==='duplicate'?false:next.importMatch.status==='review'?old.importDecision==='new'&&old.selected:old.selected;
+    const selected=scanSelectionBlocked(next)||old.importDecision==='skip'?false:old.selected;
     return {...next,selected};
   });
   $("scanReviewContainer").innerHTML =
-    scanCandidates.length
+    scanCandidates.length||scanStatements.some(s=>statementOpeningProposal(s,scanStatements,state.transactions,state.settings).status==='ready')
       ? `
         <div class="scan-save-toolbar compact-toolbar">
           <div>
             <strong>${scanCandidates.length} kandidat transaksi</strong>
+            <span id="scanSelectionCount" role="status">${scanCandidates.filter(i=>i.selected).length} dipilih</span>
             <p>
               Baru: ${scanCandidates.filter(i=>i.importMatch.status==='new').length} · Duplikat: ${scanCandidates.filter(i=>i.importMatch.status==='duplicate').length} · Perlu keputusan: ${scanCandidates.filter(i=>i.importMatch.status==='review').length}.
-              Duplikat pasti dilewati. Periksa akun serta transaksi yang mirip sebelum menyimpan.
+              Bisa dipilih tanpa membuka detail. Duplikat dan perpindahan dalam rekening yang sama dilewati. Transaksi mirip harus diberi keputusan sebelum disimpan.
             </p>
           </div>
 
@@ -1370,7 +1384,7 @@ function renderScanCandidates() {
                       data-scan-field="selected"
                       aria-label="Pilih transaksi ${index+1}"
                       type="checkbox"
-                      ${item.importMatch.status==='duplicate'||(item.importMatch.status==='review'&&item.importDecision!=='new')?'disabled':''}
+                      ${scanSelectionBlocked(item)?'disabled':''}
                       ${item.selected ? "checked" : ""}
                     >
                   </td>
@@ -1393,7 +1407,7 @@ function renderScanCandidates() {
                       <strong class="scan-mobile-merchant">${escapeHtml(item.merchant || item.description || item.category || 'Transaksi')}</strong>
                       <span>${escapeHtml(transactionTypeLabel(item.type))} · ${formatDateId(parseLocalDate(item.date))}</span>
                       <span>${escapeHtml(state.settings.accounts.find(account => account.id === item.sourceAccountId)?.name || 'Pilih rekening')}</span>
-                      <span class="scan-mobile-status">${({new:'Transaksi baru',duplicate:'Duplikat · dilewati',review:'Mirip · perlu diperiksa'})[item.importMatch.status]}</span>
+                      <span class="scan-mobile-status">${scanSameAccount(item)?'Perpindahan dalam rekening · dilewati':({new:'Transaksi baru',duplicate:'Duplikat · dilewati',review:'Mirip · perlu diperiksa'})[item.importMatch.status]}</span>
                       ${item.transferNeedsMapping ? '<span class="validation-warning">Periksa rekening sumber & tujuan</span>' : item.internalMovement ? '<span class="validation-warning">Transfer internal · periksa detail</span>' : ''}
                       <button type="button" class="small-btn scan-detail-toggle" data-toggle-scan="${index}" aria-expanded="${Boolean(item.mobileExpanded)}">${item.mobileExpanded ? 'Tutup detail' : 'Detail & edit'}</button>
                     </div>
@@ -1583,11 +1597,13 @@ function renderScanCandidates() {
       `
       : `<div class="empty-state">Tidak ada transaksi yang berhasil dibaca.</div>`;
 }
+function scanSameAccount(item){return item.type==='transfer'&&item.sourceAccountId&&item.sourceAccountId===item.destinationAccountId;}
+function scanSelectionBlocked(item){return item.importMatch?.status==='duplicate'||scanSameAccount(item);}
 function syncScanCandidates() {
   document.querySelectorAll("[data-scan-index]").forEach((row) => {
     const item =
       scanCandidates[Number(row.dataset.scanIndex)];
-    const core=tx=>JSON.stringify([tx.date,Number(tx.amount),tx.type,tx.sourceAccountId,tx.destinationAccountId||'']);
+    const core=tx=>JSON.stringify([tx.date||'',Number(tx.amount),tx.type,tx.sourceAccountId||'',tx.destinationAccountId||'']);
     const previousCore=core(item);
 
     row.querySelectorAll("[data-scan-field]").forEach((input) => {
@@ -1608,7 +1624,7 @@ function syncScanCandidates() {
         ? Number(item.amount || 0)
         : item.type === "expense"
           ? -Number(item.amount || 0)
-          : 0;
+          : Math.sign(item.statementSignedAmount||item.signedAmount||0)*Number(item.amount||0);
     if(core(item)!==previousCore){item.importDecision='';item.selected=false;}
   });
 }
@@ -1639,7 +1655,7 @@ async function handleScanReviewClick(event) {
 
   if (event.target.id === "selectAllScanCandidates") {
     scanCandidates.forEach((item) => {
-      if (!item.internalMovement && item.importMatch?.status==='new') {
+      if (!scanSelectionBlocked(item)&&item.importDecision!=='skip') {
         item.selected = true;
       }
     });
@@ -1676,8 +1692,14 @@ async function handleScanReviewClick(event) {
   const selected=scanCandidates.filter(candidate=>candidate.selected);
   const excluded=selected.find(scanExclusionReason);
   if(excluded){excluded.selected=false;renderScanCandidates();setNotice($('scanMessage'),'error',`Tidak disimpan: ${scanExclusionReason(excluded)}. Periksa isi dokumen.`);return;}
-  if(!selected.length){setNotice($("scanMessage"),"error","Pilih transaksi baru yang sudah diperiksa terlebih dahulu.");return;}
-  for(const item of reconcileImports(selected,state.transactions)){if(item.importMatch.status==='review'&&item.importDecision!=='new'){renderScanCandidates();setNotice($("scanMessage"),"error","Ada transaksi mirip. Tentukan apakah transaksi sama atau berbeda sebelum menyimpan.");return;}}
+  const openings=scanStatements.filter(s=>s.openingSelected).map(s=>statementOpeningProposal(s,scanStatements,state.transactions,state.settings)).filter(p=>p.status==='ready');
+  if(!selected.length&&!openings.length){setNotice($("scanMessage"),"error","Pilih transaksi atau saldo awal yang sudah diperiksa terlebih dahulu.");return;}
+  for(const [selectedIndex,item] of reconcileImports(selected,state.transactions).entries()){if(item.importMatch.status==='review'&&item.importDecision!=='new'){
+    const index=scanCandidates.indexOf(selected[selectedIndex]);
+    if(index>=0)scanCandidates[index].mobileExpanded=true;
+    renderScanCandidates();setNotice($("scanMessage"),"error","Ada transaksi mirip. Tentukan apakah transaksi sama atau berbeda sebelum menyimpan.");
+    const decision=$('scanReviewContainer').querySelector(`[data-scan-index="${index}"] [data-scan-field="importDecision"]`);decision?.focus();return;
+  }}
   scanSaving=true;
   $("saveScanCandidates").disabled=true;
   try {
@@ -1696,6 +1718,15 @@ async function handleScanReviewClick(event) {
   };
 
   const savedThisBatch=[];
+  // Validate the whole selection before writing any opening or movement.
+  for(const item of selected){try{await buildTransaction(item,state.settings);}catch(error){item.mobileExpanded=true;throw new Error(`Periksa transaksi ${scanCandidates.indexOf(item)+1} (${item.date}): ${error.message}`);}}
+  for(const statement of scanStatements.filter(s=>s.openingSelected)){
+    const proposal=statementOpeningProposal(statement,scanStatements,state.transactions,state.settings);if(proposal.status!=='ready')continue;
+    const rows=selected.filter(i=>i.sourceFile===statement.fileName);
+    if(rows.some(i=>(i.type==='transfer'&&i.signedAmount>0?i.destinationAccountId:i.sourceAccountId)!==proposal.input.sourceAccountId))throw new Error('Rekening mutasi berbeda dari rekening saldo awal. Periksa pemetaan atau nonaktifkan Sertakan saldo awal.');
+  }
+  let openingCreated=0;
+  for(const proposal of openings){const result=await saveTransaction(state.user.uid,proposal.input,state.settings);if(result.created)openingCreated++;}
   for (const item of selected) {
     const match=matchImport(item,[...state.transactions,...savedThisBatch]);
     if(match.status==='duplicate'){duplicate+=1;item.selected=false;continue;}
@@ -1722,7 +1753,8 @@ async function handleScanReviewClick(event) {
           statementAccountName: item.statementAccountName || '',
           statementAccountNumber: item.statementAccountNumber || '',
           movementReference: item.movementReference || '',
-          internalMovement: item.internalMovement === true
+          internalMovement: item.internalMovement === true,
+          statementSignedAmount:item.statementSignedAmount??item.signedAmount
         },
         externalBalance: item.balanceAfter,
         validationStatus: item.validationStatus,
@@ -1807,7 +1839,7 @@ async function handleScanReviewClick(event) {
   setNotice(
     $("scanMessage"),
     "success",
-    `${created} transaksi disimpan. ${duplicate} duplikat dilewati.${
+    `${created} transaksi disimpan. ${duplicate} duplikat dilewati.${openingCreated?` ${openingCreated} saldo awal disertakan sebagai dasar saldo Dompet.`:''}${
       rulesChanged
         ? " Koreksi kategori merchant sudah dipelajari."
         : ""
@@ -1817,7 +1849,7 @@ async function handleScanReviewClick(event) {
         : ""
     }`
   );
-  } finally {scanSaving=false;renderScanCandidates();}
+  } finally {scanSaving=false;renderScanCandidates();renderStatementSummaries();}
 }
 
 let authGeneration=0;

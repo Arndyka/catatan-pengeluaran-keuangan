@@ -3,6 +3,93 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test.describe('scanner selection regression',()=>{
+test.use({serviceWorkers:'block'});
+test('opening import respects incoming transfer direction and skips same-account pocket movements',async({page})=>{
+ const candidates=[{bank:'bca',type:'transfer',amount:20,signedAmount:20,sourceAccountId:'asset-mandiri',destinationAccountId:'asset-bca',internalMovement:true,merchant:'Incoming own transfer'},{bank:'bca',type:'expense',amount:5,signedAmount:-5,sourceAccountId:'asset-bca',merchant:'Purchase'},{bank:'krom',type:'transfer',amount:10,signedAmount:0,sourceAccountId:'asset-krom',destinationAccountId:'asset-krom',internalMovement:true,merchant:'Same-account pockets'}].map((t,i)=>({...t,date:'2026-10-02',sourceFile:'synthetic.pdf',sourceHash:'synthetic-hash',sourcePage:1,sourceRow:i+1,selected:!t.internalMovement}));
+ const statement={fileName:'synthetic.pdf',bank:'bca',pageCount:1,nativePages:1,metadata:{periodStart:'2026-10-01',periodEnd:'2026-10-19',openingBalance:100,incomingTotal:20,outgoingTotal:5,closingBalance:115},reconciliation:{balanced:true}};
+ await page.route('**/assets/js/scanner.js*',route=>route.fulfill({contentType:'text/javascript',body:`export async function scanStatementFiles(){return ${JSON.stringify({candidates,statements:[statement],excluded:[]})};}`}));
+ await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.transactions=[];localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});await page.reload();await waitForDemo(page);
+ await page.evaluate(()=>location.hash='scanner');await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-index]')).toHaveCount(3);await expect(page.locator('[data-scan-index="2"] [data-scan-field=selected]')).toBeDisabled();
+ await page.locator('#selectAllScanCandidates').click();await expect(page.locator('[data-scan-field=selected]:checked')).toHaveCount(2);
+ await page.locator('#saveScanCandidates').click();await expect(page.locator('#scanMessage')).toContainText('2 transaksi disimpan');await expect(page.locator('#scanMessage')).toContainText('1 saldo awal');
+ const ledger=await page.evaluate(async()=>{const {deriveLedger}=await import('/assets/js/accounting.js');return deriveLedger(JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions);});
+ expect(ledger.accounts.find(a=>a.accountId==='asset-bca').balance).toBe(115);
+});
+});
+
+test('an opening-only selection keeps a reachable Save action after removing movement candidates',async({page,context})=>{
+ await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.transactions=[];localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});await page.reload();await waitForDemo(page);
+ await page.evaluate(()=>location.hash='scanner');await page.locator('#scanInput').setInputFiles({name:'synthetic-empty-selection.pdf',mimeType:'application/pdf',buffer:await statementPdf(context)});await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-index]')).toHaveCount(2);await page.locator('[data-remove-scan]').first().click();await page.locator('[data-remove-scan]').first().click();
+ await expect(page.locator('[data-scan-index]')).toHaveCount(0);await expect(page.locator('#saveScanCandidates')).toBeVisible();await page.locator('#saveScanCandidates').click();
+ await expect(page.locator('#scanMessage')).toContainText('1 saldo awal');
+});
+
+test('PayLater editor permits a note correction without changing a linked bill',async({page})=>{
+ await page.evaluate(async()=>{const {buildTransaction}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.transactions=[await buildTransaction({type:'credit_payment',date:'2026-10-10',amount:100,sourceAccountId:'asset-bca',destinationAccountId:'liability-mandiri-cc',merchant:'Linked payment',sourceMeta:{paylaterBillId:'synthetic-bill'}},d.settings.profile)];localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='transactions');
+ await page.getByRole('button',{name:'Edit',exact:true}).click();await expect(page.locator('#transactionEditForm [name=amount]')).toBeDisabled();
+ await page.locator('#transactionEditForm [name=description]').fill('Corrected note');await page.locator('#transactionEditForm [type=submit]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();
+ await expect(page.locator('[data-history-row]')).toContainText('Corrected note');
+});
+
+test('statement import includes opening balance once and supports recovering a missing baseline',async({page,context})=>{
+ await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.transactions=[];d.settings.profile.hideBalanceDefault=false;localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='scanner');
+ const upload={name:'synthetic-opening.pdf',mimeType:'application/pdf',buffer:await statementPdf(context)};
+ await page.locator('#scanInput').setInputFiles(upload);await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-index]')).toHaveCount(2);
+ await expect(page.locator('[data-scan-opening]')).toBeChecked();
+ await page.locator('#selectAllScanCandidates').click();await page.locator('#saveScanCandidates').click();
+ await expect(page.locator('#scanMessage')).toContainText('1 saldo awal disertakan');
+ await page.evaluate(()=>location.hash='wallets');await expect(page.locator('[data-wallet-account=asset-bca]>strong')).toHaveText('Rp 879,75');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.length)).toBe(3);
+ await page.evaluate(()=>location.hash='scanner');await page.locator('#scanInput').setInputFiles(upload);await page.locator('#scanButton').click();
+ await expect(page.locator('#statementSummaryContainer')).toContainText('Saldo awal BCA sudah tercatat');
+ await expect(page.locator('[data-scan-field=selected]:disabled')).toHaveCount(2);
+ // Older imports have only movements: re-scan can add the missing baseline without re-importing them.
+ await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.transactions=d.transactions.filter(t=>t.type!=='opening_balance');localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='scanner');
+ await page.locator('#scanInput').setInputFiles(upload);await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-field=selected]:disabled')).toHaveCount(2);await expect(page.locator('[data-scan-opening]')).toBeChecked();
+ await page.locator('#saveScanCandidates').click();await expect(page.locator('#scanMessage')).toContainText('0 transaksi disimpan');await expect(page.locator('#scanMessage')).toContainText('1 saldo awal disertakan');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.length)).toBe(3);
+});
+
+test('transaction editing replaces one record and shows opening cash without counting income',async({page})=>{
+ await page.evaluate(async()=>{const {buildTransaction}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.settings.profile.hideBalanceDefault=false;d.transactions=[await buildTransaction({type:'opening_balance',date:'2026-10-01',amount:1000,sourceAccountId:'asset-bca'},d.settings.profile),await buildTransaction({type:'expense',date:'2026-10-02',amount:100,sourceAccountId:'asset-bca',merchant:'Correction example'},d.settings.profile)];localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='transactions');
+ const row=page.locator('[data-history-row]').filter({hasText:'Correction example'});
+ await row.getByRole('button',{name:'Edit',exact:true}).click();
+ await page.locator('#transactionEditForm [name=amount]').fill('125.25');await page.locator('#transactionEditForm [type=submit]').click();
+ await expect(page.locator('#spendlyDialog')).not.toBeVisible();await expect(row).toContainText('125,25');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.length)).toBe(2);
+ await page.locator('#transactionBookkeeping').check();
+ await page.locator('[data-history-row]').filter({hasText:'Saldo Awal'}).getByRole('button',{name:'Edit',exact:true}).click();
+ await page.locator('#transactionEditForm [name=amount]').fill('1500');await page.locator('#transactionEditForm [type=submit]').click();
+ await expect(page.locator('#spendlyDialog')).not.toBeVisible();
+ await page.evaluate(()=>location.hash='dashboard');await expect(page.locator('#cashPositionCard')).toContainText('1.374,75');
+ await expect(page.locator('#modernStats')).toContainText('Pemasukan bulan ini');
+ await page.evaluate(()=>location.hash='wallets');await expect(page.locator('[data-wallet-account=asset-bca]>strong')).toHaveText('Rp 1.374,75');
+});
+
+test('phone scan can select collapsed new and review rows; unresolved matches cannot be saved',async({page})=>{
+ await page.setViewportSize({width:390,height:844});
+ await page.evaluate(async()=>{const {buildTransaction}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.transactions=[await buildTransaction({type:'expense',date:'2026-10-13',amount:76543,sourceAccountId:'asset-bca',merchant:'Different receipt'},d.settings.profile)];localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
+ await page.reload();await waitForDemo(page);
+ await localOcr(page,'BCA Mutasi rekening\n13/10/2026 Mobile scan -76.543,00\n14/10/2026 Pembelian kedua -20.000,00');
+ await page.evaluate(()=>location.hash='scanner');await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ const row=page.locator('[data-scan-index="0"]');await expect(row).toContainText('Mobile scan');
+ await page.locator('#clearAllScanCandidates').click();await row.locator('[data-scan-field=selected]').check();
+ await expect(row).toHaveAttribute('data-scan-expanded','false');
+ await page.locator('#selectAllScanCandidates').click();await expect(page.locator('[data-scan-field=selected]:checked')).toHaveCount(2);
+ await page.locator('#saveScanCandidates').click();await expect(page.locator('#scanMessage')).toContainText('transaksi mirip');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.length)).toBe(1);
+ await expect(row).toHaveAttribute('data-scan-expanded','true');await row.locator('[data-scan-field=importDecision]').selectOption('skip');
+ await page.locator('#saveScanCandidates').click();await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
+});
+
 test('bank statement separates future installments from the current bill and protects amounts',async({page})=>{
  await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.settings.profile.hideBalanceDefault=false;d.settings.credit_card.issuerSnapshot={accountId:d.settings.credit_card.cardAccountId,asOfDate:'2026-10-19',dueDate:'2026-10-28',currentBillIncluded:true,runningTotal:500.25,currentBill:300,availableCredit:99.5,remainingInstallments:1000,installmentsIncludedInRunningTotal:false,statementDate:'2026-10-08',minimumPayment:20,installmentThisMonth:125,installments:[{name:'Purchase A',monthly:125,tenor:10,billedCount:2,remainingPrincipal:1000}]};localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
  await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='credit-card');
@@ -278,7 +365,7 @@ test('native blu PDF keeps cent amounts editable and unknown transfer accounts b
  await expect(transfer.locator('[data-scan-field="selected"]')).not.toBeChecked();
  await interest.locator('[data-scan-field="selected"]').check();await page.locator('#saveScanCandidates').click();
  await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
- const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.filter(tx=>tx.sourceMeta?.fileName==='synthetic-blu.pdf'));
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.filter(tx=>tx.sourceMeta?.fileName==='synthetic-blu.pdf'&&tx.type!=='opening_balance'));
  expect(saved).toHaveLength(1);expect(saved[0].amount).toBe(0.31);
  await page.locator('#scanInput').setInputFiles(upload);await page.locator('#scanButton').click();
  await expect(interest.locator('[data-scan-field="selected"]')).toBeDisabled();
@@ -470,7 +557,7 @@ test('new expense changes monthly spending, persists, and deletion restores it',
  await expect(row).toContainText('123.456');
  expect(await page.locator('#modernStats strong').allTextContents()).not.toEqual(before);
  page.once('dialog',dialog=>dialog.accept());
- await row.locator('button').click();
+ await row.getByRole('button',{name:'Hapus',exact:true}).click();
  await expect(row).toHaveCount(0);
  expect(await page.locator('#modernStats strong').allTextContents()).toEqual(before);
 });
@@ -586,10 +673,11 @@ for(const width of [1440,390]) test(`ambiguous imports require an explicit decis
  await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
  await page.locator('#scanInput').setInputFiles('assets/icon-512.png');await page.locator('#scanButton').click();
  await expect(page.locator('#scanReviewContainer')).toContainText('Mirip');
- await expect(page.locator('[data-scan-field="selected"]')).toBeDisabled();
+ await expect(page.locator('[data-scan-field="selected"]')).toBeEnabled();
+ await page.locator('[data-scan-field="selected"]').check();await page.locator('#saveScanCandidates').click();await expect(page.locator('#scanMessage')).toContainText('transaksi mirip');
  if(width===390){
   await expect(page.locator('.scan-mobile-summary')).toContainText('Mirip');
-  await page.locator('[data-toggle-scan="0"]').click();
+  await expect(page.locator('[data-scan-index="0"]')).toHaveAttribute('data-scan-expanded','true');
  }
  await page.locator('[data-scan-field="importDecision"]').selectOption('skip');
  await expect(page.locator('[data-scan-field="selected"]')).not.toBeChecked();
@@ -597,7 +685,8 @@ for(const width of [1440,390]) test(`ambiguous imports require an explicit decis
  await expect(page.locator('[data-scan-field="selected"]')).toBeChecked();
  await page.locator('[data-scan-field="amount"]').fill('87655');await page.locator('[data-scan-field="amount"]').blur();
  await page.locator('[data-scan-field="amount"]').fill('87654');await page.locator('[data-scan-field="amount"]').blur();
- await expect(page.locator('[data-scan-field="selected"]')).toBeDisabled();
+ await expect(page.locator('[data-scan-field="selected"]')).toBeEnabled();
+ await expect(page.locator('[data-scan-field="importDecision"]')).toHaveValue('');
  await page.locator('[data-scan-field="importDecision"]').selectOption('new');
  await page.locator('#saveScanCandidates').click();await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
  const data=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')));

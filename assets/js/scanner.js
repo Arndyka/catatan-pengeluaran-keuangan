@@ -2726,7 +2726,7 @@ export async function scanStatementFiles({
       const sourceHash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
       for(const item of result.candidates){const reason=scanExclusionReason(item);if(reason)excluded.push({fileName:file.name,page:item.sourcePage,reason});else candidates.push({...item,sourceHash});}
       if(result.statement.excludedCount)excluded.push({fileName:file.name,reason:`${result.statement.excludedCount} baris AI bukan transaksi selesai atau tidak cukup terbaca.`});
-      statements.push(result.statement);
+      statements.push({...result.statement,sourceHash});
     }
   } finally {
     if (ocrWorker) {
