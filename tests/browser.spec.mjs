@@ -16,6 +16,8 @@ test('latest transactions and ordinary history hide bookkeeping but exact review
  await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='dashboard');
  await expect(page.locator('#recentTransactions .transaction-row')).toHaveCount(3);
  await expect(page.locator('#recentTransactions .transaction-row').first()).toContainText('Pelanggan sore');
+ await expect(page.locator('#recentTransactions [data-history-transaction="late"] .transaction-account')).toHaveText('Masuk ke BCA');
+ await expect(page.locator('#recentTransactions [data-history-transaction="old"] .transaction-account')).toHaveText('Keluar dari BCA');
  await page.locator('#recentTransactions [data-history-transaction="late"]').click();
  await expect(page.locator('[data-history-row]')).toHaveCount(1);await expect(page.locator('[data-history-row="late"]')).toBeVisible();
  await page.locator('#clearHistoryContext').click();await expect(page.locator('[data-history-row]')).toHaveCount(3);

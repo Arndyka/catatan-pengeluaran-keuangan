@@ -47,6 +47,18 @@ test('signs distinguish receipts, payments, internal transfers, adjustments and 
  assert.equal(filterTransactions([settled],{status:'unmapped'},reviewAccounts).length,0);
  assert.equal(filterTransactions([settled],{status:'settled'},reviewAccounts).length,1);
 });
+
+test('activity account labels name the actual receiving or paying account without treating credit as cash',()=>{
+ assert.equal(transactionPresentation(income,reviewAccounts).accountLabel,'Masuk ke Bank A');
+ assert.equal(transactionPresentation(expense,reviewAccounts).accountLabel,'Keluar dari Bank A');
+ assert.equal(transactionPresentation(txs[0],reviewAccounts).accountLabel,'Bank A → Bank B');
+ assert.equal(transactionPresentation({...expense,type:'credit_purchase',sourceAccountId:'cc'},reviewAccounts).accountLabel,'Dibebankan ke Kartu');
+ assert.equal(transactionPresentation({type:'credit_payment',sourceAccountId:'a',destinationAccountId:'cc'},reviewAccounts).accountLabel,'Bank A → Kartu');
+ assert.equal(transactionPresentation(pending,reviewAccounts).accountLabel,'Masuk ke Bank A · sumber belum dirinci');
+ assert.equal(transactionPresentation({...pending,sourceAccountId:'a',destinationAccountId:'clear'},reviewAccounts).accountLabel,'Keluar dari Bank A · tujuan belum dirinci');
+ assert.equal(transactionPresentation({...pending,sourceAccountId:'a',destinationAccountId:'clear',sourceMeta:{loanSettled:true}},reviewAccounts).accountLabel,'Keluar dari Bank A · pinjaman lunas');
+ assert.equal(transactionPresentation({...income,sourceAccountId:'missing'},reviewAccounts).accountLabel,'Masuk ke rekening belum dipetakan');
+});
 test('cash filters never count a credit purchase and its repayment as two cash payments',()=>{
  const purchase={type:'credit_purchase',sourceAccountId:'cc',amount:40,journal:[{accountId:'cc',debit:0,credit:40},{accountId:'expense',accountType:'expense',debit:40,credit:0}]};
  const payment={type:'credit_payment',sourceAccountId:'a',destinationAccountId:'cc',amount:40,journal:[{accountId:'a',debit:0,credit:40},{accountId:'cc',debit:40,credit:0}]};

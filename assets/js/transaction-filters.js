@@ -24,6 +24,13 @@ export function transactionPresentation(t,accounts=[],accountId='all'){
  if(['expense','credit_purchase'].includes(t.type))destination='external';
  const settled=!!t.sourceMeta?.loanSettled;
  const label=id=>id==='external'?party:id==='unmapped'?`${party} · ${settled?'pinjaman lunas (arsip)':'belum dirinci'}`:byId.get(id)?.name||'—';
+ const accountName=id=>byId.get(id)?.name||'rekening belum dipetakan';
+ const accountLabel=t.type==='income'?`Masuk ke ${accountName(destination)}`:
+  t.type==='expense'?`Keluar dari ${accountName(source)}`:
+  t.type==='credit_purchase'?`Dibebankan ke ${accountName(source)}`:
+  source==='unmapped'?`Masuk ke ${accountName(destination)} · ${settled?'pinjaman lunas':'sumber belum dirinci'}`:
+  destination==='unmapped'?`Keluar dari ${accountName(source)} · ${settled?'pinjaman lunas':'tujuan belum dirinci'}`:
+  destination?`${accountName(source)} → ${accountName(destination)}`:`Rekening: ${accountName(source)}`;
  const unmapped=!settled&&!isAdjustment(t)&&(source==='unmapped'||destination==='unmapped');
  const pending=!settled&&(!!t.sourceMeta?.pendingAllocation||unmapped);
  let delta=0;
@@ -40,7 +47,7 @@ export function transactionPresentation(t,accounts=[],accountId='all'){
   return (!accountId||accountId==='all'||j.accountId===accountId)&&(a?.type||j.accountType)==='asset'&&!['clearing','investment'].includes(a?.subtype||j.accountSubtype);
  }).reduce((n,j)=>n+Math.round(j.debit*100)-Math.round(j.credit*100),0);
  const sign=isAdjustment(t)?'':delta?(liability?(delta>0?'−':'+'):(delta>0?'+':'−')):['transfer','investment'].includes(t.type)?'↔':'';
- return {source,destination,sourceLabel:label(source),destinationLabel:label(destination),pending,unmapped,settled,delta,cashDelta,sign,
+ return {source,destination,sourceLabel:label(source),destinationLabel:label(destination),accountLabel,pending,unmapped,settled,delta,cashDelta,sign,
   tone:delta>0?'positive':delta<0?'negative':'neutral',
   directionLabel:isAdjustment(t)?'Di luar aktivitas':!liability&&t.type==='credit_purchase'?'Belanja kredit · non-tunai':delta?(liability?(delta>0?'Utang berkurang':'Utang bertambah'):(delta>0?'Uang masuk':'Uang keluar')):'Transfer antar akun'};
 }

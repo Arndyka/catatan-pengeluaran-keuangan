@@ -119,6 +119,7 @@ html{scroll-behavior:smooth;scroll-padding-bottom:110px}body{font-family:'Segoe 
 @media(prefers-reduced-motion:reduce){.paylater-bill{animation:none}}
 .transaction-link{width:100%;background:transparent;color:var(--text);border:0;border-bottom:1px solid var(--line);font:inherit;text-align:left;cursor:pointer;transition:background .18s ease}
 .transaction-link:hover{background:var(--soft)}.transaction-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:10px}
+.transaction-copy .transaction-account{font-size:11px;line-height:1.5;color:var(--text);white-space:normal;overflow-wrap:anywhere}
 .history-bookkeeping-toggle{display:flex;align-items:center;gap:10px;min-height:44px;font-size:13px;color:var(--muted);cursor:pointer}
 .history-bookkeeping-toggle input{width:18px;height:18px;flex-shrink:0;accent-color:var(--accent)}.history-bookkeeping-note{margin:0 0 16px;font-size:12px}
 .history-review-context{display:flex;align-items:start;justify-content:space-between;gap:20px;background:var(--soft);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px;overflow-wrap:anywhere}
