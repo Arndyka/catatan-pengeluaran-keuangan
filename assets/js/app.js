@@ -13,7 +13,7 @@ import { loadUserSettings, saveCreditSettings, saveProfileSettings, addAccount, 
 import { listenTransactions, deleteTransaction, deleteAllTransactions, listenRecurringRules, getBudgetPlan, saveBudgetPlan, migrateLegacyCollections } from "./repository.js";
 import { saveTransaction, transactionTypeLabel } from "./transactions.js";
 import { budgetAnalysis,validateBudgetItem } from "./budget.js";
-import { creditCardSnapshot } from "./credit-card.js";
+import { creditCardSnapshot, confirmedCardSnapshot } from "./credit-card.js";
 import { buildMonthlyReport } from "./reports.js";
 import { scanStatementFiles } from "./scanner.js?v=statements-20261016";
 
@@ -316,9 +316,9 @@ function renderCreditCard() {
     state.creditSettings
   );
 
-  $("ccLimit").textContent = money(snapshot.limit);
+  $("ccLimit").textContent = state.creditSettings.limitConfirmed===false?'Belum dikonfirmasi':money(snapshot.limit);
   $("ccUsed").textContent = money(snapshot.used);
-  $("ccAvailable").textContent = money(snapshot.available);
+  $("ccAvailable").textContent = state.creditSettings.limitConfirmed===false?'Belum dikonfirmasi':money(snapshot.available);
   $("ccBilled").textContent = money(snapshot.billed);
   $("ccUnbilled").textContent = money(snapshot.unbilled);
   $("ccInstallment").textContent = money(snapshot.installmentThisMonth);
@@ -365,6 +365,26 @@ function renderCreditCard() {
       <strong>${money(snapshot.reconciliationDifference)}</strong>
     </div>
   `;
+
+  const confirmed=confirmedCardSnapshot(state.creditSettings);
+  $('ccUsed').previousElementSibling.textContent=confirmed?'Total tagihan berjalan':'Limit Terpakai';
+  $('ccUnbilled').previousElementSibling.textContent=confirmed?'Belum masuk tagihan saat ini':'Tagihan Berjalan';
+  $('ccBilled').previousElementSibling.textContent=confirmed?'Tagihan saat ini':'Tagihan Tercetak';
+  $('ccBankSnapshotNote').classList.toggle('hidden',!confirmed);
+  if(confirmed){
+    const observedDate=formatDateId(parseLocalDate(confirmed.asOfDate));
+    $('ccBankSnapshotNote').textContent=`Data bank per ${observedDate}. Tagihan saat ini sudah termasuk total tagihan berjalan. Angka snapshot tidak otomatis berubah setelah transaksi baru; cocokkan kembali dengan bank. ${confirmed.limit===null?'Total limit, rincian cicilan, dan pembayaran minimum belum dikonfirmasi.':'Rincian cicilan dan pembayaran minimum belum dikonfirmasi.'}`;
+    $('ccLimit').textContent=confirmed.limit===null?'Belum dikonfirmasi':money(confirmed.limit);
+    $('ccUsed').textContent=money(confirmed.runningTotal);
+    $('ccAvailable').textContent=money(confirmed.availableCredit);
+    $('ccBilled').textContent=money(confirmed.currentBill);
+    $('ccUnbilled').textContent=money(confirmed.unbilled);
+    $('ccMinimum').textContent='Cek e-Billing';
+    $('ccInstallment').textContent='Belum dikonfirmasi';
+    $('ccDueDate').textContent=formatDateId(parseLocalDate(confirmed.dueDate));
+    $('ccCycleSummary').innerHTML=[['Data bank terakhir',observedDate],['Jatuh tempo dari bank',formatDateId(parseLocalDate(confirmed.dueDate))],['Tanggal cetak','Belum dikonfirmasi']].map(([label,value])=>`<div class="summary-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
+    $('creditReconcileSummary').innerHTML=`<p class="helper-note">Saldo kewajiban jurnal dibandingkan dengan total tagihan berjalan pada tanggal snapshot. Selisih sesudah tanggal tersebut dapat berasal dari transaksi baru. Snapshot bukan tambahan beban belanja.</p><div class="summary-row"><span>Kewajiban jurnal terkini</span><strong>${money(snapshot.used)}</strong></div><div class="summary-row"><span>Total tagihan bank per ${observedDate}</span><strong>${money(confirmed.runningTotal)}</strong></div><div class="summary-row"><span>Selisih</span><strong>${money(snapshot.used-confirmed.runningTotal)}</strong></div>`;
+  }
 
   if($("creditReconcileForm").contains(document.activeElement))return;
   $("officialStatementAmount").value =
@@ -454,6 +474,7 @@ function renderReports() {
     ["Arus Kas Investasi Bersih", report.cashFlow.netInvesting],
     ["Transfer belum terklasifikasi", report.cashFlow.otherNet],
     ["Saldo awal kas (bukan arus kas)", report.cashFlow.openingAdjustments],
+    ["Penyesuaian saldo (bukan arus kas)", report.cashFlow.balanceAdjustments],
     ["Pembayaran Liabilitas", -report.cashFlow.financingOutflow],
     ["Perubahan Kas Bersih", report.cashFlow.netCashFlow]
   ].map(([label, value]) => `
@@ -551,6 +572,7 @@ function csvFromReport() {
     ["Investasi Bersih", report.cashFlow.netInvesting],
     ["Transfer belum terklasifikasi", report.cashFlow.otherNet],
     ["Saldo awal kas (bukan arus kas)", report.cashFlow.openingAdjustments],
+    ["Penyesuaian saldo (bukan arus kas)", report.cashFlow.balanceAdjustments],
     ["Pembayaran Liabilitas", -report.cashFlow.financingOutflow],
     ["Perubahan Kas Bersih", report.cashFlow.netCashFlow]
   ];
@@ -676,7 +698,7 @@ function setupEvents() {
   $("creditReconcileForm").addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const next={...state.creditSettings,officialStatementAmount:Number($("officialStatementAmount").value||0),officialStatementDate:$("officialStatementDate").value,officialDueDate:$("officialDueDate").value,reconciliationNote:cleanText($("reconciliationNote").value)};
+    const next={...state.creditSettings,issuerSnapshot:null,previousIssuerSnapshot:state.creditSettings.issuerSnapshot||state.creditSettings.previousIssuerSnapshot||null,officialStatementAmount:Number($("officialStatementAmount").value||0),officialStatementDate:$("officialStatementDate").value,officialDueDate:$("officialDueDate").value,reconciliationNote:cleanText($("reconciliationNote").value)};
     const uid=state.user.uid,button=event.target.querySelector('button[type="submit"]');button.disabled=true;
     try{await saveCreditSettings(uid,next);if(state.user?.uid!==uid)return;state.creditSettings=next;setNotice($("creditReconcileMessage"),'success','Rekonsiliasi kartu kredit disimpan.');renderCreditCard();}catch(error){setNotice($("creditReconcileMessage"),'error',error.message);}finally{button.disabled=false;}
   });
@@ -749,6 +771,7 @@ function setupEvents() {
     event.preventDefault();
 
     const next={...state.creditSettings,limit:Number($("ccLimitInput").value),statementDay:Number($("ccStatementDayInput").value),dueDays:Number($("ccDueDaysInput").value),reminderDays:Number($("ccReminderDaysInput").value),minimumPaymentPercent:Number($("ccMinimumPercentInput").value),minimumPaymentFloor:Number($("ccMinimumFloorInput").value)};
+    if(next.limit!==state.creditSettings.limit||next.limit>0)next.limitConfirmed=true;
     const uid=state.user.uid,button=event.target.querySelector('button[type="submit"]');button.disabled=true;
     try{await saveCreditSettings(uid,next);if(state.user?.uid!==uid)return;state.creditSettings=next;setNotice($("creditSettingsMessage"),'success','Pengaturan kartu kredit berhasil disimpan.');renderAll();}catch(error){setNotice($("creditSettingsMessage"),'error',error.message);}finally{button.disabled=false;}
   });

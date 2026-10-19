@@ -3,6 +3,38 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('confirmed card totals are dated, inclusive, private and fit small screens',async({page})=>{
+ await page.evaluate(()=>{
+  const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));
+  d.settings.profile.hideBalanceDefault=false;
+  d.settings.credit_card.limit=0;d.settings.credit_card.limitConfirmed=false;
+  d.settings.credit_card.issuerSnapshot={accountId:d.settings.credit_card.cardAccountId,asOfDate:'2026-10-19',runningTotal:500.25,currentBill:300,availableCredit:99.5,dueDate:'2026-10-28',currentBillIncluded:true};
+  localStorage.setItem('spendly:demo:v1',JSON.stringify(d));
+ });
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='credit-card');
+ await expect(page.locator('#ccBankSnapshotNote')).toContainText('19 Oktober 2026');
+ await expect(page.locator('#ccUsed')).toContainText('500,25');
+ await expect(page.locator('#ccBilled')).toContainText('300');
+ await expect(page.locator('#ccUnbilled')).toContainText('200,25');
+ await expect(page.locator('#ccAvailable')).toContainText('99,5');
+ await expect(page.locator('#ccLimit')).toHaveText('Belum dikonfirmasi');
+ await expect(page.locator('#ccDueDate')).toHaveText('28 Oktober 2026');
+ for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ await page.locator('#toggleBalanceButton').click();
+ for(const id of ['ccUsed','ccBilled','ccUnbilled','ccAvailable'])await expect(page.locator('#'+id)).not.toContainText(/\d/);
+ await expect(page.locator('#creditReconcileSummary')).not.toContainText('500,25');
+ await page.locator('#toggleBalanceButton').click();
+ await page.locator('#officialStatementAmount').fill('250');
+ await page.locator('#officialStatementDate').fill('2026-10-07');
+ await page.locator('#officialDueDate').fill('2026-10-27');
+ await page.locator('#creditReconcileForm button[type="submit"]').click();
+ await expect(page.locator('#creditReconcileMessage')).toContainText('disimpan');
+ await expect(page.locator('#ccBankSnapshotNote')).toBeHidden();
+ await expect(page.locator('#ccBilled')).toContainText('250');
+ await expect(page.locator('#ccLimit')).toHaveText('Belum dikonfirmasi');
+ await expect(page.locator('#ccAvailable')).toHaveText('Belum dikonfirmasi');
+});
+
 
 async function localOcr(page,text){
  await page.evaluate(text=>{window.Tesseract={createWorker:async()=>({setParameters:async()=>{},recognize:async()=>({data:{text}}),terminate:async()=>{}})};},text);

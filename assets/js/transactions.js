@@ -13,6 +13,7 @@ export async function saveTransaction(uid, input, settings) {
 export function transactionTypeLabel(type) {
   const labels = {
     opening_balance: "Saldo Awal",
+    balance_adjustment: "Penyesuaian Saldo",
     income: "Pemasukan",
     expense: "Pengeluaran",
     transfer: "Transfer",

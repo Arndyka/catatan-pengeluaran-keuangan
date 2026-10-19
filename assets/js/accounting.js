@@ -94,6 +94,11 @@ export function buildJournal(input, settings) {
   };
 
   switch (input.type) {
+    case "balance_adjustment": {
+      const equity={id:'equity-reconciliation',name:'Penyesuaian saldo terkonfirmasi',type:'equity',subtype:'reconciliation'};
+      const debit=(source.type==='asset')===(input.adjustmentDirection==='increase');
+      return debit?[accountEntry(source,amount,0),accountEntry(equity,0,amount)]:[accountEntry(equity,amount,0),accountEntry(source,0,amount)];
+    }
     case "opening_balance": {
       const equity={id:'equity-opening',name:'Saldo awal',type:'equity',subtype:'opening'};
       return source.type==='asset'?[accountEntry(source,amount,0),accountEntry(equity,0,amount)]:[accountEntry(equity,amount,0),accountEntry(source,0,amount)];
@@ -180,7 +185,9 @@ export async function buildTransaction(input, settings) {
   }
   const source=accountById(settings,input.sourceAccountId),target=accountById(settings,input.destinationAccountId);
   if(!source||source.active===false)throw new Error('Pilih rekening sumber/penerima yang aktif.');
-  if(input.type==='opening_balance'){
+  if(input.type==='balance_adjustment'){
+    if(!['asset','liability'].includes(source.type)||source.subtype==='clearing'||!['increase','decrease'].includes(input.adjustmentDirection)||!cleanText(input.description))throw new Error('Penyesuaian memerlukan akun, arah koreksi, dan alasan yang jelas.');
+  }else if(input.type==='opening_balance'){
     if(!['asset','liability'].includes(source.type)||source.subtype==='clearing')throw new Error('Saldo awal memerlukan akun aset atau kewajiban.');
   }else if(input.type==='credit_purchase'){
     if(source.type!=='liability'||!['credit_card','paylater'].includes(source.subtype))throw new Error('Pilih akun kartu kredit atau PayLater untuk belanja kredit.');
@@ -195,6 +202,7 @@ export async function buildTransaction(input, settings) {
 
   const normalized = {
     type: input.type,
+    ...(input.type==='balance_adjustment'?{adjustmentDirection:input.adjustmentDirection}:{}),
     date,
     amount,
     sourceAccountId: input.sourceAccountId || "",
@@ -240,6 +248,7 @@ export async function buildTransaction(input, settings) {
   if(input.importIdentity) fingerprintPayload={importIdentity:String(input.importIdentity),type:normalized.type,date,amount,sourceAccountId:normalized.sourceAccountId,destinationAccountId:normalized.destinationAccountId};
   if(input.recurringRuleId) fingerprintPayload={recurringRuleId:input.recurringRuleId,period:input.recurringPeriod||date.slice(0,7)};
   if(input.type==='opening_balance')fingerprintPayload={openingBalance:source.id};
+  if(input.type==='balance_adjustment')fingerprintPayload={...fingerprintPayload,adjustmentDirection:normalized.adjustmentDirection};
 
   const fingerprint = await sha256(canonicalJson(fingerprintPayload));
 
@@ -362,11 +371,12 @@ export function cashFlowStatement(transactions, month, settings) {
     const account=settings?.accounts?.find(a=>a.id===entry.accountId);
     return (account?.type||entry.accountType)==='asset'&&!['investment','clearing'].includes(account?.subtype||entry.accountSubtype);
   };
-  let operatingInflow=0,operatingOutflow=0,investingInflow=0,investingOutflow=0,financingOutflow=0,otherNet=0,openingAdjustments=0;
+  let operatingInflow=0,operatingOutflow=0,investingInflow=0,investingOutflow=0,financingOutflow=0,otherNet=0,openingAdjustments=0,balanceAdjustments=0;
   for(const tx of actualTransactions(transactions).filter(tx=>tx.date.startsWith(month))){
     const entries=journalEntries(tx.journal);
     const delta=entries.filter(cashEntry).reduce((n,j)=>n+cents(j.debit)-cents(j.credit),0)/100;
     if(tx.type==='opening_balance'){openingAdjustments+=delta;continue;}
+    if(tx.type==='balance_adjustment'){balanceAdjustments+=delta;continue;}
     if(!delta)continue;
     const investment=entries.some(j=>(settings?.accounts?.find(a=>a.id===j.accountId)?.subtype||j.accountSubtype)==='investment');
     if(investment){if(delta>0)investingInflow+=delta;else investingOutflow-=delta;}
@@ -374,7 +384,7 @@ export function cashFlowStatement(transactions, month, settings) {
     else if(tx.type==='income'||tx.type==='expense'){if(delta>0)operatingInflow+=delta;else operatingOutflow-=delta;}
     else otherNet+=delta;
   }
-  const values={operatingInflow,operatingOutflow,investingInflow,investingOutflow,financingOutflow,otherNet,openingAdjustments,netOperating:operatingInflow-operatingOutflow,netInvesting:investingInflow-investingOutflow,netCashFlow:operatingInflow-operatingOutflow+investingInflow-investingOutflow-financingOutflow+otherNet};
+  const values={operatingInflow,operatingOutflow,investingInflow,investingOutflow,financingOutflow,otherNet,openingAdjustments,balanceAdjustments,netOperating:operatingInflow-operatingOutflow,netInvesting:investingInflow-investingOutflow,netCashFlow:operatingInflow-operatingOutflow+investingInflow-investingOutflow-financingOutflow+otherNet};
   return Object.fromEntries(Object.entries(values).map(([key,value])=>[key,roundMoney(value)]));
 }
 

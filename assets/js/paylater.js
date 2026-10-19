@@ -8,6 +8,7 @@ export function validatePaylaterPlan(input){
  if(!input)throw new Error('Data PayLater belum tersedia.');
  const plan={...input,name:String(input.name||'').trim(),limit:Number(input.limit),availableLimit:Number(input.availableLimit)};
  if(!plan.accountId||!plan.name||!validDate(plan.asOfDate)||!validMoney(plan.limit)||!validMoney(plan.availableLimit)||plan.availableLimit>plan.limit)throw new Error('Periksa nama, tanggal data, limit, dan sisa limit PayLater.');
+ if(plan.limitSnapshotDate&&(!validDate(plan.limitSnapshotDate)||plan.limitSnapshotDate<plan.asOfDate))throw new Error('Tanggal pembaruan limit PayLater tidak valid.');
  if(!Array.isArray(plan.bills)||!plan.bills.length)throw new Error('Isi setidaknya satu tagihan PayLater.');
  const ids=new Set();
  plan.bills=plan.bills.map(b=>{if(!b.id||ids.has(b.id)||!/^\d{4}-(0[1-9]|1[0-2])$/.test(b.period)||!validDate(b.dueDate)||!validMoney(b.amount)||Number(b.amount)<=0)throw new Error('ID tagihan harus unik; periksa periode, jatuh tempo, dan nominal.');ids.add(b.id);return {...b,amount:Number(b.amount)};});

@@ -266,6 +266,7 @@
             <div class="table-actions">
               <select id="transactionFilter" aria-label="Filter jenis transaksi">
                 <option value="all">Semua Tipe</option>
+                <option value="balance_adjustment">Penyesuaian Saldo</option>
                 <option value="income">Pemasukan</option>
                 <option value="expense">Pengeluaran</option>
                 <option value="transfer">Transfer</option>
@@ -366,6 +367,7 @@
       <section id="page-credit-card" class="page-section hidden">
         <div class="investment-tabs credit-view-tabs" role="group" aria-label="Jenis kewajiban"><button type="button" data-credit-view="bank" aria-pressed="true" class="active">Kartu kredit</button><button type="button" data-credit-view="paylater" aria-pressed="false">PayLater</button></div>
         <div id="creditBankView">
+        <p id="ccBankSnapshotNote" class="notice hidden"></p>
         <section class="stats-grid credit-stats">
           <article class="stat-card">
             <p>Total Limit</p>

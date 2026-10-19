@@ -170,7 +170,7 @@ export function renderExperience() {
 }
 function transactionList(items) {
  if(!items.length)return empty('Belum ada cerita uang.','Catat pemasukan atau pengeluaran pertamamu.','transaction','Catat transaksi');
- return items.map(tx=>`<div class="transaction-row"><span class="transaction-symbol ${tx.type==='income'?'mint':'coral'}">${icon(tx.type==='income'?'down':tx.type==='transfer'?'arrows':tx.type==='investment'?'chart':tx.category==='Makan'?'coffee':'bag')}</span><div class="transaction-copy"><strong>${e(tx.merchant || tx.category || 'Transaksi')}</strong><span>${e(tx.category)} · ${e(tx.date)}</span></div><strong class="transaction-value ${tx.type==='income'?'positive':''}">${state.hideBalances?'':tx.type==='income'?'+':tx.type==='expense'||tx.type==='credit_purchase'?'−':''}${money(tx.amount)}</strong></div>`).join('');
+ return items.map(tx=>`<div class="transaction-row"><span class="transaction-symbol ${tx.type==='income'?'mint':'coral'}">${icon(tx.type==='income'?'down':['transfer','balance_adjustment'].includes(tx.type)?'arrows':tx.type==='investment'?'chart':tx.category==='Makan'?'coffee':'bag')}</span><div class="transaction-copy"><strong>${e(tx.merchant || tx.category || 'Transaksi')}</strong><span>${e(tx.category)} · ${e(tx.date)}</span></div><strong class="transaction-value ${tx.type==='income'?'positive':''}">${state.hideBalances?'':tx.type==='income'?'+':tx.type==='expense'||tx.type==='credit_purchase'?'−':''}${money(tx.amount)}</strong></div>`).join('');
 }
 function renderChart(transactions,month) {
  const totalDays=new Date(Number(month.slice(0,4)),Number(month.slice(5)),0).getDate();
@@ -187,7 +187,7 @@ function walletBalanceEvidence(transactions){
   if(!latest.has(o.accountId)||latest.get(o.accountId).date<o.date)latest.set(o.accountId,o);
  }
  if(!latest.size)return '';
- return `<section id="walletReconciliation" class="panel balance-evidence"><p class="section-label">COCOKKAN DENGAN SUMBER</p><h2>Saldo dari bukti terakhir</h2><p class="helper-note">Snapshot dari bukti yang kamu berikan. Angka ini tidak mengganti jurnal atau membuat transaksi penyesuaian. Saldo aktif dapat berbeda dari saldo pembukuan karena dana tertahan atau mutasi yang belum tersedia.</p><div class="balance-evidence-grid">${[...latest.values()].map(o=>{
+ return `<section id="walletReconciliation" class="panel balance-evidence"><p class="section-label">COCOKKAN DENGAN SUMBER</p><h2>Saldo dari bukti terakhir</h2><p class="helper-note">Snapshot dari bukti yang kamu berikan. Snapshot tidak otomatis mengubah jurnal. Koreksi yang kamu konfirmasi dicatat terpisah sebagai Penyesuaian Saldo. Saldo aktif dapat berbeda dari saldo pembukuan karena dana tertahan atau mutasi yang belum tersedia.</p><div class="balance-evidence-grid">${[...latest.values()].map(o=>{
   const name=state.settings.accounts.find(a=>a.id===o.accountId).name;
   const ledgerCents=transactions.filter(t=>t.date<=o.date).flatMap(t=>journalEntries(t.journal)).filter(j=>j.accountId===o.accountId).reduce((n,j)=>n+Math.round(j.debit*100)-Math.round(j.credit*100),0);
   const difference=(Math.round(o.amount*100)-ledgerCents)/100;
@@ -197,8 +197,8 @@ function walletBalanceEvidence(transactions){
 function renderWallets(transactions) {
  const ledger=deriveLedger(transactions);
  const accounts=state.settings.accounts.filter(a=>a.active!==false || ledger.accounts.some(l=>l.accountId===a.id&&l.balance!==0)).map(a=>({...a,balance:ledger.accounts.find(l=>l.accountId===a.id)?.balance || 0}));
- const assets=accounts.filter(a=>a.type==='asset').reduce((n,a)=>n+a.balance,0);const debt=accounts.filter(a=>a.type==='liability').reduce((n,a)=>n+a.balance,0);
- $('walletOverview').innerHTML=`<div class="wallet-overview"><div><span>SALDO & ASET TERCATAT</span><strong>${money(assets)}</strong></div><div><span>KEWAJIBAN KARTU & AKUN</span><strong>${money(debt)}</strong></div><span class="wallet-decoration" aria-hidden="true">${icon('wallet')}</span></div>`+walletBalanceEvidence(transactions);
+ const assets=accounts.filter(a=>a.type==='asset'&&a.subtype!=='clearing').reduce((n,a)=>n+a.balance,0);const debt=accounts.filter(a=>a.type==='liability').reduce((n,a)=>n+a.balance,0);
+ $('walletOverview').innerHTML=`<div class="wallet-overview"><div><span>SALDO & ASET (DI LUAR TRANSFER BELUM DIPETAKAN)</span><strong>${money(assets)}</strong></div><div><span>KEWAJIBAN KARTU & AKUN</span><strong>${money(debt)}</strong></div><span class="wallet-decoration" aria-hidden="true">${icon('wallet')}</span></div>`+walletBalanceEvidence(transactions);
  const types={bank:'Rekening bank',cash:'Uang tunai',ewallet:'Dompet digital',investment:'Investasi',credit_card:'Kartu kredit',paylater:'PayLater',clearing:'Perlu dipetakan',other:'Lainnya'};
  $('walletCards').innerHTML=accounts.map((a,i)=>`<article class="wallet-card ${a.type==='liability'?'debt-card':''}"><div class="wallet-card-top">${accountBrand(a)}<span class="account-kind">${e(types[a.subtype]||a.type)}${a.active===false?' · Nonaktif':''}</span></div><h3>${e(a.name)}</h3><strong>${money(a.balance)}</strong><div class="wallet-card-bottom"><span>${a.subtype==='clearing'?'Periksa pemetaan transfer':'Saldo berdasarkan transaksi'}</span>${!a.system&&a.active!==false&&!state.transactions.some(tx=>tx.type==='opening_balance'&&tx.sourceAccountId===a.id)?`<button class="text-button" data-opening-account="${e(a.id)}" aria-label="Catat saldo awal ${e(a.name)}">Saldo awal ${icon('plus')}</button>`:icon(a.type==='liability'?'card':'wallet')}</div></article>`).join('');
 }

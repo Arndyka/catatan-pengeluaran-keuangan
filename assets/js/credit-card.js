@@ -3,6 +3,15 @@
 const cents = value => Math.round(Number(value || 0) * 100);
 const money = value => cents(value) / 100;
 
+// Bank observations are dated facts, not a new purchase or an inferred limit.
+export function confirmedCardSnapshot(settings,today=formatDateLocal()) {
+  const s=settings.issuerSnapshot;
+  if(!s||s.accountId!==settings.cardAccountId||!validDate(s.asOfDate)||s.asOfDate>today||!validDate(s.dueDate)||s.dueDate<s.asOfDate||s.currentBillIncluded!==true)return null;
+  if(![s.runningTotal,s.currentBill,s.availableCredit].every(v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&Number.isSafeInteger(cents(v)))||s.currentBill>s.runningTotal)return null;
+  const limit=settings.limitConfirmed===true&&typeof settings.limit==='number'&&Number.isFinite(settings.limit)&&settings.limit>=0?settings.limit:null;
+  return {...s,unbilled:money(s.runningTotal-s.currentBill),limit};
+}
+
 function numberSetting(value, fallback, min = 0, max = Infinity) {
   const number = Number(value ?? fallback);
   return Number.isFinite(number) && number >= min && number <= max ? number : fallback;
