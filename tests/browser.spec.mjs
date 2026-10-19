@@ -3,6 +3,15 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('bank statement separates future installments from the current bill and protects amounts',async({page})=>{
+ await page.evaluate(()=>{const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.settings.profile.hideBalanceDefault=false;d.settings.credit_card.issuerSnapshot={accountId:d.settings.credit_card.cardAccountId,asOfDate:'2026-10-19',dueDate:'2026-10-28',currentBillIncluded:true,runningTotal:500.25,currentBill:300,availableCredit:99.5,remainingInstallments:1000,installmentsIncludedInRunningTotal:false,statementDate:'2026-10-08',minimumPayment:20,installmentThisMonth:125,installments:[{name:'Purchase A',monthly:125,tenor:10,billedCount:2,remainingPrincipal:1000}]};localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='credit-card');
+ await expect(page.locator('#ccUsed')).toHaveText('Rp 1.500,25');await expect(page.locator('#ccBilled')).toHaveText('Rp 300');await expect(page.locator('#ccMinimum')).toHaveText('Rp 20');
+ await expect(page.locator('#ccInstallmentList')).toContainText('8 angsuran tersisa');await expect(page.locator('#ccCycleSummary')).toContainText('Sisa cicilan belum ditagihkan');await expect(page.locator('#ccCycleSummary')).toContainText('08 Oktober 2026');
+ for(const width of [1440,390,320]){await page.setViewportSize({width,height:1000});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ await page.locator('#toggleBalanceButton').click();await expect(page.locator('#ccInstallmentList')).not.toContainText('1.000');await expect(page.locator('#ccUsed')).not.toContainText('1.500');
+});
+
 test('desktop sidebar collapses, remembers preference and keeps navigation usable on mobile',async({page})=>{
  const before=await page.locator('#mainContent').boundingBox();
  const toggle=page.getByRole('button',{name:'Ringkas sidebar',exact:true});await toggle.click();

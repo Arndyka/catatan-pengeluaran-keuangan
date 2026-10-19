@@ -2,6 +2,7 @@
 
 const cents = value => Math.round(Number(value || 0) * 100);
 const money = value => cents(value) / 100;
+const validMoney = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && Number.isSafeInteger(cents(value));
 
 // Bank observations are dated facts, not a new purchase or an inferred limit.
 export function confirmedCardSnapshot(settings,today=formatDateLocal()) {
@@ -9,7 +10,19 @@ export function confirmedCardSnapshot(settings,today=formatDateLocal()) {
   if(!s||s.accountId!==settings.cardAccountId||!validDate(s.asOfDate)||s.asOfDate>today||!validDate(s.dueDate)||s.dueDate<s.asOfDate||s.currentBillIncluded!==true)return null;
   if(![s.runningTotal,s.currentBill,s.availableCredit].every(v=>typeof v==='number'&&Number.isFinite(v)&&v>=0&&Number.isSafeInteger(cents(v)))||s.currentBill>s.runningTotal)return null;
   const limit=settings.limitConfirmed===true&&typeof settings.limit==='number'&&Number.isFinite(settings.limit)&&settings.limit>=0?settings.limit:null;
-  return {...s,unbilled:money(s.runningTotal-s.currentBill),limit};
+  // Only add principal explicitly confirmed to be outside the running bill.
+  // Available credit alone may also include holds, so it cannot infer debt.
+  const remainingInstallments = s.installmentsIncludedInRunningTotal===false && validMoney(s.remainingInstallments) ? s.remainingInstallments : null;
+  const totalObligation = money(s.runningTotal + (remainingInstallments??0));
+  if(!validMoney(totalObligation))return null;
+  const statementDate = validDate(s.statementDate) && s.statementDate<=s.asOfDate ? s.statementDate : null;
+  const minimumPayment = statementDate && validMoney(s.minimumPayment) && s.minimumPayment<=s.currentBill ? s.minimumPayment : null;
+  const installmentThisMonth = statementDate && validMoney(s.installmentThisMonth) && s.installmentThisMonth<=s.currentBill ? s.installmentThisMonth : null;
+  let installments=[];
+  if(remainingInstallments!==null && Array.isArray(s.installments) && s.installments.length && s.installments.every(i=>i && typeof i.name==='string' && i.name.trim() && validMoney(i.monthly) && i.monthly>0 && validMoney(i.remainingPrincipal) && Number.isInteger(i.tenor) && i.tenor>0 && i.tenor<=360 && Number.isInteger(i.billedCount) && i.billedCount>=0 && i.billedCount<i.tenor && cents(i.monthly*(i.tenor-i.billedCount))===cents(i.remainingPrincipal)) && s.installments.reduce((sum,i)=>sum+cents(i.remainingPrincipal),0)===cents(remainingInstallments)){
+    installments=s.installments.map(i=>({name:i.name,monthly:i.monthly,tenor:i.tenor,billedCount:i.billedCount,remainingPrincipal:i.remainingPrincipal,remainingSchedules:i.tenor-i.billedCount}));
+  }
+  return {...s,unbilled:money(s.runningTotal-s.currentBill),limit,remainingInstallments,totalObligation,statementDate,minimumPayment,installmentThisMonth,installments};
 }
 
 function numberSetting(value, fallback, min = 0, max = Infinity) {

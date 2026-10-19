@@ -384,23 +384,28 @@ function renderCreditCard() {
   `;
 
   const confirmed=confirmedCardSnapshot(state.creditSettings);
-  $('ccUsed').previousElementSibling.textContent=confirmed?'Total tagihan berjalan':'Limit Terpakai';
+  $('ccUsed').previousElementSibling.textContent=confirmed?(confirmed.remainingInstallments!==null?'Total kewajiban kartu':'Total tagihan berjalan'):'Limit Terpakai';
   $('ccUnbilled').previousElementSibling.textContent=confirmed?'Belum masuk tagihan saat ini':'Tagihan Berjalan';
   $('ccBilled').previousElementSibling.textContent=confirmed?'Tagihan saat ini':'Tagihan Tercetak';
   $('ccBankSnapshotNote').classList.toggle('hidden',!confirmed);
   if(confirmed){
     const observedDate=formatDateId(parseLocalDate(confirmed.asOfDate));
-    $('ccBankSnapshotNote').textContent=`Data bank per ${observedDate}. Tagihan saat ini sudah termasuk total tagihan berjalan. Angka snapshot tidak otomatis berubah setelah transaksi baru; cocokkan kembali dengan bank. ${confirmed.limit===null?'Total limit, rincian cicilan, dan pembayaran minimum belum dikonfirmasi.':'Rincian cicilan dan pembayaran minimum belum dikonfirmasi.'}`;
+    $('ccBankSnapshotNote').textContent=`Data bank per ${observedDate}. Tagihan saat ini sudah termasuk total tagihan berjalan.${confirmed.remainingInstallments!==null?' Total kewajiban juga mencakup sisa cicilan yang belum ditagihkan; seluruhnya tidak jatuh tempo sekaligus.':''} Angka snapshot tidak otomatis berubah setelah transaksi baru; cocokkan kembali dengan bank.${confirmed.minimumPayment===null?' Pembayaran minimum belum dikonfirmasi.':''}`;
     $('ccLimit').textContent=confirmed.limit===null?'Belum dikonfirmasi':money(confirmed.limit);
-    $('ccUsed').textContent=money(confirmed.runningTotal);
+    $('ccUsed').textContent=money(confirmed.totalObligation);
     $('ccAvailable').textContent=money(confirmed.availableCredit);
     $('ccBilled').textContent=money(confirmed.currentBill);
     $('ccUnbilled').textContent=money(confirmed.unbilled);
-    $('ccMinimum').textContent='Cek e-Billing';
-    $('ccInstallment').textContent='Belum dikonfirmasi';
+    $('ccMinimum').textContent=confirmed.minimumPayment===null?'Cek e-Billing':money(confirmed.minimumPayment);
+    $('ccInstallment').textContent=confirmed.installmentThisMonth===null?'Belum dikonfirmasi':money(confirmed.installmentThisMonth);
     $('ccDueDate').textContent=formatDateId(parseLocalDate(confirmed.dueDate));
-    $('ccCycleSummary').innerHTML=[['Data bank terakhir',observedDate],['Jatuh tempo dari bank',formatDateId(parseLocalDate(confirmed.dueDate))],['Tanggal cetak','Belum dikonfirmasi']].map(([label,value])=>`<div class="summary-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
-    $('creditReconcileSummary').innerHTML=`<p class="helper-note">Saldo kewajiban jurnal dibandingkan dengan total tagihan berjalan pada tanggal snapshot. Selisih sesudah tanggal tersebut dapat berasal dari transaksi baru. Snapshot bukan tambahan beban belanja.</p><div class="summary-row"><span>Kewajiban jurnal terkini</span><strong>${money(snapshot.used)}</strong></div><div class="summary-row"><span>Total tagihan bank per ${observedDate}</span><strong>${money(confirmed.runningTotal)}</strong></div><div class="summary-row"><span>Selisih</span><strong>${money(snapshot.used-confirmed.runningTotal)}</strong></div>`;
+    const cycleRows=[['Data bank terakhir',observedDate],['Jatuh tempo dari bank',formatDateId(parseLocalDate(confirmed.dueDate))],['Tanggal cetak',confirmed.statementDate?formatDateId(parseLocalDate(confirmed.statementDate)):'Belum dikonfirmasi']];
+    if(confirmed.remainingInstallments!==null)cycleRows.push(['Tagihan berjalan (termasuk tagihan saat ini)',money(confirmed.runningTotal)],['Sisa cicilan belum ditagihkan',money(confirmed.remainingInstallments)]);
+    $('ccCycleSummary').innerHTML=cycleRows.map(([label,value])=>`<div class="summary-row"><span>${label}</span><strong>${value}</strong></div>`).join('');
+    if(confirmed.remainingInstallments!==null){
+      $('ccInstallmentList').innerHTML=`<p class="helper-note">Posisi cicilan per ${observedDate}. Angsuran pada tagihan saat ini sudah termasuk dalam tagihan tersebut. Daftar ini tidak membuat transaksi baru.</p>`+(confirmed.installments.length?confirmed.installments.map(i=>`<article class="list-card"><div><strong>${escapeHtml(i.name)}</strong><p>${i.remainingSchedules} angsuran tersisa · ${money(i.monthly)}/bulan</p><small>Sudah ditagihkan ${i.billedCount} dari ${i.tenor} angsuran</small></div><span>${money(i.remainingPrincipal)}</span></article>`).join(''):`<div class="summary-row"><span>Sisa cicilan dari bank${confirmed.remainingInstallments>0?' · rincian belum tersedia':''}</span><strong>${money(confirmed.remainingInstallments)}</strong></div>`);
+    }
+    $('creditReconcileSummary').innerHTML=`<p class="helper-note">Saldo kewajiban jurnal dibandingkan dengan ${confirmed.remainingInstallments!==null?'total tagihan berjalan beserta sisa cicilan':'total tagihan berjalan'} pada tanggal snapshot. Selisih sesudah tanggal tersebut dapat berasal dari transaksi baru. Snapshot bukan tambahan beban belanja.</p><div class="summary-row"><span>Kewajiban jurnal terkini</span><strong>${money(snapshot.used)}</strong></div><div class="summary-row"><span>Total kewajiban bank per ${observedDate}</span><strong>${money(confirmed.totalObligation)}</strong></div><div class="summary-row"><span>Selisih</span><strong>${money(snapshot.used-confirmed.totalObligation)}</strong></div>`;
   }
 
   if($("creditReconcileForm").contains(document.activeElement))return;

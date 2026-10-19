@@ -2,6 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildTransaction,DEFAULT_SETTINGS,deriveLedger,incomeStatement,cashFlowStatement} from '../assets/js/accounting.js';
 import {confirmedCardSnapshot} from '../assets/js/credit-card.js';
+
+test('confirmed unbilled installments are counted once, separately from the current bill',()=>{
+ const s={cardAccountId:'card',issuerSnapshot:{accountId:'card',asOfDate:'2026-10-19',dueDate:'2026-10-28',currentBillIncluded:true,runningTotal:500.25,currentBill:300,availableCredit:99.5,remainingInstallments:1000,installmentsIncludedInRunningTotal:false,statementDate:'2026-10-08',minimumPayment:20,installmentThisMonth:125,installments:[{name:'Purchase A',monthly:125,tenor:10,billedCount:2,remainingPrincipal:1000}]}};
+ const result=confirmedCardSnapshot(s,'2026-10-19');
+ assert.equal(result.totalObligation,1500.25);assert.equal(result.unbilled,200.25);assert.equal(result.currentBill,300);assert.equal(result.remainingInstallments,1000);assert.equal(result.minimumPayment,20);assert.equal(result.installments.length,1);
+ assert.equal(confirmedCardSnapshot({...s,issuerSnapshot:{...s.issuerSnapshot,installmentsIncludedInRunningTotal:true}},'2026-10-19').totalObligation,500.25);
+ for(const value of [-1,NaN,'1000',null])assert.equal(confirmedCardSnapshot({...s,issuerSnapshot:{...s.issuerSnapshot,remainingInstallments:value}},'2026-10-19').remainingInstallments,null);
+ const invalid=confirmedCardSnapshot({...s,issuerSnapshot:{...s.issuerSnapshot,minimumPayment:301,installments:[{name:'Broken',monthly:125,tenor:10,billedCount:2,remainingPrincipal:999}]}},'2026-10-19');
+ assert.equal(invalid.minimumPayment,null);assert.deepEqual(invalid.installments,[]);
+});
 import {validatePaylaterPlan} from '../assets/js/paylater.js';
 const base={type:'balance_adjustment',date:'2026-10-19',sourceAccountId:'asset-bca',amount:75.21,adjustmentDirection:'increase',description:'Confirmed balance reconciliation'};
 test('confirmed balance corrections preserve profit and cash flow and reverse cleanly',async()=>{
