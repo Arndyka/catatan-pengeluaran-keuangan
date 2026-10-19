@@ -130,3 +130,10 @@ html{scroll-behavior:smooth;scroll-padding-bottom:110px}body{font-family:'Segoe 
 [data-theme="dark"] #transactionHistoryPanel .btn-danger{color:#ffc1c8;background:#4b303b}
 [data-theme="light"] #transactionHistoryPanel .btn-danger,[data-theme="light"] #transactionHistoryPanel .small-btn.danger{color:#923047;background:#f5e5ea}
 .history-manage{font-size:12px;color:var(--muted)}.history-manage summary{cursor:pointer;padding:12px}.history-manage button{margin-top:8px;white-space:normal}.history-manage[open]{flex-basis:100%}@media(max-width:700px){#transactionHistoryPanel .table-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}#transactionSearch,#resetTransactionFilters,.history-manage{grid-column:1/-1}#transactionHistoryPanel .table-actions>*{width:100%;min-width:0}.history-manage summary{padding:4px 0}.history-manage button{width:100%}}
+
+/* Direction is visible through text/signs as well as colour. */
+.history-amount{font-variant-numeric:tabular-nums;white-space:normal}.history-amount--positive{color:#187448}.history-amount--negative{color:#ac3048}
+[data-theme="dark"] .history-amount--positive{color:#97dfb4}[data-theme="dark"] .history-amount--negative{color:#ffa5b0}
+.history-direction,.history-review-note{display:block;font-size:11px;color:var(--muted);margin-top:6px}.history-review-note{color:var(--text)}
+.history-endpoint-filters{flex-basis:100%;grid-column:1/-1;font-size:13px}.history-endpoint-filters summary{cursor:pointer;padding:10px 0;color:var(--muted)}.history-endpoint-filters>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:8px 0}.history-endpoint-filters label{display:grid;gap:6px;min-width:0}.history-endpoint-filters select{width:100%;min-width:0}
+@media(max-width:400px){.history-endpoint-filters>div{grid-template-columns:1fr}}

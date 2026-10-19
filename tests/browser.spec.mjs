@@ -3,6 +3,35 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('history review filters, endpoints and signed amounts remain accessible on mobile',async({page})=>{
+ await page.evaluate(async()=>{
+  const {buildTransaction}=await import('/assets/js/accounting.js');const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));
+  d.settings.profile.hideBalanceDefault=false;
+  const input=(type,amount,sourceAccountId,destinationAccountId='',merchant='')=>({type,amount,sourceAccountId,destinationAccountId,merchant,date:'2026-10-18'});
+  const pending=await buildTransaction(input('transfer',35,'asset-transfer-clearing','asset-bca','Pengirim contoh'),d.settings.profile);pending.sourceMeta={pendingAllocation:'Periksa rincian'};
+  d.transactions=[pending,await buildTransaction(input('income',50,'asset-bca','','Pemberi kerja'),d.settings.profile),await buildTransaction(input('expense',10,'asset-bca','','Kedai'),d.settings.profile),await buildTransaction(input('transfer',20,'asset-bca','asset-mandiri'),d.settings.profile)];
+  localStorage.setItem('spendly:demo:v1',JSON.stringify(d));
+ });
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='transactions');
+ await page.locator('#transactionAccountFilter').selectOption('asset-bca');
+ await page.locator('#transactionStatusFilter').selectOption('pending');
+ await expect(page.locator('[data-history-row]')).toHaveCount(1);
+ await expect(page.locator('[data-label="Nominal"]')).toContainText('+ Rp 35');
+ await expect(page.locator('[data-label="Nominal"] .history-amount')).toHaveClass(/positive/);
+ await expect(page.locator('[data-label="Sumber"]')).toContainText('Pengirim contoh');
+ await page.locator('#transactionStatusFilter').selectOption('all');await page.locator('#transactionFilter').selectOption('cash_out');
+ await expect(page.locator('[data-history-row]')).toHaveCount(2);
+ await expect(page.locator('.history-amount--negative')).toHaveCount(2);
+ await page.locator('#resetTransactionFilters').click();await page.locator('.history-endpoint-filters summary').click();
+ await page.locator('#transactionSourceFilter').selectOption('external');await page.locator('#transactionDestinationFilter').selectOption('asset-bca');
+ await expect(page.locator('[data-history-row]')).toHaveCount(1);await expect(page.locator('[data-label="Tujuan"]')).toHaveText('BCA');
+ for(const theme of ['dark','light']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}}
+ await page.emulateMedia({reducedMotion:'reduce'});
+ for(const theme of ['dark','light']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);expect((await new AxeBuilder({page}).include('#transactionHistoryPanel').analyze()).violations).toEqual([]);}
+ await page.locator('#toggleBalanceButton').click();await expect(page.locator('.history-amount')).not.toContainText(/[0-9+−]/);
+ await page.locator('#resetTransactionFilters').click();await expect(page.locator('#transactionSourceFilter')).toHaveValue('all');await expect(page.locator('#transactionDestinationFilter')).toHaveValue('all');await expect(page.locator('[data-history-row]')).toHaveCount(4);
+});
+
 test('wallet cards open dynamic account history including incoming transfers on mobile',async({page})=>{
  await page.evaluate(async()=>{
   const {buildTransaction}=await import('/assets/js/accounting.js');

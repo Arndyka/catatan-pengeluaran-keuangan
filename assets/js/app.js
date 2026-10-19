@@ -14,7 +14,7 @@ import { listenTransactions, deleteTransaction, deleteAllTransactions, listenRec
 import { saveTransaction, transactionTypeLabel } from "./transactions.js";
 import { budgetAnalysis,validateBudgetItem } from "./budget.js";
 import { creditCardSnapshot, confirmedCardSnapshot } from "./credit-card.js";
-import {filterTransactions,historyAccounts,accountActivity} from './transaction-filters.js';
+import {filterTransactions,historyAccounts,accountActivity,transactionPresentation} from './transaction-filters.js';
 import { buildMonthlyReport } from "./reports.js";
 import { scanStatementFiles } from "./scanner.js?v=statements-20261016";
 
@@ -250,13 +250,22 @@ function updateTransactionFormMode() {
 }
 
 function filteredTransactions() {
-  return filterTransactions(state.transactions,{type:$('transactionFilter').value,accountId:$('transactionAccountFilter').value,from:$('transactionDateFrom').value,to:$('transactionDateTo').value,search:$('transactionSearch').value},state.settings.accounts);
+  return filterTransactions(state.transactions,{type:$('transactionFilter').value,accountId:$('transactionAccountFilter').value,from:$('transactionDateFrom').value,to:$('transactionDateTo').value,search:$('transactionSearch').value,status:$('transactionStatusFilter').value,source:$('transactionSourceFilter').value,destination:$('transactionDestinationFilter').value},state.settings.accounts);
 }
 
 function renderTransactions() {
   const select=$('transactionAccountFilter'),previous=select.value||'all',accounts=historyAccounts(state.settings.accounts,state.transactions);
   select.innerHTML='<option value="all">Semua akun</option>'+accounts.map(a=>`<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}${a.active===false?' · Arsip':''}</option>`).join('');
   select.value=accounts.some(a=>a.id===previous)?previous:'all';
+  for(const [id,label] of [['transactionSourceFilter','sumber'],['transactionDestinationFilter','tujuan']]){
+    const field=$(id),value=field.value||'all';
+    field.innerHTML=`<option value="all">Semua ${label}</option><option value="external">Pihak lain / merchant</option><option value="unmapped">Belum dipetakan</option>`+accounts.filter(a=>a.subtype!=='clearing').map(a=>`<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)}</option>`).join('');
+    field.value=[...field.options].some(o=>o.value===value)?value:'all';
+  }
+  const selectedAccount=accounts.find(a=>a.id===select.value);
+  const cashFiltersAllowed=!selectedAccount||(selectedAccount.type==='asset'&&!['clearing','investment'].includes(selectedAccount.subtype));
+  for(const option of $('transactionFilter').options)if(['cash_in','cash_out'].includes(option.value))option.disabled=!cashFiltersAllowed;
+  if(!cashFiltersAllowed&&['cash_in','cash_out'].includes($('transactionFilter').value))$('transactionFilter').value='all';
   const rows = filteredTransactions();
   const account=accounts.find(a=>a.id===select.value),activity=account?accountActivity(rows,account.id):null;
   $('transactionHistoryTitle').textContent=account?`Riwayat ${account.name}`:'Riwayat Transaksi';
@@ -280,21 +289,21 @@ function renderTransactions() {
           </tr>
         </thead>
         <tbody>
-          ${rows.map((tx) => `
+          ${rows.map((tx) => {const view=transactionPresentation(tx,state.settings.accounts,select.value);return `
             <tr data-history-row="${escapeHtml(tx.id)}">
               <td data-label="Tanggal">${escapeHtml(tx.date)}</td>
-              <td data-label="Tipe"><span class="badge ${tx.type}">${escapeHtml(tx.sourceMeta?.loanSettled?'Lunas · arsip':tx.sourceMeta?.pendingAllocation?'Perlu rincian':transactionTypeLabel(tx.type))}</span></td>
-              <td data-label="Sumber">${escapeHtml(accountName(tx.sourceAccountId))}</td>
-              <td data-label="Tujuan">${escapeHtml(accountName(tx.destinationAccountId))}</td>
+              <td data-label="Tipe"><span class="badge ${tx.type}">${escapeHtml(tx.sourceMeta?.loanSettled?'Lunas · arsip':view.unmapped&&tx.type==='transfer'?view.directionLabel:transactionTypeLabel(tx.type))}</span>${view.pending?'<small class="history-review-note">Perlu rincian</small>':''}</td>
+              <td data-label="Sumber">${escapeHtml(view.sourceLabel)}</td>
+              <td data-label="Tujuan">${escapeHtml(view.destinationLabel)}</td>
               <td data-label="Kategori">${escapeHtml(tx.category)}</td>
-              <td data-label="Nominal">${money(tx.amount)}</td>
+              <td data-label="Nominal"><strong class="history-amount history-amount--${view.tone}">${state.hideBalances?money(tx.amount):`${view.sign} ${money(tx.amount)}`}</strong><small class="history-direction">${escapeHtml(view.directionLabel)}</small></td>
               <td data-label="Keterangan">${escapeHtml(tx.description || tx.merchant || "-")}${tx.sourceMeta?.pendingAllocation?`<p class="helper-note">${escapeHtml(tx.sourceMeta.pendingAllocation)}</p>`:''}</td>
               <td data-label="Jurnal">${validateJournal(tx.journal||[]).valid ? "Seimbang" : "Periksa"}${tx.date>formatDateLocal()?'<br><small>Belum masuk saldo aktual</small>':''}</td>
               <td data-label="Aksi">
                 <button class="small-btn danger" data-delete-transaction="${tx.id}" type="button">Hapus</button>
               </td>
             </tr>
-          `).join("")}
+          `;}).join("")}
         </tbody>
       </table>
     `
@@ -640,8 +649,8 @@ function setupEvents() {
 
   $("transactionFilter").addEventListener("change", renderTransactions);
   $("transactionSearch").addEventListener("input", renderTransactions);
-  for(const id of ['transactionAccountFilter','transactionDateFrom','transactionDateTo'])$(id).addEventListener('change',renderTransactions);
-  const resetFilters=()=>{for(const id of ['transactionFilter','transactionAccountFilter'])$(id).value='all';for(const id of ['transactionSearch','transactionDateFrom','transactionDateTo'])$(id).value='';};
+  for(const id of ['transactionAccountFilter','transactionDateFrom','transactionDateTo','transactionStatusFilter','transactionSourceFilter','transactionDestinationFilter'])$(id).addEventListener('change',renderTransactions);
+  const resetFilters=()=>{for(const id of ['transactionFilter','transactionAccountFilter','transactionStatusFilter','transactionSourceFilter','transactionDestinationFilter'])$(id).value='all';for(const id of ['transactionSearch','transactionDateFrom','transactionDateTo'])$(id).value='';};
   $('resetTransactionFilters').addEventListener('click',()=>{resetFilters();renderTransactions();});
   document.addEventListener('click',event=>{const button=event.target.closest('[data-history-account]');if(!button)return;resetFilters();$('transactionAccountFilter').value=button.dataset.historyAccount;setPage('transactions');$('transactionHistoryTitle').focus({preventScroll:true});$('transactionHistoryPanel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});});
 
@@ -1779,7 +1788,7 @@ async function initializeUser(user) {
   const generation=++authGeneration;
   resetState();
   resetExperience();
-  for(const id of ['transactionFilter','transactionAccountFilter'])$(id).value='all';
+  for(const id of ['transactionFilter','transactionAccountFilter','transactionStatusFilter','transactionSourceFilter','transactionDestinationFilter'])$(id).value='all';
   for(const id of ['transactionSearch','transactionDateFrom','transactionDateTo'])$(id).value='';
   state.user = user;
   userEmail.textContent = user.email || "-";

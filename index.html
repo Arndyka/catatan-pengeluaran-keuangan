@@ -267,6 +267,9 @@
               <select id="transactionAccountFilter" aria-label="Filter akun"><option value="all">Semua akun</option></select>
               <select id="transactionFilter" aria-label="Filter jenis transaksi">
                 <option value="all">Semua Tipe</option>
+                <option value="cash_in">Uang masuk ke akun</option>
+                <option value="cash_out">Uang keluar dari akun</option>
+                <option value="opening_balance">Saldo Awal</option>
                 <option value="balance_adjustment">Penyesuaian Saldo</option>
                 <option value="income">Pemasukan</option>
                 <option value="expense">Pengeluaran</option>
@@ -275,10 +278,21 @@
                 <option value="credit_payment">Bayar Kredit / PayLater</option>
                 <option value="investment">Investasi</option>
               </select>
+              <select id="transactionStatusFilter" aria-label="Filter status pemeriksaan">
+                <option value="all">Semua status</option>
+                <option value="pending">Perlu rincian</option>
+                <option value="unmapped">Belum dipetakan</option>
+                <option value="complete">Tanpa tanda pemeriksaan</option>
+                <option value="settled">Pinjaman lunas · arsip</option>
+              </select>
               <input id="transactionSearch" type="search" aria-label="Cari transaksi" placeholder="Cari transaksi...">
               <label class="history-date-filter">Dari<input id="transactionDateFrom" type="date"></label>
               <label class="history-date-filter">Sampai<input id="transactionDateTo" type="date"></label>
               <button id="resetTransactionFilters" class="btn btn-light" type="button">Reset filter</button>
+              <details class="history-endpoint-filters"><summary>Filter sumber &amp; tujuan</summary><div>
+                <label>Sumber<select id="transactionSourceFilter" aria-label="Filter sumber"><option value="all">Semua sumber</option></select></label>
+                <label>Tujuan<select id="transactionDestinationFilter" aria-label="Filter tujuan"><option value="all">Semua tujuan</option></select></label>
+              </div></details>
               <details class="history-manage"><summary>Kelola data</summary><button id="deleteAllTransactionsButton" class="btn btn-danger" type="button">Hapus seluruh pembukuan</button></details>
             </div>
           </div>
