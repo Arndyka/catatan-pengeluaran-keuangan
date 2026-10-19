@@ -16,7 +16,7 @@ export function transactionPresentation(t,accounts=[],accountId='all'){
  if(['expense','credit_purchase'].includes(t.type))destination='external';
  const settled=!!t.sourceMeta?.loanSettled;
  const label=id=>id==='external'?party:id==='unmapped'?`${party} · ${settled?'pinjaman lunas (arsip)':'belum dirinci'}`:byId.get(id)?.name||'—';
- const unmapped=!settled&&(source==='unmapped'||destination==='unmapped');
+ const unmapped=!settled&&!isAdjustment(t)&&(source==='unmapped'||destination==='unmapped');
  const pending=!settled&&(!!t.sourceMeta?.pendingAllocation||unmapped);
  let delta=0;
  if(!isAdjustment(t)){

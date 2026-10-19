@@ -55,3 +55,8 @@ test('cash filters never count a credit purchase and its repayment as two cash p
  assert.equal(filterTransactions([payment],{type:'cash_in',accountId:'cc'},reviewAccounts).length,0);
  assert.doesNotMatch(transactionPresentation({...pending,sourceMeta:{loanSettled:true}},reviewAccounts).sourceLabel,/belum dirinci/);
 });
+test('unverified opening carries remain reviewable but are not unmapped cash transfers',()=>{
+ const opening={...pending,type:'opening_balance',destinationAccountId:'',sourceMeta:{pendingAllocation:'Saldo terbawa belum diverifikasi'}};
+ assert.equal(filterTransactions([opening],{status:'pending'},reviewAccounts).length,1);
+ assert.equal(filterTransactions([opening],{status:'unmapped'},reviewAccounts).length,0);
+});

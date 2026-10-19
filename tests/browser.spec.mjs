@@ -3,6 +3,14 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('unmapped funds are a review queue, not a bank wallet balance',async({page})=>{
+ await page.evaluate(async()=>{const {buildTransaction}=await import('/assets/js/accounting.js');const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));const t=await buildTransaction({type:'transfer',date:'2026-10-18',amount:3456,sourceAccountId:'asset-transfer-clearing',destinationAccountId:'asset-bca'},d.settings.profile);t.sourceMeta={pendingAllocation:'Periksa sumber'};d.transactions=[t];localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='wallets');
+ await expect(page.locator('[data-wallet-account="asset-transfer-clearing"]')).toHaveCount(0);
+ await expect(page.locator('.wallet-review-card')).toContainText('1 transaksi');await expect(page.locator('.wallet-review-card')).not.toContainText('Rp');
+ await page.locator('[data-history-review="unmapped"]').click();await expect(page.locator('#transactionStatusFilter')).toHaveValue('unmapped');await expect(page.locator('#transactionAccountFilter')).toHaveValue('all');await expect(page.locator('[data-history-row]')).toHaveCount(1);
+});
+
 test('history review filters, endpoints and signed amounts remain accessible on mobile',async({page})=>{
  await page.evaluate(async()=>{
   const {buildTransaction}=await import('/assets/js/accounting.js');const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));
