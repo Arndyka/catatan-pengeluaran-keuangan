@@ -1,9 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseIdrValue,parseImageText,parseStatementTokenPagesForTest} from '../assets/js/scanner.js';
-import {reconcileImports} from '../assets/js/import-reconciliation.js';
+import {reconcileImports,matchImport} from '../assets/js/import-reconciliation.js';
 
 const options={bank:'generic',accountId:'asset-bca',pageNumber:1,merchantRules:{}};
+test('a history row already classified as an internal transfer needs duplicate review',()=>{
+ const old={id:'saved',type:'transfer',date:'2026-10-15',amount:100,sourceAccountId:'asset-bca',destinationAccountId:'asset-blu',journal:[{accountId:'asset-bca',debit:0,credit:100},{accountId:'asset-blu',debit:100,credit:0}]};
+ const candidate={type:'expense',bank:'bca',date:old.date,amount:100,signedAmount:-100,sourceAccountId:'asset-bca'};
+ assert.equal(matchImport(candidate,[old]).status,'review');
+ assert.equal(matchImport({...candidate,amount:101},[old]).status,'new');
+ const crossBank={...old,sourceAccountId:'asset-mandiri',destinationAccountId:'asset-bca',sourceMeta:{bank:'mandiri'},journal:[{accountId:'asset-mandiri',debit:0,credit:100},{accountId:'asset-bca',debit:100,credit:0}]};
+ assert.equal(matchImport({...candidate,type:'income',signedAmount:100},[crossBank]).status,'review');
+});
 
 test('statement money preserves cents including amounts below one rupiah',()=>{
  for(const [text,amount] of [['Rp 1.234,56',1234.56],['-IDR 1,234.56',1234.56],['Rp 0,49',0.49]]){

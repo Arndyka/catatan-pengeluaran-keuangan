@@ -13,7 +13,11 @@ test('rescanning a linked expense or clearing payment preserves duplicate detect
   assert.equal(matchImport(raw,[linked]).status,'duplicate');
   assert.equal(matchImport({...raw,sourceMeta:{...raw.sourceMeta,fileHash:'other-copy'}},[linked]).status,'duplicate');
   assert.equal(matchImport({...raw,amount:301},[linked]).status,'review');
-  assert.equal(matchImport({...raw,sourceMeta:{fileHash:'different-proof',page:1,row:2}},[linked]).status,'new');
+  // A different screenshot may show the same payment after reclassification.
+  assert.equal(matchImport({...raw,sourceMeta:{fileHash:'different-proof',page:1,row:2}},[linked]).status,'review');
+  const history={...raw,sourceMeta:{...raw.sourceMeta,sourceRevision:'history-v1'}};
+  const linkedHistory=await prepareLinkedPayment(plan,'bill-1',history,settings,'2026-10-16');
+  assert.equal(matchImport(history,[linkedHistory]).status,'duplicate');
  }
 });
 test('paylater schedule preserves amounts, due dates and separate issuer limit figures',()=>{

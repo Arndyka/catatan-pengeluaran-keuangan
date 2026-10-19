@@ -3,6 +3,30 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('wallet cards open dynamic account history including incoming transfers on mobile',async({page})=>{
+ await page.evaluate(async()=>{
+  const {buildTransaction}=await import('/assets/js/accounting.js');
+  const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));
+  d.settings.profile.accounts=d.settings.profile.accounts.map(a=>a.id==='asset-dana'?{...a,active:false}:a);
+  d.settings.profile.hideBalanceDefault=false;
+  d.settings.profile.accounts.push({id:'asset-test-bank',name:'Bank Tambahan',type:'asset',subtype:'bank',active:true});
+  d.transactions=[await buildTransaction({type:'transfer',date:'2026-10-15',amount:321,sourceAccountId:'asset-bca',destinationAccountId:'asset-test-bank',description:'Transfer contoh'},d.settings.profile),await buildTransaction({type:'expense',date:'2026-10-16',amount:123,sourceAccountId:'asset-test-bank',description:'Kopi contoh'},d.settings.profile)];
+  localStorage.setItem('spendly:demo:v1',JSON.stringify(d));
+ });
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='wallets');
+ await expect(page.locator('[data-wallet-account="asset-dana"]')).toHaveCount(0);
+ await page.locator('[data-history-account="asset-test-bank"]').focus();await page.keyboard.press('Enter');
+ await expect(page.locator('#transactionAccountFilter')).toHaveValue('asset-test-bank');
+ await expect(page.locator('#transactionHistoryTitle')).toHaveText('Riwayat Bank Tambahan');
+ await expect(page.locator('[data-history-row]')).toHaveCount(2);
+ await page.locator('#transactionFilter').selectOption('transfer');await expect(page.locator('[data-history-row]')).toHaveCount(1);
+ await page.locator('#transactionDateFrom').fill('2026-10-16');await page.locator('#transactionDateFrom').dispatchEvent('change');await expect(page.locator('[data-history-row]')).toHaveCount(0);
+ await page.locator('#resetTransactionFilters').click();await expect(page.locator('[data-history-row]')).toHaveCount(2);
+ await page.locator('#transactionSearch').fill('kopi');await expect(page.locator('[data-history-row]')).toHaveCount(1);
+ for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ await page.locator('#transactionAccountFilter').selectOption('asset-test-bank');await page.locator('#toggleBalanceButton').click();await expect(page.locator('#transactionFilterSummary')).not.toContainText('123');
+});
+
 test('confirmed card totals are dated, inclusive, private and fit small screens',async({page})=>{
  await page.evaluate(()=>{
   const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));

@@ -6,6 +6,7 @@ import {
 import {visionCandidates,imageDataUrl} from './scan-vision.js';
 import {scanExclusionReason} from './transaction-quality.js';
 import {explicitBankReference} from './import-reconciliation.js';
+import {screenshotHistory} from './screenshot-history.js';
 
 const MONTHS = {
   jan: "01", januari: "01", january: "01",
@@ -255,6 +256,10 @@ export function detectBankFromText(pageText, fileName = "") {
     krom: 0,
     blu: 0
   };
+  if(/mybca/i.test(fileName))scores.bca+=15;
+  if(/livin|mandiri/i.test(fileName))scores.mandiri+=15;
+  if(/(?:^|[_\s-])blu(?:[.\s_-]|$)/i.test(fileName))scores.blu+=15;
+  if(/krom/i.test(fileName))scores.krom+=15;
   // Issuer marks outweigh bank names mentioned in transaction descriptions.
   if (/bankmandiri\.co\.id|mandiri call/.test(text)) scores.mandiri += 12;
   if (/blubybcadigital\.id|\bbluaccount\b/.test(text)) scores.blu += 12;
@@ -1689,11 +1694,34 @@ export function parseReceiptText(rawText,{bank,accountId,pageNumber=1,merchantRu
 }
 
 export function parseImageText(rawText,options){
+ const history=parseScreenshotHistory(rawText,options);
+ if(history.handled)return history.candidates;
  if(/mutasi|rekening koran|account statement|riwayat transaksi/i.test(rawText))return parseGenericText(rawText,options);
  if(scanExclusionReason({description:rawText}))return [];
  const receipt=parseReceiptText(rawText,options);
  // A signed amount on an unpaid request is not proof of a posted transaction.
  return receipt;
+}
+
+export function parseScreenshotHistory(rawText,options){
+ const parsed=screenshotHistory(rawText,{...options,parseMoney:parseIdrValue});
+ return {...parsed,candidates:parsed.rows.map(row=>({...createBaseCandidate({bank:options.bank,type:row.signedAmount>0?'income':'expense',date:row.date,time:row.time,amount:row.amount,signedAmount:row.signedAmount,sourceAccountId:options.accountId,category:inferCategory(row.description,merchantFromDescription(row.description),options.merchantRules||{}),merchant:merchantFromDescription(row.description),description:row.description,pageNumber:options.pageNumber||1,rowNumber:row.row,method:`${options.bank}-history-ocr`,confidence:.7,selected:false}),aiReason:'Hasil OCR history: periksa nominal, tanggal, dan apakah ini transfer milik sendiri sebelum memilih.'}))};
+}
+
+export function chooseHistoryReading(primary,retry){
+ const key=r=>JSON.stringify([r.date,r.time,r.signedAmount]);
+ const counts=new Map();for(const r of retry.candidates)counts.set(key(r),(counts.get(key(r))||0)+1);
+ const preserves=primary.candidates.every(r=>{const k=key(r),n=counts.get(k)||0;counts.set(k,n-1);return n>0;});
+ return retry.handled&&preserves&&retry.candidates.length>primary.candidates.length?retry:primary;
+}
+
+async function highContrastImage(file){
+ const bitmap=await createImageBitmap(file),scale=Math.min(1600/bitmap.width,Math.sqrt(8000000/(bitmap.width*bitmap.height)));
+ const canvas=document.createElement('canvas');canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+ const ctx=canvas.getContext('2d',{willReadFrequently:true});ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close();
+ const pixels=ctx.getImageData(0,0,canvas.width,canvas.height);
+ for(let i=0;i<pixels.data.length;i+=4){const gray=.299*pixels.data[i]+.587*pixels.data[i+1]+.114*pixels.data[i+2];pixels.data[i]=pixels.data[i+1]=pixels.data[i+2]=gray<210?0:255;}
+ ctx.putImageData(pixels,0,0);return canvas;
 }
 
 function parseGenericText(
@@ -2580,20 +2608,31 @@ async function readImageStatement({
   });
 
   const result = await worker.recognize(file);
+  if(shouldCancel())throw new Error('Proses scan dibatalkan.');
   const rawText = result?.data?.text || "";
   const detection = detectBankFromText(rawText, file.name);
   const bank = detection.bank;
   const options={bank,pageNumber:1,accountId:bankAccountMap[bank]||bankAccountMap.generic,merchantRules};
-  const parsed = parseImageText(rawText,options).map((item) => ({
+  let history=parseScreenshotHistory(rawText,options);
+  if(history.handled&&(!history.candidates.length||history.excluded.some(e=>/nominal OCR ambigu/i.test(e.reason)))){
+    onProgress({stage:'ocr',fileName:file.name,bank,pageNumber:1,pageCount:1,stageProgress:0});
+    const retry=await worker.recognize(await highContrastImage(file));
+    if(shouldCancel())throw new Error('Proses scan dibatalkan.');
+    history=chooseHistoryReading(history,parseScreenshotHistory(retry?.data?.text||'',options));
+  }
+  const parsed = (history.handled?history.candidates:parseImageText(rawText,options)).map((item) => ({
     ...item,
+    ...(history.handled?{sourceRevision:'history-v1'}:{}),
     sourceFile: file.name,
     sourceFileOrder: fileOrder
   }));
 
   const validated = validateRunningBalances(parsed, {});
+  const informational=!parsed.length&&!history.handled&&/total saldo|active balance|akumulasi bunga|spaylater|bluloyalty|saldo tersedia/i.test(rawText);
 
   return {
     candidates: validated.candidates,
+    excluded:history.handled?history.excluded.map(e=>({fileName:file.name,page:1,reason:`Baris ${e.row}: ${e.reason}`})):informational?[{fileName:file.name,page:1,reason:'Gambar saldo, limit, atau promo; bukan bukti transaksi baru.'}]:[],
     statement: {
       fileName: file.name,
       bank,
@@ -2602,10 +2641,10 @@ async function readImageStatement({
       pageCount: 1,
       nativePages: 0,
       ocrPages: parsed.length ? 1 : 0,
-      informationalPages: 0,
+      informationalPages: informational?1:0,
       parserFailedPages: 0,
-      ocrFailedPages: parsed.length ? 0 : 1,
-      failedPages: parsed.length ? 0 : 1,
+      ocrFailedPages: parsed.length||informational ? 0 : 1,
+      failedPages: parsed.length||informational ? 0 : 1,
       rawTransactionCount: parsed.length,
       reviewCandidateCount: parsed.length,
       internalPairCount: 0,
@@ -2629,11 +2668,13 @@ export async function scanStatementFiles({
   const statements = [];
   const excluded = [];
   let ocrWorker = null;
+  let currentOcrProgress=null;
 
   const getOcrWorker = async (progressCallback) => {
+    currentOcrProgress=progressCallback;
     if (!ocrWorker) {
       ocrWorker = await createOcrWorker(
-        progressCallback
+        progress=>currentOcrProgress?.(progress)
       );
     }
 
@@ -2680,6 +2721,7 @@ export async function scanStatementFiles({
           });
 
       const bytes=await file.arrayBuffer();
+      excluded.push(...(result.excluded||[]));
       const digest=await crypto.subtle.digest('SHA-256',bytes);
       const sourceHash=Array.from(new Uint8Array(digest),b=>b.toString(16).padStart(2,'0')).join('');
       for(const item of result.candidates){const reason=scanExclusionReason(item);if(reason)excluded.push({fileName:file.name,page:item.sourcePage,reason});else candidates.push({...item,sourceHash});}

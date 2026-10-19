@@ -49,8 +49,8 @@ export async function prepareLinkedPayment(plan,billId,existing,settings,today=f
  const input=paylaterPaymentInput(plan,billId,existing,settings,today);
  // Keep source-row identity when the reviewed accounting type changes.
  const meta=existing.sourceMeta||{},aliases=[...(meta.provenanceAliases||[])];
- const proof={fileHash:existing.sourceHash||meta.fileHash,page:existing.sourcePage||meta.page,row:existing.sourceRow||meta.row};
- if(proof.fileHash&&proof.page&&proof.row&&!aliases.some(a=>a.fileHash===proof.fileHash&&a.page===proof.page&&a.row===proof.row))aliases.push(proof);
+ const proof={fileHash:existing.sourceHash||meta.fileHash,page:existing.sourcePage||meta.page,row:existing.sourceRow||meta.row,...(existing.sourceRevision||meta.sourceRevision?{sourceRevision:existing.sourceRevision||meta.sourceRevision}:{})};
+ if(proof.fileHash&&proof.page&&proof.row&&!aliases.some(a=>a.fileHash===proof.fileHash&&a.page===proof.page&&a.row===proof.row&&(a.sourceRevision||'')===(proof.sourceRevision||'')))aliases.push(proof);
  const tx=await buildTransaction({...input,description:existing.description||input.description,sourceMeta:{...meta,...input.sourceMeta,provenanceAliases:aliases,previousClassification:existing.type},externalBalance:existing.externalBalance,validationStatus:'user-confirmed-paylater'},settings);
  return {...existing,...tx,id:existing.id,fingerprint:existing.fingerprint,createdAtClient:existing.createdAtClient};
 }

@@ -24,7 +24,8 @@ function sameCore(a,b) {
 function provenance(tx) {
  const m=meta(tx), hash=tx.sourceHash || m.fileHash;
  const page=tx.sourcePage || m.page, row=tx.sourceRow || m.row;
- return hash && page && row ? `${hash}:${page}:${row}` : '';
+ const revision=tx.sourceRevision||m.sourceRevision;
+ return hash && page && row ? `${hash}:${revision?revision+':':''}${page}:${row}` : '';
 }
 export function matchImport(candidate, existing) {
  let possible=null;
@@ -35,15 +36,22 @@ export function matchImport(candidate, existing) {
   // Reviewed consolidation retains exact source rows, including evidence from
   // both banks of one transfer. Amount alone never establishes this link.
   const aliases=meta(other).provenanceAliases||[];
-  const sourceAlias=p&&aliases.find(alias=>`${alias.fileHash}:${alias.page}:${alias.row}`===p&&(!differentBanks||alias.bank===candidateBank));
+  const sourceAlias=p&&aliases.find(alias=>`${alias.fileHash}:${alias.sourceRevision?alias.sourceRevision+':':''}${alias.page}:${alias.row}`===p&&(!differentBanks||alias.bank===candidateBank));
   if(sourceAlias){
    const signed=candidate.signedAmount??meta(candidate).statementSignedAmount;
    const directionConflict=Number.isFinite(signed)&&Number.isFinite(sourceAlias.signedAmount)&&signed!==sourceAlias.signedAmount;
    if(!directionConflict&&candidate.date===other.date&&Number(candidate.amount)>0&&Number(candidate.amount)===Number(other.amount))return {status:'duplicate',reason:'Baris sumber sudah tercatat dalam hasil konsolidasi',matchId:other.id||'',matched:other};
    possible={status:'review',reason:'Baris sumber sudah ada, tetapi tanggal, nominal, atau arah dana berbeda. Periksa sebelum menyimpan.',matchId:other.id||'',matched:other};continue;
   }
-  if(differentBanks&&!isMovement(candidate))continue;
+  if(differentBanks&&!isMovement(candidate)&&!isMovement(other))continue;
   if(!sameCore(candidate,other)) {
+   // Screenshot history has only a bank direction, while a reviewed record may
+   // already be classified as an own transfer or debt repayment. Do not import
+   // it again merely because that classification changed.
+   const statementAccount=candidate.signedAmount>0&&isMovement(candidate)?candidate.destinationAccountId:candidate.sourceAccountId;
+   const oldMovement=(Array.isArray(other.journal)?other.journal:[]).filter(j=>j?.accountId===statementAccount).reduce((n,j)=>n+Math.round(Number(j.debit||0)*100)-Math.round(Number(j.credit||0)*100),0);
+   const signed=candidate.signedAmount??(candidate.type==='income'?candidate.amount:-candidate.amount);
+   if(candidate.type!==other.type&&candidate.date===other.date&&Number(candidate.amount)>0&&Number(candidate.amount)===Number(other.amount)&&oldMovement===Math.round(signed*100)&&!(a&&b&&a!==b))possible={status:'review',reason:'Mutasi akun yang sama sudah ada dengan jenis pencatatan berbeda. Periksa transfer atau pembayaran agar tidak dicatat ulang.',matchId:other.id||'',matched:other};
    if(!differentBanks&&sameAccounts(candidate,other)&&((a&&a===b)||(p&&p===q)))possible={status:'review',reason:'Referensi atau baris dokumen sama, tetapi tanggal atau nominal berbeda. Periksa catatan lama sebelum menyimpan lagi.',matchId:other.id||'',matched:other};
    else if(!differentBanks&&other.recurringRuleId&&sameAccounts(candidate,other)&&candidate.date?.slice(0,7)===other.date?.slice(0,7)&&Number(candidate.amount)===Number(other.amount)&&!(a&&b&&a!==b))possible={status:'review',reason:'Mirip transaksi rutin yang sudah tercatat bulan ini; tanggal pembayaran bisa bergeser. Periksa agar tidak ganda.',matchId:other.id||'',matched:other};
    continue;

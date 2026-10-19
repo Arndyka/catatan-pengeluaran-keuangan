@@ -183,7 +183,7 @@ function renderChart(transactions,month) {
 function walletBalanceEvidence(transactions){
  const latest=new Map(),today=formatDateLocal();
  for(const o of state.scannerKnowledge?.balanceObservations||[]){
-  if(!validDate(o.date)||o.date>today||!Number.isFinite(o.amount)||o.amount<0||!state.settings.accounts.some(a=>a.id===o.accountId&&a.type==='asset'))continue;
+  if(!validDate(o.date)||o.date>today||!Number.isFinite(o.amount)||o.amount<0||!state.settings.accounts.some(a=>a.id===o.accountId&&a.type==='asset'&&a.active!==false))continue;
   if(!latest.has(o.accountId)||latest.get(o.accountId).date<o.date)latest.set(o.accountId,o);
  }
  if(!latest.size)return '';
@@ -200,7 +200,7 @@ function renderWallets(transactions) {
  const assets=accounts.filter(a=>a.type==='asset'&&a.subtype!=='clearing').reduce((n,a)=>n+a.balance,0);const debt=accounts.filter(a=>a.type==='liability').reduce((n,a)=>n+a.balance,0);
  $('walletOverview').innerHTML=`<div class="wallet-overview"><div><span>SALDO & ASET (DI LUAR TRANSFER BELUM DIPETAKAN)</span><strong>${money(assets)}</strong></div><div><span>KEWAJIBAN KARTU & AKUN</span><strong>${money(debt)}</strong></div><span class="wallet-decoration" aria-hidden="true">${icon('wallet')}</span></div>`+walletBalanceEvidence(transactions);
  const types={bank:'Rekening bank',cash:'Uang tunai',ewallet:'Dompet digital',investment:'Investasi',credit_card:'Kartu kredit',paylater:'PayLater',clearing:'Perlu dipetakan',other:'Lainnya'};
- $('walletCards').innerHTML=accounts.map((a,i)=>`<article class="wallet-card ${a.type==='liability'?'debt-card':''}"><div class="wallet-card-top">${accountBrand(a)}<span class="account-kind">${e(types[a.subtype]||a.type)}${a.active===false?' · Nonaktif':''}</span></div><h3>${e(a.name)}</h3><strong>${money(a.balance)}</strong><div class="wallet-card-bottom"><span>${a.subtype==='clearing'?'Periksa pemetaan transfer':'Saldo berdasarkan transaksi'}</span>${!a.system&&a.active!==false&&!state.transactions.some(tx=>tx.type==='opening_balance'&&tx.sourceAccountId===a.id)?`<button class="text-button" data-opening-account="${e(a.id)}" aria-label="Catat saldo awal ${e(a.name)}">Saldo awal ${icon('plus')}</button>`:icon(a.type==='liability'?'card':'wallet')}</div></article>`).join('');
+ $('walletCards').innerHTML=accounts.map((a,i)=>`<article data-wallet-account="${e(a.id)}" class="wallet-card ${a.type==='liability'?'debt-card':''}"><button type="button" class="wallet-history-link" data-history-account="${e(a.id)}" aria-label="Lihat riwayat ${e(a.name)}"></button><div class="wallet-card-top">${accountBrand(a)}<span class="account-kind">${e(types[a.subtype]||a.type)}${a.active===false?' · Nonaktif':''}</span></div><h3>${e(a.name)}</h3><strong>${money(a.balance)}</strong><div class="wallet-card-bottom"><span>${a.subtype==='clearing'?'Periksa pemetaan transfer':'Lihat riwayat transaksi ?'}</span>${!a.system&&a.active!==false&&!state.transactions.some(tx=>tx.type==='opening_balance'&&tx.sourceAccountId===a.id)?`<button class="text-button" data-opening-account="${e(a.id)}" aria-label="Catat saldo awal ${e(a.name)}">Saldo awal ${icon('plus')}</button>`:icon(a.type==='liability'?'card':'wallet')}</div></article>`).join('');
 }
 function renderGoals() {
  const goals=planning.goals;const saved=goals.reduce((n,g)=>n+Number(g.saved||0),0);const complete=goals.filter(g=>goalProgress(g).complete).length;

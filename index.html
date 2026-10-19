@@ -257,13 +257,14 @@
           <div id="transactionMessage" class="notice hidden"></div>
         </section>
 
-        <section class="panel">
+        <section id="transactionHistoryPanel" class="panel">
           <div class="panel-header table-header">
             <div>
               <p class="section-label">Journal History</p>
-              <h2>Riwayat Transaksi</h2>
+              <h2 id="transactionHistoryTitle" tabindex="-1">Riwayat Transaksi</h2>
             </div>
             <div class="table-actions">
+              <select id="transactionAccountFilter" aria-label="Filter akun"><option value="all">Semua akun</option></select>
               <select id="transactionFilter" aria-label="Filter jenis transaksi">
                 <option value="all">Semua Tipe</option>
                 <option value="balance_adjustment">Penyesuaian Saldo</option>
@@ -274,10 +275,14 @@
                 <option value="credit_payment">Bayar Kredit / PayLater</option>
                 <option value="investment">Investasi</option>
               </select>
-              <input id="transactionSearch" type="search" placeholder="Cari transaksi...">
-              <button id="deleteAllTransactionsButton" class="btn btn-danger" type="button">Hapus Semua</button>
+              <input id="transactionSearch" type="search" aria-label="Cari transaksi" placeholder="Cari transaksi...">
+              <label class="history-date-filter">Dari<input id="transactionDateFrom" type="date"></label>
+              <label class="history-date-filter">Sampai<input id="transactionDateTo" type="date"></label>
+              <button id="resetTransactionFilters" class="btn btn-light" type="button">Reset filter</button>
+              <details class="history-manage"><summary>Kelola data</summary><button id="deleteAllTransactionsButton" class="btn btn-danger" type="button">Hapus seluruh pembukuan</button></details>
             </div>
           </div>
+          <div id="transactionFilterSummary" class="history-filter-summary" role="status"></div>
           <div id="transactionTableContainer" class="table-container"></div>
         </section>
       </section>
