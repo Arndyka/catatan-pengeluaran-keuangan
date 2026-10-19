@@ -6,7 +6,7 @@ export async function confirmOccurrence(uid,rule,period,settings,{date,amount,ex
  if(existingTransactionId)return settleRecurringOccurrence(uid,rule.id,period,{existingTransactionId});
  const input={type:rule.type,date,amount:Number(amount),sourceAccountId:rule.sourceAccountId,destinationAccountId:rule.destinationAccountId||'',category:rule.category||'Lainnya',merchant:rule.name,description:`Transaksi rutin: ${rule.name}`,recurringRuleId:rule.id,recurringPeriod:period,origin:'recurring'};
  validateSettlement(rule,period,input);
- const transactionData=await buildTransaction(input,settings);
+ const transactionData=await buildTransaction({...input,sourceMeta:{recurringPeriod:period}},settings);
  return settleRecurringOccurrence(uid,rule.id,period,{transactionData});
 }
 export async function postDueRules(uid,rules,settings,transactions=[]) {

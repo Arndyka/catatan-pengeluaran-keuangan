@@ -39,6 +39,11 @@ test('shifted salary scan is reviewed against a confirmed routine in the same mo
  assert.equal(matchImport({...existing,recurringRuleId:'',date:'2026-10-02'},[existing]).status,'review');
  assert.equal(matchImport({...existing,recurringRuleId:'',date:'2026-11-01'},[existing]).status,'new');
 });
+test('salary scan also reviews an advance receipt assigned to the next month',()=>{
+ const existing={...tx,type:'income',recurringRuleId:'salary',date:'2026-10-30',sourceMeta:{recurringPeriod:'2026-11'}};
+ assert.equal(matchImport({...existing,recurringRuleId:'',date:'2026-11-01',sourceMeta:null},[existing]).status,'review');
+ assert.equal(matchImport({...existing,recurringRuleId:'',date:'2026-12-01',sourceMeta:null},[existing]).status,'new');
+});
 
 test('legacy incoming Krom rows reconcile despite an irrelevant destination field',()=>{
  const prior={...tx,type:'income',sourceAccountId:'krom',destinationAccountId:'krom'};

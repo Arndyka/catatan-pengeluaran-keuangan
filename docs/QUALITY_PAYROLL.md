@@ -28,7 +28,11 @@ AI Vision dan saran AI membutuhkan backend NVIDIA berjalan serta `NVIDIA_API_KEY
 3. Saat gaji diterima, pilih **Konfirmasi**. Isi tanggal/nominal aktual atau tautkan transaksi yang sudah ada, termasuk hasil scan.
 4. Pemasukan aktual memperbarui jurnal, saldo rekening, laporan, dan budget persentase. Budget nominal tetap sesuai nilai yang kamu atur.
 
-Jadwal tanggal 29–31 menyesuaikan akhir bulan pendek. Konfirmasi berlaku per kalender bulan; nominal atau tanggal boleh disesuaikan dalam bulan tersebut. Jadwal bisa diubah dan dijeda. Mengubah jadwal tidak mengubah transaksi lama dan tidak membuka kembali bulan yang sudah dikonfirmasi.
+Jadwal gaji baru memakai tanggal **25**, dengan aturan **Majukan ke hari kerja sebelumnya**. Jika tanggal tersebut Sabtu, jadwal maju satu hari ke Jumat; jika Minggu, maju dua hari ke Jumat. Contoh: 25 Oktober 2026 menjadi **Jumat, 23 Oktober 2026**. Pilih **Tetap pada tanggal tersebut** jika penggajianmu tidak mengikuti aturan ini. Hari libur nasional belum diperhitungkan. Aturan gaji lama tanpa pilihan akhir pekan juga memakai penyesuaian ini; tanggal bulanan yang tersimpan tetap dipertahankan. Transaksi rutin biasa tetap mengikuti tanggal kalender.
+
+Tanggal 29–31 terlebih dahulu menyesuaikan akhir bulan pendek, kemudian aturan akhir pekan diterapkan. Batas mulai/berakhir berlaku pada tanggal pembayaran setelah penyesuaian. Pratinjau form dan daftar jadwal menampilkan tanggal pembayaran beserta alasan pergeserannya.
+
+Konfirmasi tetap terkait bulan jadwal. Jika tanggal 1 dimajukan ke akhir bulan sebelumnya, tanggal tersebut boleh digunakan untuk konfirmasi dan pencocokan transaksi. Contoh: gaji Januari 2023 dapat diterima 30 Desember 2022; periode gaji tetap Januari, sedangkan saldo, laporan, dan budget mengikuti tanggal penerimaan aktual di Desember. Satu transaksi tidak dapat ditautkan ke dua periode. Jadwal bisa diubah dan dijeda. Mengubah jadwal tidak mengubah transaksi lama dan tidak membuka kembali bulan yang sudah dikonfirmasi.
 
 Transaksi rutin biasa dapat dicatat lewat **Catat rutin tanpa kecocokan**. Gaji dan transaksi yang memiliki catatan mirip memerlukan konfirmasi satu per satu. Tidak ada pencatatan gaji diam-diam atau scheduler server di latar belakang.
 
@@ -44,6 +48,6 @@ Jika input manual mirip dengan gaji/rutin yang telah dikonfirmasi, dialog memint
 - UI: `node tools/payroll-qa.mjs` — screenshot desktop/HP, overflow, audit axe.
 - OCR asli: `node tools/ocr-smoke.mjs` — Tesseract dengan bukti transaksi sintetis.
 
-Hasil lokal: 38 unit Node, 6 backend, dan 17 skenario browser lulus. Enam audit desktop/HP bebas overflow dan temuan axe. Pemeriksaan ulang setelah perubahan UI juga lulus; screenshot disimpan di `artifacts/previews/payroll-*.png`.
+Hasil awal 15 Oktober: 38 unit Node, 6 backend, dan 17 skenario browser lulus. Enam audit desktop/HP bebas overflow dan temuan axe; screenshot disimpan di `artifacts/previews/payroll-*.png`.
 
-Firebase produksi dan layanan model NVIDIA live tidak digunakan dalam pengujian ini. Perubahan tersimpan lokal; belum dipublikasikan ke GitHub.
+Pembaruan jadwal akhir pekan 19 Oktober: 147 unit Node dan 43 skenario browser lulus, disertai pemeriksaan ulang lima skenario gaji/cache setelah perbaikan penguncian periode lama. Form gaji pada lebar 1440/390 piksel lolos pemeriksaan overflow dan axe. Audit salinan lokal pembukuan memastikan saldo terkonfirmasi serta arus kas September–Oktober tetap sama. Pengujian ini tidak menulis ke Firebase produksi atau memanggil model NVIDIA.

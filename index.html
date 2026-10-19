@@ -18,7 +18,13 @@
       "./assets/js/experience.js":"./assets/js/experience.js?v=account-route-20261019-2",
       "./assets/js/transaction-filters.js":"./assets/js/transaction-filters.js?v=account-route-20261019-2",
       "./assets/js/financial-health.js":"./assets/js/financial-health.js?v=account-route-20261019-2",
-      "./assets/js/accounting.js":"./assets/js/accounting.js?v=account-route-20261019-2"
+      "./assets/js/accounting.js":"./assets/js/accounting.js?v=account-route-20261019-2",
+      "./assets/js/recurring-logic.js":"./assets/js/recurring-logic.js?v=salary-weekday-20261019",
+      "./assets/js/recurring-ui.js":"./assets/js/recurring-ui.js?v=salary-weekday-20261019",
+      "./assets/js/recurring.js":"./assets/js/recurring.js?v=salary-weekday-20261019",
+      "./assets/js/repository-cloud.js":"./assets/js/repository-cloud.js?v=salary-weekday-20261019",
+      "./assets/js/transaction-quality.js":"./assets/js/transaction-quality.js?v=salary-weekday-20261019",
+      "./assets/js/import-reconciliation.js":"./assets/js/import-reconciliation.js?v=salary-weekday-20261019"
     }}
   </script>
 </head>
@@ -341,6 +347,15 @@
               <label for="recurringDay">Tanggal Setiap Bulan</label>
               <input id="recurringDay" type="number" min="1" max="31" value="1" required>
             </div>
+            <div id="recurringWeekendField" class="field form-span hidden">
+              <label for="recurringWeekendPolicy">Jika gajian jatuh pada akhir pekan</label>
+              <select id="recurringWeekendPolicy" aria-describedby="recurringWeekendHelp">
+                <option value="previous_weekday">Jumat sebelumnya</option>
+                <option value="none">Tetap pada tanggal tersebut</option>
+              </select>
+              <p id="recurringWeekendHelp" class="helper-note">Berlaku untuk Sabtu dan Minggu. Hari libur nasional belum diperhitungkan.</p>
+            </div>
+            <p id="recurringSchedulePreview" class="helper-note form-span hidden" role="status" aria-live="polite"></p>
             <div class="field">
               <label for="recurringAmount">Nominal</label>
               <input id="recurringAmount" type="number" min="1" required>
@@ -816,7 +831,7 @@
   <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
-  <script type="module" src="assets/js/boot.js?v=account-route-20261019-2"></script>
+  <script type="module" src="assets/js/boot.js?v=salary-weekday-20261019"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 

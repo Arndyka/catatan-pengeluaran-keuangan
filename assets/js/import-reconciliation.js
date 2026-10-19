@@ -1,4 +1,5 @@
 // Conservative matching: equal value/date alone is never proof of a duplicate.
+import {recurringReceiptInPeriod} from './recurring-logic.js';
 const norm = value => String(value || '').toLowerCase().replace(/[^a-z0-9]/g,'');
 const meta = tx => tx.sourceMeta || {};
 export function explicitBankReference(text) {
@@ -53,7 +54,7 @@ export function matchImport(candidate, existing) {
    const signed=candidate.signedAmount??(candidate.type==='income'?candidate.amount:-candidate.amount);
    if(candidate.type!==other.type&&candidate.date===other.date&&Number(candidate.amount)>0&&Number(candidate.amount)===Number(other.amount)&&oldMovement===Math.round(signed*100)&&!(a&&b&&a!==b))possible={status:'review',reason:'Mutasi akun yang sama sudah ada dengan jenis pencatatan berbeda. Periksa transfer atau pembayaran agar tidak dicatat ulang.',matchId:other.id||'',matched:other};
    if(!differentBanks&&sameAccounts(candidate,other)&&((a&&a===b)||(p&&p===q)))possible={status:'review',reason:'Referensi atau baris dokumen sama, tetapi tanggal atau nominal berbeda. Periksa catatan lama sebelum menyimpan lagi.',matchId:other.id||'',matched:other};
-   else if(!differentBanks&&other.recurringRuleId&&sameAccounts(candidate,other)&&candidate.date?.slice(0,7)===other.date?.slice(0,7)&&Number(candidate.amount)===Number(other.amount)&&!(a&&b&&a!==b))possible={status:'review',reason:'Mirip transaksi rutin yang sudah tercatat bulan ini; tanggal pembayaran bisa bergeser. Periksa agar tidak ganda.',matchId:other.id||'',matched:other};
+   else if(!differentBanks&&other.recurringRuleId&&sameAccounts(candidate,other)&&recurringReceiptInPeriod(other,candidate)&&Number(candidate.amount)===Number(other.amount)&&!(a&&b&&a!==b))possible={status:'review',reason:'Mirip transaksi rutin yang sudah tercatat untuk periode ini; tanggal pembayaran bisa bergeser. Periksa agar tidak ganda.',matchId:other.id||'',matched:other};
    continue;
   }
   if(isMovement(candidate)&&differentBanks){

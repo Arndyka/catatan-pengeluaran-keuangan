@@ -1,3 +1,4 @@
+import {recurringReceiptInPeriod} from './recurring-logic.js';
 const normalize=value=>String(value||'').trim().replace(/\s+/g,' ');
 export function scanExclusionReason(row) {
  if(row.is_transaction===false || (row.record_kind && row.record_kind!=='transaction'))return 'Bukan baris transaksi';
@@ -11,7 +12,7 @@ export function scanExclusionReason(row) {
  return '';
 }
 export function manualRecurringMatches(tx,history=[]){
- return history.filter(old=>old.recurringRuleId&&old.type===tx.type&&old.sourceAccountId===tx.sourceAccountId&&(old.destinationAccountId||'')===(tx.destinationAccountId||'')&&old.date?.slice(0,7)===tx.date?.slice(0,7)&&(Number(old.amount)===Number(tx.amount)||(tx.type==='income'&&salaryText(tx)&&salaryText(old))));
+ return history.filter(old=>old.recurringRuleId&&old.type===tx.type&&old.sourceAccountId===tx.sourceAccountId&&(old.destinationAccountId||'')===(tx.destinationAccountId||'')&&recurringReceiptInPeriod(old,tx)&&(Number(old.amount)===Number(tx.amount)||(tx.type==='income'&&salaryText(tx)&&salaryText(old))));
 }
 const MERCHANT_TYPOS={'alfamrt':'Alfamart','alfamrat':'Alfamart','indomart':'Indomaret','indomret':'Indomaret','gojekk':'Gojek','grabbb':'Grab','shopepay':'ShopeePay','youtubeprem':'YouTube Premium'};
 const salaryText=tx=>/\b(gaji|salary|payroll)\b/i.test([tx.category,tx.merchant,tx.description].join(' '));

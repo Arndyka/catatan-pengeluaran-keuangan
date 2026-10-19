@@ -33,3 +33,29 @@ test('settling salary is atomic and idempotent; imported salary can be linked wi
  const restored=await repo.settleRecurringOccurrence(DEMO_UID,id,period,{transactionData:tx});assert.equal(restored.created,true);
  await assert.rejects(repo.settleRecurringOccurrence(DEMO_UID,'missing',period,{transactionData:tx}));
 });
+
+test('advanced payday links one receipt to its nominal month and deleting it reopens that month',async()=>{
+ const rule={kind:'salary',name:'Gaji Januari',type:'income',amount:7654321,sourceAccountId:'asset-bca',category:'Gaji',dayOfMonth:1,startDate:'2022-12-01',active:true};
+ const id=await repo.saveRecurringRule(DEMO_UID,rule);
+ const receipt=await buildTransaction({...rule,date:'2022-12-30',merchant:'Payroll Januari'},DEFAULT_SETTINGS);
+ await repo.createTransactionPermanent(DEMO_UID,receipt);
+ const read=()=>JSON.parse(memory.get('spendly:demo:v1'));
+ const before=read().transactions.length;
+ assert.equal((await repo.settleRecurringOccurrence(DEMO_UID,id,'2023-01',{existingTransactionId:receipt.id})).linked,true);
+ const stored=read().transactions.find(tx=>tx.id===receipt.id);
+ assert.equal(stored.date,'2022-12-30');assert.equal(stored.sourceMeta.recurringPeriod,'2023-01');assert.equal(read().transactions.length,before);
+ assert.equal((await repo.settleRecurringOccurrence(DEMO_UID,id,'2023-01',{existingTransactionId:receipt.id})).duplicate,true);
+ await assert.rejects(repo.settleRecurringOccurrence(DEMO_UID,id,'2022-12',{existingTransactionId:receipt.id}),/periode lain/);
+ await repo.deleteTransaction(DEMO_UID,receipt.id);
+ const saved=read().recurring.find(r=>r.id===id);
+ assert.equal(saved.settledPeriods['2023-01'],undefined);assert.equal(saved.reopenedPeriods['2023-01'],true);assert.equal(saved.reopenedPeriods['2022-12'],undefined);
+});
+test('a new advance salary preserves its nominal period through transaction construction',async()=>{
+ const {confirmOccurrence}=await import('../assets/js/recurring.js');
+ const rule={kind:'salary',name:'Gaji awal tahun',type:'income',amount:3456789,sourceAccountId:'asset-bca',category:'Gaji',dayOfMonth:1,startDate:'2022-12-01',active:true};
+ const id=await repo.saveRecurringRule(DEMO_UID,rule);
+ const result=await confirmOccurrence(DEMO_UID,{...rule,id},'2023-01',DEFAULT_SETTINGS,{date:'2022-12-30',amount:rule.amount});
+ assert.equal(result.created,true);
+ const saved=JSON.parse(memory.get('spendly:demo:v1')).transactions.find(t=>t.id===result.id);
+ assert.equal(saved.date,'2022-12-30');assert.equal(saved.sourceMeta.recurringPeriod,'2023-01');
+});

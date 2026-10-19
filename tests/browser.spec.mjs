@@ -572,6 +572,28 @@ async function salaryRule(page,{name='Gaji pengujian',amount='1234567',account='
  await page.locator('#recurringSource').selectOption(account);await page.locator('#recurringSaveButton').click();
  await expect(page.locator('#recurringMessage')).toContainText('Jadwal disimpan');
 }
+test('salary setup previews Friday payday, persists policy, and leaves balances unchanged',async({page})=>{
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions);
+ await page.evaluate(()=>location.hash='recurring');await page.locator('#salarySetupButton').click();
+ await expect(page.locator('#recurringDay')).toHaveValue('25');
+ await expect(page.locator('#recurringWeekendPolicy')).toHaveValue('previous_weekday');
+ await expect(page.locator('#recurringSchedulePreview')).toContainText('Jumat, 23 Oktober 2026');
+ await expect(page.locator('#recurringSchedulePreview')).toContainText('25 Oktober');
+ await page.locator('#recurringAmount').fill('7654321');await page.locator('#recurringSource').selectOption('asset-bca');
+ await page.locator('#recurringSaveButton').click();await expect(page.locator('#recurringMessage')).toContainText('Jadwal disimpan');
+ const card=page.locator('#recurringRuleList .recurring-rule').filter({hasText:'Gaji bulanan'});
+ await expect(card).toContainText('Jumat, 23 Oktober 2026');
+ await expect(page.locator('#dueRecurringList')).not.toContainText('Gaji bulanan');
+ await page.reload();await page.waitForFunction(()=>document.querySelector('#syncStatus')?.textContent.includes('Mode demo'));
+ await page.evaluate(()=>location.hash='recurring');await card.getByRole('button',{name:'Ubah',exact:true}).click();
+ await expect(page.locator('#recurringWeekendPolicy')).toHaveValue('previous_weekday');
+ await page.locator('#recurringWeekendPolicy').selectOption('none');
+ await expect(page.locator('#recurringSchedulePreview')).toContainText('Minggu, 25 Oktober 2026');
+ await page.locator('#recurringSaveButton').click();await expect(card).toContainText('Minggu, 25 Oktober 2026');
+ const data=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')));
+ expect(data.recurring.find(r=>r.name==='Gaji bulanan').weekendPolicy).toBe('none');expect(data.transactions).toEqual(before);
+ await page.locator('#recurringKind').selectOption('standard');await expect(page.locator('#recurringWeekendPolicy')).not.toBeVisible();
+});
 test('salary planning does not inflate money; confirmation updates income and stays settled after edits',async({page})=>{
  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions);
  await salaryRule(page);

@@ -30,3 +30,8 @@ test('manual salary matching requests review without treating every income as sa
  assert.equal(manualRecurringMatches({...salary,date:'2026-11-15'},[salary]).length,0);
  assert.equal(manualRecurringMatches({...base,type:'income',amount:1000},[salary]).length,0);
 });
+test('manual entry also warns about salary received in the previous month for this period',()=>{
+ const salary={...base,type:'income',date:'2026-10-30',category:'Gaji',merchant:'Kantor',recurringRuleId:'salary-1',sourceMeta:{recurringPeriod:'2026-11'}};
+ assert.equal(manualRecurringMatches({...salary,recurringRuleId:'',sourceMeta:{},date:'2026-11-01'},[salary]).length,1);
+ assert.equal(manualRecurringMatches({...salary,recurringRuleId:'',sourceMeta:{},date:'2026-12-01'},[salary]).length,0);
+});

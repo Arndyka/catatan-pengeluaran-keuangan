@@ -172,7 +172,7 @@ export async function settleRecurringOccurrence(uid,ruleId,period,{transactionDa
   const txRef=userDoc(uid,'transactions',id),txSnapshot=await transaction.get(txRef);
   if(existingTransactionId&&!txSnapshot.exists())throw new Error('Transaksi yang dipilih sudah tidak tersedia.');
   const data=txSnapshot.exists()?txSnapshot.data():transactionData;
-  validateSettlement(rule,period,data);
+  validateSettlement(rule,period,{...data,id});
   const sourceMeta={...data.sourceMeta,recurringPeriod:period,recurringKind:isSalaryRule(rule)?'salary':'standard'};
   if(txSnapshot.exists())transaction.update(txRef,{recurringRuleId:ruleId,sourceMeta,updatedAt:serverTimestamp()});
   else transaction.set(txRef,{...data,recurringRuleId:ruleId,sourceMeta,createdAt:serverTimestamp(),updatedAt:serverTimestamp()});
