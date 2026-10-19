@@ -88,7 +88,7 @@
         <div id="modernStats" class="modern-stats"></div>
         <div class="quick-actions" aria-label="Akses cepat"><button data-page="budget" type="button"><span class="quick-icon" data-icon="pie"></span><span>Budget</span></button><button data-page="scanner" type="button"><span class="quick-icon" data-icon="scan"></span><span>Scan mutasi</span></button><button data-page="goals" type="button"><span class="quick-icon" data-icon="target"></span><span>Goals</span></button><button data-page="wallets" type="button"><span class="quick-icon" data-icon="wallet"></span><span>Dompet</span></button><button data-page="investments" type="button"><span class="quick-icon" data-icon="chart"></span><span>Investasi</span></button><button data-page="recurring" type="button"><span class="quick-icon" data-icon="repeat"></span><span>Tagihan rutin</span></button></div>
         <div class="dashboard-main-grid"><section class="panel spending-panel"><div class="panel-header"><div><p class="section-label">KENALI POLAMU</p><h2>Pengeluaran bulan ini</h2></div><span class="pill" id="chartMonth"></span></div><div id="spendingChart"></div></section><section class="panel"><div class="panel-header"><div><p class="section-label">TETAP DI JALUR</p><h2>Budget terpantau</h2></div><button class="text-button" data-page="budget" type="button">Kelola ↗</button></div><div id="budgetPreview"></div></section></div>
-        <div class="dashboard-main-grid"><section class="panel"><div class="panel-header"><div><p class="section-label">CERITA UANGMU</p><h2>Transaksi terbaru</h2></div><button class="text-button" data-page="transactions" type="button">Semua ↗</button></div><div id="recentTransactions"></div></section><section class="panel goal-preview-panel"><div class="panel-header"><div><p class="section-label">SATU LANGKAH LEBIH DEKAT</p><h2>Mimpi yang ditabung</h2></div><button class="text-button" data-page="goals" type="button">Semua ↗</button></div><div id="goalsPreview"></div></section></div>
+        <div class="dashboard-main-grid"><section class="panel"><div class="panel-header"><div><p class="section-label">CERITA UANGMU</p><h2>Transaksi terbaru</h2></div><button class="text-button" data-history-all type="button">Semua ↗</button></div><div id="recentTransactions"></div></section><section class="panel goal-preview-panel"><div class="panel-header"><div><p class="section-label">SATU LANGKAH LEBIH DEKAT</p><h2>Mimpi yang ditabung</h2></div><button class="text-button" data-page="goals" type="button">Semua ↗</button></div><div id="goalsPreview"></div></section></div>
         <details class="accounting-details"><summary>Detail saldo & kesehatan pencatatan <span aria-hidden="true">+</span></summary>        <div class="stats-grid">
           <article class="stat-card">
             <p>Aset tercatat tanpa akun sementara</p>
@@ -297,6 +297,9 @@
               <details class="history-manage"><summary>Kelola data</summary><button id="deleteAllTransactionsButton" class="btn btn-danger" type="button">Hapus seluruh pembukuan</button></details>
             </div>
           </div>
+          <div id="transactionReviewContext" class="history-review-context" role="status" tabindex="-1" hidden></div>
+          <label class="history-bookkeeping-toggle"><input id="transactionBookkeeping" type="checkbox"> Tampilkan saldo awal &amp; penyesuaian</label>
+          <p class="helper-note history-bookkeeping-note">Catatan awal dan penyesuaian tetap dihitung dalam saldo. Ditampilkan saat opsi ini aktif, tipe terkait dipilih, atau sedang diperiksa.</p>
           <div id="transactionFilterSummary" class="history-filter-summary" role="status"></div>
           <div id="transactionTableContainer" class="table-container"></div>
         </section>

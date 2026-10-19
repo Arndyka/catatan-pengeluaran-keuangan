@@ -14,7 +14,8 @@ import { listenTransactions, deleteTransaction, deleteAllTransactions, listenRec
 import { saveTransaction, transactionTypeLabel } from "./transactions.js";
 import { budgetAnalysis,validateBudgetItem } from "./budget.js";
 import { creditCardSnapshot, confirmedCardSnapshot } from "./credit-card.js";
-import {filterTransactions,historyAccounts,accountActivity,transactionPresentation} from './transaction-filters.js';
+import {filterTransactions,historyAccounts,accountActivity,transactionPresentation,sortTransactionHistory} from './transaction-filters.js';
+import {financialHealth,balanceEvidenceIssues} from './financial-health.js';
 import { buildMonthlyReport } from "./reports.js";
 import { scanStatementFiles } from "./scanner.js?v=statements-20261016";
 
@@ -250,8 +251,19 @@ function updateTransactionFormMode() {
   }
 }
 
-function filteredTransactions() {
-  return filterTransactions(state.transactions,{type:$('transactionFilter').value,accountId:$('transactionAccountFilter').value,from:$('transactionDateFrom').value,to:$('transactionDateTo').value,search:$('transactionSearch').value,status:$('transactionStatusFilter').value,source:$('transactionSourceFilter').value,destination:$('transactionDestinationFilter').value},state.settings.accounts);
+let historyContext=null;
+function resolveHistoryContext(){
+  if(!historyContext)return null;
+  if(historyContext.kind==='transaction')return {title:'Detail transaksi',text:'Menampilkan transaksi yang kamu pilih.',transactionIds:[historyContext.id]};
+  if(historyContext.kind==='issue'){
+    const issue=financialHealth(state.transactions,state.settings).find(c=>c.kind===historyContext.id);
+    return issue?{...issue,title:'Catatan yang perlu diperiksa'}:{title:'Pemeriksaan selesai',text:'Masalah ini tidak ditemukan lagi pada data terbaru.',transactionIds:[]};
+  }
+  const evidence=balanceEvidenceIssues(state.transactions,state.settings,state.scannerKnowledge?.balanceObservations).find(o=>o.accountId===historyContext.id);
+  return evidence?{title:`Periksa saldo ${accountName(evidence.accountId)}`,text:'Berikut catatan pembentuk saldo sampai tanggal bukti. Saldo awal dan penyesuaian ditampilkan khusus untuk pemeriksaan ini.',transactionIds:evidence.transactionIds,evidence}:{title:'Saldo sudah cocok',text:'Tidak ada selisih yang perlu diperiksa pada bukti terbaru.',transactionIds:[]};
+}
+function filteredTransactions(context) {
+  return sortTransactionHistory(filterTransactions(state.transactions,{type:$('transactionFilter').value,accountId:$('transactionAccountFilter').value,from:$('transactionDateFrom').value,to:$('transactionDateTo').value,search:$('transactionSearch').value,status:$('transactionStatusFilter').value,source:$('transactionSourceFilter').value,destination:$('transactionDestinationFilter').value,includeBookkeeping:$('transactionBookkeeping').checked,recordIds:context?.transactionIds},state.settings.accounts));
 }
 
 function renderTransactions() {
@@ -267,7 +279,10 @@ function renderTransactions() {
   const cashFiltersAllowed=!selectedAccount||(selectedAccount.type==='asset'&&!['clearing','investment'].includes(selectedAccount.subtype));
   for(const option of $('transactionFilter').options)if(['cash_in','cash_out'].includes(option.value))option.disabled=!cashFiltersAllowed;
   if(!cashFiltersAllowed&&['cash_in','cash_out'].includes($('transactionFilter').value))$('transactionFilter').value='all';
-  const rows = filteredTransactions();
+  const context=resolveHistoryContext(),rows = filteredTransactions(context);
+  const evidence=context?.evidence;
+  $('transactionReviewContext').hidden=!context;
+  $('transactionReviewContext').innerHTML=context?`<div><strong>${escapeHtml(context.title)}</strong><p>${escapeHtml(context.text)}</p>${evidence?`<dl class="history-evidence-details"><div><dt>Tanggal bukti</dt><dd>${escapeHtml(evidence.date)}</dd></div><div><dt>Saldo dari bukti</dt><dd>${money(evidence.amount)}</dd></div><div><dt>Saldo tercatat</dt><dd>${money(evidence.ledgerBalance)}</dd></div><div><dt>Selisih (bukti − catatan)</dt><dd>${evidence.journalInvalid?'Periksa jurnal dahulu':money(evidence.difference)}</dd></div></dl><p class="helper-note">${evidence.kind==='active-balance'?'Saldo aktif; dana tertahan dapat menyebabkan perbedaan. ':''}Sumber: ${escapeHtml(evidence.sourceFile||evidence.fileName||evidence.source||'Bukti saldo tersimpan')}. Mutasi setelah tanggal bukti tidak disertakan.</p>`:''}</div><button id="clearHistoryContext" type="button" class="btn btn-light">Kembali ke semua transaksi</button>`:'';
   const account=accounts.find(a=>a.id===select.value),activity=account?accountActivity(rows,account.id):null;
   $('transactionHistoryTitle').textContent=account?`Riwayat ${account.name}`:'Riwayat Transaksi';
   const invalidRange=$('transactionDateFrom').value&&$('transactionDateTo').value&&$('transactionDateFrom').value>$('transactionDateTo').value;
@@ -649,11 +664,28 @@ function setupEvents() {
   });
 
   $("transactionFilter").addEventListener("change", renderTransactions);
+  $('transactionBookkeeping').addEventListener('change',renderTransactions);
   $("transactionSearch").addEventListener("input", renderTransactions);
   for(const id of ['transactionAccountFilter','transactionDateFrom','transactionDateTo','transactionStatusFilter','transactionSourceFilter','transactionDestinationFilter'])$(id).addEventListener('change',renderTransactions);
-  const resetFilters=()=>{for(const id of ['transactionFilter','transactionAccountFilter','transactionStatusFilter','transactionSourceFilter','transactionDestinationFilter'])$(id).value='all';for(const id of ['transactionSearch','transactionDateFrom','transactionDateTo'])$(id).value='';};
+  const resetFilters=()=>{historyContext=null;$('transactionBookkeeping').checked=false;for(const id of ['transactionFilter','transactionAccountFilter','transactionStatusFilter','transactionSourceFilter','transactionDestinationFilter'])$(id).value='all';for(const id of ['transactionSearch','transactionDateFrom','transactionDateTo'])$(id).value='';};
   $('resetTransactionFilters').addEventListener('click',()=>{resetFilters();renderTransactions();});
-  document.addEventListener('click',event=>{const button=event.target.closest('[data-history-account], [data-history-review]');if(!button)return;resetFilters();if(button.dataset.historyAccount)$('transactionAccountFilter').value=button.dataset.historyAccount;if(button.dataset.historyReview)$('transactionStatusFilter').value=button.dataset.historyReview;setPage('transactions');$('transactionHistoryTitle').focus({preventScroll:true});$('transactionHistoryPanel').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});});
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('[data-history-account], [data-history-review], [data-history-issue], [data-history-evidence], [data-history-transaction], [data-history-all], #clearHistoryContext');if(!button)return;
+    resetFilters();
+    if(button.dataset.historyAccount)$('transactionAccountFilter').value=button.dataset.historyAccount;
+    if(button.dataset.historyReview)$('transactionStatusFilter').value=button.dataset.historyReview;
+    if(button.dataset.historyIssue)historyContext={kind:'issue',id:button.dataset.historyIssue};
+    if(button.dataset.historyTransaction)historyContext={kind:'transaction',id:button.dataset.historyTransaction};
+    if(button.dataset.historyEvidence){
+      historyContext={kind:'evidence',id:button.dataset.historyEvidence};
+      const context=resolveHistoryContext();
+      $('transactionAccountFilter').value=button.dataset.historyEvidence;
+      if(context.evidence)$('transactionDateTo').value=context.evidence.date;
+    }
+    setPage('transactions');
+    const focusTarget=historyContext?$('transactionReviewContext'):$('transactionHistoryTitle');
+    focusTarget.focus({preventScroll:true});(historyContext?focusTarget:$('transactionHistoryPanel')).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth',block:'start'});
+  });
 
   $("transactionTableContainer").addEventListener("click", async (event) => {
     const button = event.target.closest("[data-delete-transaction]");
@@ -1789,6 +1821,7 @@ async function initializeUser(user) {
   const generation=++authGeneration;
   resetState();
   resetExperience();
+  historyContext=null;$('transactionBookkeeping').checked=false;
   for(const id of ['transactionFilter','transactionAccountFilter','transactionStatusFilter','transactionSourceFilter','transactionDestinationFilter'])$(id).value='all';
   for(const id of ['transactionSearch','transactionDateFrom','transactionDateTo'])$(id).value='';
   state.user = user;

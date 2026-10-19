@@ -3,6 +3,69 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('latest transactions and ordinary history hide bookkeeping but exact review opens it',async({page})=>{
+ await page.evaluate(async()=>{
+  const {buildTransaction}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));
+  d.settings.profile.hideBalanceDefault=false;
+  const make=async(id,type,date,merchant,time='')=>({...await buildTransaction({type,date,amount:100,sourceAccountId:'asset-bca',merchant},d.settings.profile),id,sourceMeta:{time}});
+  const opening=await make('carry','opening_balance','2026-09-01','Saldo awal lama');opening.sourceMeta={verifiedOpening:false,pendingAllocation:'Periksa bukti saldo awal'};
+  const adjustment=await make('adjustment','opening_balance','2026-10-19','Penyesuaian contoh');adjustment.type='balance_adjustment';
+  d.transactions=[adjustment,await make('early','income','2026-10-19','Pelanggan pagi','08:30:00'),opening,await make('late','income','2026-10-19','Pelanggan sore','17:30:00'),await make('old','expense','2026-09-02','Belanja lama')];
+  d.settings.scanner_knowledge={balanceObservations:[]};localStorage.setItem('spendly:demo:v1',JSON.stringify(d));
+ });
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='dashboard');
+ await expect(page.locator('#recentTransactions .transaction-row')).toHaveCount(3);
+ await expect(page.locator('#recentTransactions .transaction-row').first()).toContainText('Pelanggan sore');
+ await page.locator('#recentTransactions [data-history-transaction="late"]').click();
+ await expect(page.locator('[data-history-row]')).toHaveCount(1);await expect(page.locator('[data-history-row="late"]')).toBeVisible();
+ await page.locator('#clearHistoryContext').click();await expect(page.locator('[data-history-row]')).toHaveCount(3);
+ await page.locator('#transactionBookkeeping').check();await expect(page.locator('[data-history-row]')).toHaveCount(5);
+ await page.locator('#resetTransactionFilters').click();await expect(page.locator('[data-history-row]')).toHaveCount(3);
+ await page.locator('#transactionFilter').selectOption('balance_adjustment');await expect(page.locator('[data-history-row="adjustment"]')).toBeVisible();
+ await page.locator('#transactionSearch').fill('tidak cocok');await page.evaluate(()=>location.hash='wallets');
+ await page.locator('[data-history-issue="opening-review"]').click();
+ await expect(page.locator('#transactionSearch')).toHaveValue('');await expect(page.locator('[data-history-row]')).toHaveCount(1);
+ await expect(page.locator('[data-history-row="carry"]')).toBeVisible();await expect(page.locator('#transactionReviewContext')).toContainText('saldo awal');
+ for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ await page.emulateMedia({reducedMotion:'reduce'});for(const theme of ['dark','light']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);expect((await new AxeBuilder({page}).include('#transactionHistoryPanel').analyze()).violations).toEqual([]);}
+});
+
+test('matched evidence is hidden; mismatch opens dated account history and source details',async({page})=>{
+ await page.evaluate(async()=>{
+  const {buildTransaction}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));
+  d.settings.profile.hideBalanceDefault=false;
+  const t=await buildTransaction({type:'income',date:'2026-10-01',amount:10.01,sourceAccountId:'asset-bca'},d.settings.profile);
+  d.transactions=[{...t,id:'before'},{...t,id:'after',date:'2026-10-03'}];
+  d.settings.scanner_knowledge={balanceObservations:[{accountId:'asset-bca',date:'2026-10-02',amount:11.02,sourceFile:'contoh.pdf'},{accountId:'asset-mandiri',date:'2026-10-02',amount:0}]};localStorage.setItem('spendly:demo:v1',JSON.stringify(d));
+ });
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='wallets');
+ await expect(page.locator('[data-balance-observation]')).toHaveCount(1);
+ await page.locator('[data-history-evidence="asset-bca"]').click();
+ await expect(page.locator('#transactionAccountFilter')).toHaveValue('asset-bca');await expect(page.locator('#transactionDateTo')).toHaveValue('2026-10-02');
+ await expect(page.locator('[data-history-row]')).toHaveCount(1);await expect(page.locator('[data-history-row="before"]')).toBeVisible();
+ await expect(page.locator('#transactionReviewContext')).toContainText('contoh.pdf');await expect(page.locator('#transactionReviewContext')).toContainText('1,01');
+ for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ await page.emulateMedia({reducedMotion:'reduce'});for(const theme of ['dark','light']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);expect((await new AxeBuilder({page}).include('#transactionReviewContext').analyze()).violations).toEqual([]);}
+ await page.locator('#toggleBalanceButton').click();await expect(page.locator('#transactionReviewContext')).not.toContainText('1,01');
+ await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js');state.scannerKnowledge.balanceObservations[0].amount=10.01;(await import('/assets/js/experience.js')).renderExperience();});
+ await page.evaluate(()=>location.hash='wallets');await expect(page.locator('#walletReconciliation')).toHaveCount(0);
+});
+
+test('journal, future and negative-balance alerts open only the implicated records',async({page})=>{
+ await page.evaluate(async()=>{
+  const {buildTransaction}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));
+  const expense=await buildTransaction({type:'expense',date:'2026-10-01',amount:100,sourceAccountId:'asset-bca'},d.settings.profile);
+  const future=await buildTransaction({type:'income',date:'2099-10-01',amount:200,sourceAccountId:'asset-bca'},d.settings.profile);
+  d.transactions=[{...expense,id:'expense'},{...expense,id:'broken',journal:[]},{...future,id:'future'}];localStorage.setItem('spendly:demo:v1',JSON.stringify(d));
+ });
+ await page.reload();await waitForDemo(page);
+ for(const [kind,ids] of [['journal',['broken']],['future',['future']],['negative',['expense','broken']]]){
+  await page.evaluate(()=>location.hash='wallets');await page.locator(`[data-history-issue="${kind}"]`).click();
+  expect((await page.locator('[data-history-row]').evaluateAll(rows=>rows.map(r=>r.dataset.historyRow))).sort()).toEqual(ids.sort());
+  await expect(page.locator('#transactionReviewContext')).toBeVisible();
+ }
+});
+
 test('net worth excludes clearing and explains all debt without leaking hidden balances',async({page})=>{
  await page.evaluate(async()=>{const {buildTransaction}=await import('/assets/js/accounting.js');const d=JSON.parse(localStorage.getItem('spendly:demo:v1')),base={date:'2026-10-01',type:'opening_balance',sourceAccountId:'asset-bca',amount:1000.25};d.settings.profile.hideBalanceDefault=false;d.transactions=await Promise.all([buildTransaction(base,d.settings.profile),buildTransaction({...base,sourceAccountId:'liability-mandiri-cc',amount:2000.8},d.settings.profile),buildTransaction({...base,type:'transfer',sourceAccountId:'asset-transfer-clearing',destinationAccountId:'asset-bca',amount:125.5},d.settings.profile),buildTransaction({...base,type:'income',date:'2099-10-01',amount:5000},d.settings.profile)]);localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
  await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='dashboard');
@@ -39,7 +102,7 @@ test('history review filters, endpoints and signed amounts remain accessible on 
  await expect(page.locator('[data-label="Sumber"]')).toContainText('Pengirim contoh');
  await page.locator('#transactionStatusFilter').selectOption('all');await page.locator('#transactionFilter').selectOption('cash_out');
  await expect(page.locator('[data-history-row]')).toHaveCount(2);
- await expect(page.locator('.history-amount--negative')).toHaveCount(2);
+ await expect(page.locator('#transactionTableContainer .history-amount--negative')).toHaveCount(2);
  await page.locator('#resetTransactionFilters').click();await page.locator('.history-endpoint-filters summary').click();
  await page.locator('#transactionSourceFilter').selectOption('external');await page.locator('#transactionDestinationFilter').selectOption('asset-bca');
  await expect(page.locator('[data-history-row]')).toHaveCount(1);await expect(page.locator('[data-label="Tujuan"]')).toHaveText('BCA');

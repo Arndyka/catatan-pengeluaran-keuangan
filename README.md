@@ -5,7 +5,9 @@
 
 ## Kartu Kredit & PayLater
 
-Dompet menampilkan saldo dari bukti terakhir secara terpisah dari jurnal. Selisih memerlukan pemeriksaan jenis saldo dan kelengkapan mutasi; snapshot tidak membuat transaksi penyeimbang. Angka bukti mengikuti pilihan sembunyikan saldo. Referensi dari dua bank yang telah diverifikasi sebagai satu transfer dapat dipertahankan bersama agar pemindaian ulang tidak menggandakan transaksi. Folder `SOURCE/` berisi dokumen pribadi dan dikecualikan dari Git.
+Dompet hanya menampilkan bukti saldo jika berbeda dari catatan atau jurnal pendukung bermasalah. **Lihat rincian & riwayat** membuka akun dan catatan sampai tanggal bukti, termasuk sumber serta selisihnya. Snapshot tidak membuat transaksi penyeimbang; angka bukti mengikuti pilihan sembunyikan saldo. Referensi dari dua bank yang telah diverifikasi sebagai satu transfer dapat dipertahankan bersama agar pemindaian ulang tidak menggandakan transaksi. Folder `SOURCE/` berisi dokumen pribadi dan dikecualikan dari Git.
+
+**Transaksi terbaru** menampilkan aktivitas berdasarkan tanggal dan jam transaksi yang tersedia, bukan waktu impor. Setiap baris membuka detailnya. Saldo awal dan penyesuaian tersembunyi dari riwayat biasa, tetap dihitung dalam saldo, dan dapat dibuka melalui opsi **Tampilkan saldo awal & penyesuaian** atau filter tipe. **Periksa catatan** langsung menyaring catatan terkait; saldo awal lama yang belum diverifikasi dibedakan dari transfer yang belum dipetakan. Pemeriksaan tidak mengubah pembukuan.
 
 PayLater memiliki tab tersendiri dengan periode tagihan, jatuh tempo, status lunas, dan total kewajiban. Limit tersedia mengikuti snapshot penyedia, terpisah dari jumlah tagihan yang mungkin mencakup biaya. Jadwal awal menambah kewajiban tanpa membuat pengeluaran atau mengurangi saldo bank. Pokok dan biaya tidak ditebak.
 

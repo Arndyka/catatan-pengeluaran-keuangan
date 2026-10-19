@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {filterTransactions,historyAccounts,accountActivity,transactionPresentation} from '../assets/js/transaction-filters.js';
+import {filterTransactions,historyAccounts,accountActivity,transactionPresentation,recentActivity,sortTransactionHistory} from '../assets/js/transaction-filters.js';
 const accounts=[{id:'a',name:'Bank A',type:'asset',active:true},{id:'b',name:'Bank B',type:'asset',active:true},{id:'old',name:'Arsip',active:false},{id:'unused',name:'Unused',active:false}];
 const txs=[{id:'transfer',type:'transfer',date:'2026-10-04',sourceAccountId:'a',destinationAccountId:'b',amount:120,description:'Dana bersama',journal:[{accountId:'a',debit:0,credit:120},{accountId:'b',debit:120,credit:0}]},{id:'old',date:'2026-09-01',sourceAccountId:'old',type:'expense',amount:20},{id:'adjust',type:'balance_adjustment',date:'2026-10-05',sourceAccountId:'b',amount:90,journal:[{accountId:'b',debit:90,credit:0}]}];
 test('account history includes both transfer sides and combines all filters',()=>{
@@ -59,4 +59,29 @@ test('unverified opening carries remain reviewable but are not unmapped cash tra
  const opening={...pending,type:'opening_balance',destinationAccountId:'',sourceMeta:{pendingAllocation:'Saldo terbawa belum diverifikasi'}};
  assert.equal(filterTransactions([opening],{status:'pending'},reviewAccounts).length,1);
  assert.equal(filterTransactions([opening],{status:'unmapped'},reviewAccounts).length,0);
+});
+
+test('activity history hides bookkeeping without deleting it; explicit review still finds it',()=>{
+ const opening={...txs[2],id:'opening',type:'opening_balance',sourceMeta:{pendingAllocation:'Saldo awal belum diverifikasi'}};
+ const rows=[...txs,opening],before=JSON.stringify(rows);
+ assert.deepEqual(filterTransactions(rows,{includeBookkeeping:false},accounts).map(t=>t.id),['transfer','old']);
+ assert.deepEqual(filterTransactions(rows,{includeBookkeeping:false,type:'balance_adjustment'},accounts).map(t=>t.id),['adjust']);
+ assert.deepEqual(filterTransactions(rows,{includeBookkeeping:false,status:'pending'},accounts).map(t=>t.id),['opening']);
+ assert.deepEqual(filterTransactions(rows,{includeBookkeeping:false,recordIds:['adjust']},accounts).map(t=>t.id),['adjust']);
+ assert.equal(filterTransactions(rows,{recordIds:[]},accounts).length,0);
+ assert.equal(JSON.stringify(rows),before);
+});
+
+test('latest activity uses transaction date and valid time, never import time or bookkeeping',()=>{
+ const rows=[{id:'old-import',date:'2026-09-02',type:'income',createdAt:'2099-01-01'},
+  {id:'early',date:'2026-10-19',type:'expense',sourceMeta:{time:'08:30:00'}},
+  {id:'late',date:'2026-10-19',type:'income',sourceMeta:{time:'17:30:00'}},
+  {id:'future',date:'2026-10-20',type:'income'},
+  {...txs[2],date:'2026-10-19'},{id:'invalid',date:'bad',type:'income'}];
+ const before=JSON.stringify(rows);
+ assert.deepEqual(recentActivity(rows,'2026-10-19').map(t=>t.id),['late','early','old-import']);
+ assert.equal(sortTransactionHistory(rows)[0].id,'future');
+ assert.equal(JSON.stringify(rows),before);
+ const ties=[{id:'a',date:'2026-10-19',sourceMeta:{time:'08:30'}},{id:'b',date:'2026-10-19',sourceMeta:{time:'08:30:00'}},{id:'c',date:'2026-10-19',sourceMeta:{time:'99:99'}}];
+ assert.deepEqual(sortTransactionHistory(ties).map(t=>t.id),['a','b','c']);
 });

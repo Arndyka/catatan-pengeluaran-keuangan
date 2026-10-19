@@ -1,8 +1,16 @@
 import {journalEntries} from './accounting.js';
 import {formatDateLocal} from './utils.js';
+import {validDate} from './recurring-logic.js';
 const touches=(t,id)=>t.sourceAccountId===id||t.destinationAccountId===id||journalEntries(t.journal).some(j=>j.accountId===id);
 export const historyAccounts=(accounts,transactions)=>accounts.filter(a=>a.active!==false||transactions.some(t=>touches(t,a.id)));
 const isAdjustment=t=>['opening_balance','balance_adjustment'].includes(t.type);
+// Import timestamps describe ingestion, not when money moved. Keep ties stable.
+const activityKey=t=>{
+ const time=String(t.sourceMeta?.time||'');
+ return validDate(t.date)?`${t.date} ${/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(time)?time.padEnd(8,':00'):''}`:'';
+};
+export const sortTransactionHistory=transactions=>[...transactions].sort((a,b)=>activityKey(b).localeCompare(activityKey(a)));
+export const recentActivity=(transactions,today=formatDateLocal())=>sortTransactionHistory(transactions.filter(t=>validDate(t.date)&&t.date<=today&&!isAdjustment(t)));
 const movement=(t,id)=>journalEntries(t.journal).filter(j=>j.accountId===id).reduce((n,j)=>n+Math.round(j.debit*100)-Math.round(j.credit*100),0);
 
 // SourceAccountId is the receiving bank for an income in the accounting model.
@@ -38,11 +46,13 @@ export function transactionPresentation(t,accounts=[],accountId='all'){
 }
 export function filterTransactions(transactions,filter={},accounts=[]){
  const names=new Map(accounts.map(a=>[a.id,a.name])),search=String(filter.search||'').trim().toLocaleLowerCase('id');
+ const recordIds=Array.isArray(filter.recordIds)?new Set(filter.recordIds):null;
  return transactions.filter(t=>{
   const p=transactionPresentation(t,accounts,filter.accountId);
   const typeMatch=!filter.type||filter.type==='all'||(filter.type==='cash_in'?p.cashDelta>0:filter.type==='cash_out'?p.cashDelta<0:t.type===filter.type);
   const statusMatch=!filter.status||filter.status==='all'||(filter.status==='pending'?p.pending:filter.status==='unmapped'?p.unmapped:filter.status==='settled'?p.settled:filter.status==='complete'?!p.pending&&!p.settled:false);
-  return (!filter.accountId||filter.accountId==='all'||touches(t,filter.accountId))&&typeMatch&&statusMatch&&
+  const bookkeepingVisible=filter.includeBookkeeping!==false||!isAdjustment(t)||['opening_balance','balance_adjustment'].includes(filter.type)||filter.status==='pending'||recordIds;
+  return bookkeepingVisible&&(!recordIds||recordIds.has(t.id))&&(!filter.accountId||filter.accountId==='all'||touches(t,filter.accountId))&&typeMatch&&statusMatch&&
    (!filter.source||filter.source==='all'||p.source===filter.source)&&(!filter.destination||filter.destination==='all'||p.destination===filter.destination)&&
    (!filter.from||t.date>=filter.from)&&(!filter.to||t.date<=filter.to)&&(!search||[t.date,t.category,t.merchant,t.description,p.sourceLabel,p.destinationLabel,names.get(t.sourceAccountId),names.get(t.destinationAccountId)].join(' ').toLocaleLowerCase('id').includes(search));
  });

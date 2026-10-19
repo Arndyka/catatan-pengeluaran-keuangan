@@ -1,9 +1,8 @@
 import {setupPaylaterUI,renderPaylaterUI,resetPaylaterUI} from './paylater-ui.js';
-import {validDate} from './recurring-logic.js';
 import {setupRecurringUI} from './recurring-ui.js';
 import { $, escapeHtml as e, formatRupiah, formatDateLocal, monthKey, formatDateId, parseLocalDate } from './utils.js';
 import { state } from './state.js';
-import { deriveLedger, netWorthSnapshot, incomeStatement, journalEntries } from './accounting.js';
+import { deriveLedger, netWorthSnapshot, incomeStatement } from './accounting.js';
 import { budgetAnalysis } from './budget.js';
 import { dailyAllowance, goalProgress, validateGoal } from './finance-insights.js';
 import { getSettings, saveSettings, getBudgetPlan } from './repository.js';
@@ -11,9 +10,9 @@ import { isDemo } from './demo.js';
 import { icon, hydrateIcons } from './icons.js';
 import { setupBankFeatures, renderBankFeatures } from './bank-ui.js';
 import {accountBrand} from './bank-brand.js';
-import {openingBalanceInput,financialHealth} from './financial-health.js';
+import {openingBalanceInput,financialHealth,balanceEvidenceIssues} from './financial-health.js';
 import {saveTransaction} from './transactions.js';
-import {filterTransactions} from './transaction-filters.js';
+import {filterTransactions,recentActivity,transactionPresentation} from './transaction-filters.js';
 
 const DEFAULT_PLANNING = {monthlyLimit:0,goals:[]};
 let planning = structuredClone(DEFAULT_PLANNING);
@@ -144,7 +143,7 @@ export function renderExperience() {
  renderPaylaterUI();
  if(!state.user || !state.settings)return;
  const today=formatDateLocal();const month=monthKey();
- const checks=financialHealth(state.transactions,state.settings,today);$('financialHealth').innerHTML=checks.length?`<section class="panel health-panel"><div><p class="section-label">PERIKSA CATATAN</p><h2>${checks.length} hal perlu ditinjau</h2></div>${checks.map(check=>`<div class="health-row">${icon('shield')}<p>${e(check.text)}</p><button class="text-button" data-page="${check.page}">Periksa</button></div>`).join('')}</section>`:'';
+ const checks=financialHealth(state.transactions,state.settings,today);$('financialHealth').innerHTML=checks.length?`<section class="panel health-panel"><div><p class="section-label">PERIKSA CATATAN</p><h2>${checks.length} hal perlu ditinjau</h2></div>${checks.map(check=>`<div class="health-row">${icon('shield')}<p>${e(check.text)}</p><button type="button" class="text-button" data-history-issue="${e(check.kind)}">Periksa ${check.transactionIds.length} catatan ↗</button></div>`).join('')}</section>`:'';
  const monthLabel=new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric'}).format(new Date());
  const current=state.transactions.filter(tx=>tx.date<=today);
  const statement=incomeStatement(current,month);const worth=netWorthSnapshot(current,state.settings);const allowance=dailyAllowance(current,planning.monthlyLimit,today);
@@ -166,14 +165,14 @@ export function renderExperience() {
  renderChart(current,month);
  const budget=budgetAnalysis(current,month,dashboardPlan);
  $('budgetPreview').innerHTML=budget.rows.length?budget.rows.slice(0,4).map(row=>`<div class="budget-mini"><div><strong>${e(row.name)}</strong><span class="${row.overBudget?'danger-text':''}">${state.hideBalances?'••':Math.round(row.usage)+'%'}</span></div><div class="progress-track"><div class="progress-fill ${row.overBudget?'over':''}" style="width:${state.hideBalances?0:Math.min(100,row.usage)}%"></div></div><p>${money(row.actual)} <span>dari ${money(row.target)}</span></p></div>`).join(''):empty('Ruang untuk setiap kebutuhan.','Buat alokasi makan, transportasi, dan hal yang penting bagimu.');
- $('recentTransactions').innerHTML=transactionList(current.slice(0,5));
+ $('recentTransactions').innerHTML=transactionList(recentActivity(current,today).slice(0,5));
  $('goalsPreview').innerHTML=planning.goals.length?planning.goals.slice(0,3).map(smallGoal).join(''):empty('Mimpimu berikutnya?','Mulai dengan dana darurat atau liburan impian.','new-goal','Buat goal pertama');
  $('monthlyBudgetCard').innerHTML=`<div><p class="section-label">BATAS BELANJA BULANAN</p><h2>${planning.monthlyLimit?money(planning.monthlyLimit):'Mulai dengan batas yang nyaman.'}</h2><p>${allowance.configured?`${money(allowance.remaining)} tersisa · ${allowance.daysLeft} hari lagi`:'Atur batas untuk mendapatkan panduan belanja harian.'}</p></div><button class="btn btn-primary" data-action="limit" type="button">${planning.monthlyLimit?'Ubah batas':'Atur batas'}</button>`;
  renderWallets(current);renderGoals();renderInvestments(current);renderBankFeatures(current);
 }
 function transactionList(items) {
  if(!items.length)return empty('Belum ada cerita uang.','Catat pemasukan atau pengeluaran pertamamu.','transaction','Catat transaksi');
- return items.map(tx=>`<div class="transaction-row"><span class="transaction-symbol ${tx.type==='income'?'mint':'coral'}">${icon(tx.type==='income'?'down':['transfer','balance_adjustment'].includes(tx.type)?'arrows':tx.type==='investment'?'chart':tx.category==='Makan'?'coffee':'bag')}</span><div class="transaction-copy"><strong>${e(tx.merchant || tx.category || 'Transaksi')}</strong><span>${e(tx.category)} · ${e(tx.date)}</span></div><strong class="transaction-value ${tx.type==='income'?'positive':''}">${state.hideBalances?'':tx.type==='income'?'+':tx.type==='expense'||tx.type==='credit_purchase'?'−':''}${money(tx.amount)}</strong></div>`).join('');
+ return items.map(tx=>{const view=transactionPresentation(tx,state.settings.accounts);return `<button type="button" class="transaction-row transaction-link" data-history-transaction="${e(tx.id)}"><span class="transaction-symbol ${view.tone==='positive'?'mint':'coral'}">${icon(tx.type==='income'?'down':tx.type==='transfer'?'arrows':tx.type==='investment'?'chart':tx.category==='Makan'?'coffee':'bag')}</span><span class="transaction-copy"><strong>${e(tx.merchant || tx.category || 'Transaksi')}</strong><span>${e(tx.category)} · ${e(tx.date)}</span></span><strong class="transaction-value history-amount--${view.tone}">${state.hideBalances?'':view.sign+' '}${money(tx.amount)}</strong></button>`;}).join('');
 }
 function renderChart(transactions,month) {
  const totalDays=new Date(Number(month.slice(0,4)),Number(month.slice(5)),0).getDate();
@@ -184,17 +183,11 @@ function renderChart(transactions,month) {
  $('spendingChart').innerHTML=`<div class="chart-total"><strong>${money(total)}</strong><span>pengeluaran tercatat</span></div><div class="bar-chart" role="group" aria-label="Pengeluaran per hari ${e(month)}. Total ${e(money(total))}">${values.map((value,i)=>`<div class="bar-column"><div role="img" class="chart-bar ${i+1===new Date().getDate()?'today':''}" style="height:${value?Math.max(5,value/max*100):2}%" tabindex="${value?0:-1}" aria-label="Tanggal ${i+1}: ${e(money(value))}"><span class="bar-tooltip">${i+1} · ${money(value)}</span></div>${[0,6,13,20,totalDays-1].includes(i)?`<span class="bar-label">${i+1}</span>`:''}</div>`).join('')}</div><div class="chart-legend"><span class="legend-dot"></span> Pengeluaran harian <span>Termasuk belanja kartu kredit</span></div>`;
 }
 function walletBalanceEvidence(transactions){
- const latest=new Map(),today=formatDateLocal();
- for(const o of state.scannerKnowledge?.balanceObservations||[]){
-  if(!validDate(o.date)||o.date>today||!Number.isFinite(o.amount)||o.amount<0||!state.settings.accounts.some(a=>a.id===o.accountId&&a.type==='asset'&&a.active!==false))continue;
-  if(!latest.has(o.accountId)||latest.get(o.accountId).date<o.date)latest.set(o.accountId,o);
- }
- if(!latest.size)return '';
- return `<section id="walletReconciliation" class="panel balance-evidence"><p class="section-label">COCOKKAN DENGAN SUMBER</p><h2>Saldo dari bukti terakhir</h2><p class="helper-note">Snapshot dari bukti yang kamu berikan. Snapshot tidak otomatis mengubah jurnal. Koreksi yang kamu konfirmasi dicatat terpisah sebagai Penyesuaian Saldo. Saldo aktif dapat berbeda dari saldo pembukuan karena dana tertahan atau mutasi yang belum tersedia.</p><div class="balance-evidence-grid">${[...latest.values()].map(o=>{
+ const issues=balanceEvidenceIssues(transactions,state.settings,state.scannerKnowledge?.balanceObservations);
+ if(!issues.length)return '';
+ return `<section id="walletReconciliation" class="panel balance-evidence"><p class="section-label">PERLU DICOCOKKAN</p><h2>${issues.length} saldo perlu diperiksa</h2><p class="helper-note">Hanya akun yang berbeda atau jurnalnya bermasalah yang ditampilkan. Perbandingan memakai catatan sampai tanggal bukti, termasuk saldo awal dan penyesuaian. Saldo aktif dapat berbeda karena dana tertahan atau transaksi pada hari yang sama.</p><div class="balance-evidence-grid">${issues.map(o=>{
   const name=state.settings.accounts.find(a=>a.id===o.accountId).name;
-  const ledgerCents=transactions.filter(t=>t.date<=o.date).flatMap(t=>journalEntries(t.journal)).filter(j=>j.accountId===o.accountId).reduce((n,j)=>n+Math.round(j.debit*100)-Math.round(j.credit*100),0);
-  const difference=(Math.round(o.amount*100)-ledgerCents)/100;
-  return `<article data-balance-observation="${e(o.accountId)}"><h3>${e(name)}</h3><p class="helper-note">${dateLabel(o.date)} · ${o.kind==='active-balance'?'Saldo aktif dari bukti':'Saldo dari bukti'}</p><strong>${money(o.amount)}</strong><p>Catatan sampai tanggal tersebut: ${money(ledgerCents/100)}</p><p class="${difference?'helper-note':'positive'}">${difference?`Selisih ${money(Math.abs(difference))} · perlu pemeriksaan mutasi dan jenis saldo.`:'Angka cocok dengan catatan.'}</p></article>`;
+  return `<article data-balance-observation="${e(o.accountId)}"><h3>${e(name)}</h3><p class="helper-note">${dateLabel(o.date)} · ${o.kind==='active-balance'?'Saldo aktif dari bukti':'Saldo dari bukti'}</p><strong>${money(o.amount)}</strong><p>Catatan sampai tanggal tersebut: ${money(o.ledgerBalance)}</p><p class="helper-note">${o.journalInvalid?'Jurnal bermasalah; selisih belum dapat diandalkan.':`Bukti ${o.difference>0?'lebih besar':'lebih kecil'} ${money(Math.abs(o.difference))} dari catatan.`}</p><button type="button" class="text-button" data-history-evidence="${e(o.accountId)}">Lihat rincian &amp; riwayat ↗</button></article>`;
  }).join('')}</div></section>`;
 }
 function renderWallets(transactions) {
