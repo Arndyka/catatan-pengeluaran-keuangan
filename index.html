@@ -13,9 +13,10 @@
   <script>document.documentElement.dataset.theme='dark';try{document.documentElement.dataset.theme=localStorage.getItem('spendly:theme')||'dark'}catch{}</script>
   <script>try{document.documentElement.dataset.sidebar=localStorage.getItem('spendly:sidebar')==='collapsed'?'collapsed':'expanded'}catch{}</script>
   <link rel="stylesheet" href="assets/styles.css?v=paylater-20261016">
-  <link rel="stylesheet" href="assets/experience.css?v=subscriptions-sidebar-20261019">
+  <link rel="stylesheet" href="assets/experience.css?v=sidebar-header-20261019">
   <script type="importmap">
     {"imports":{
+      "./assets/js/icons.js":"./assets/js/icons.js?v=sidebar-header-20261019",
       "./assets/js/credit-card.js":"./assets/js/credit-card.js?v=card-ebilling-20261019",
       "./assets/js/experience.js":"./assets/js/experience.js?v=subscriptions-sidebar-20261019",
       "./assets/js/transaction-filters.js":"./assets/js/transaction-filters.js?v=account-route-20261019-2",
@@ -73,6 +74,7 @@
           <h1>Spendly</h1>
           <p>Make room for your dreams.</p>
         </div>
+        <button id="sidebarToggle" class="icon-button sidebar-toggle" type="button" aria-label="Ringkas sidebar" title="Ringkas sidebar" aria-controls="sidebar" aria-expanded="true"><span data-icon="sidebar"></span></button>
       </div>
 
       <nav class="nav" aria-label="Navigasi utama"><p class="nav-caption">RUANG KEUANGANMU</p><button class="nav-link" data-page="dashboard" type="button"><span data-icon="grid"></span><span>Ringkasan</span></button><button class="nav-link" data-page="wallets" type="button"><span data-icon="wallet"></span><span>Dompet</span></button><button class="nav-link" data-page="transactions" type="button"><span data-icon="arrows"></span><span>Transaksi</span></button><button class="nav-link" data-page="budget" type="button"><span data-icon="pie"></span><span>Budget</span></button><button class="nav-link" data-page="goals" type="button"><span data-icon="target"></span><span>Goals</span></button><button class="nav-link" data-page="investments" type="button"><span data-icon="chart"></span><span>Investasi</span></button><button class="nav-link" data-page="scanner" type="button"><span data-icon="scan"></span><span>Scan mutasi</span></button><button class="nav-link" data-page="recurring" type="button"><span data-icon="repeat"></span><span>Transaksi rutin</span></button><button class="nav-link" data-page="credit-card" type="button"><span data-icon="card"></span><span>Kartu &amp; PayLater</span></button><button class="nav-link" data-page="reports" type="button"><span data-icon="chart"></span><span>Laporan</span></button><button class="nav-link" data-page="settings" type="button"><span data-icon="settings"></span><span>Pengaturan</span></button></nav><div class="sidebar-tip"><span data-icon="sparkles"></span><strong>Sedikit demi sedikit.</strong><p>Kebiasaan baik hari ini, masa depan yang lebih tenang.</p></div>
@@ -87,7 +89,6 @@
     <main id="mainContent" class="content" tabindex="-1"><div class="mobile-brand"><span class="brand-logo">S.</span><strong>Spendly<span>.</span></strong><span class="mobile-tag">YOUR MONEY, YOUR WAY</span></div><div id="demoBanner" class="demo-banner hidden">Ruang demo · Angka contoh, perubahan hanya di browser ini. <a href="./">Masuk ke akun →</a></div>
       <header class="topbar">
         <div class="topbar-heading">
-          <button id="sidebarToggle" class="icon-button sidebar-toggle" type="button" aria-label="Ringkas sidebar" title="Ringkas sidebar" aria-controls="sidebar" aria-expanded="true"><span data-icon="chevron"></span></button>
           <div>
           <p id="pageEyebrow" class="section-label">Overview</p>
           <h1 id="pageTitle">Ringkasan</h1><p id="pageDescription" class="page-description">Selamat datang. Mari buat rencana baik hari ini.</p>
