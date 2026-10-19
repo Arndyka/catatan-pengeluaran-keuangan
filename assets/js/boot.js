@@ -1,6 +1,6 @@
 import { hydrateIcons } from './icons.js';
 hydrateIcons();
-try { await import('./app.js?v=reconciliation-20261019'); }
+try { await import('./app.js?v=account-route-20261019-2'); }
 catch(error) {
  console.error('Spendly startup failed',error);
  const notice=document.getElementById('authMessage');

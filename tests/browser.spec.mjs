@@ -3,6 +3,26 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test.describe('cached module upgrade',()=>{
+test.use({serviceWorkers:'block'});
+test('money story loads versioned account labels even when older unversioned modules are cached',async({page})=>{
+ const requested=[];
+ await page.route('**/assets/js/experience.js*',async route=>{
+  const response=await route.fetch(),url=new URL(route.request().url());requested.push(url.search);
+  const body=await response.text();
+  await route.fulfill({response,body:url.search?body:body.replace('<span class="transaction-account">${e(view.accountLabel)}</span>','')});
+ });
+ await page.route('**/assets/js/transaction-filters.js*',async route=>{
+  const response=await route.fetch(),url=new URL(route.request().url());requested.push(url.search);
+  const body=await response.text();await route.fulfill({response,body:url.search?body:body.replace('accountLabel,pending','pending')});
+ });
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='dashboard');
+ const rows=page.locator('#recentTransactions .transaction-row');expect(await rows.count()).toBeGreaterThan(0);
+ for(const row of await rows.all()){await expect(row.locator('.transaction-account')).toContainText(/Masuk ke|Keluar dari|Dibebankan ke|→/);await expect(row).not.toContainText('undefined');}
+ expect(requested.length).toBeGreaterThanOrEqual(2);expect(requested.every(Boolean)).toBe(true);
+});
+});
+
 test('latest transactions and ordinary history hide bookkeeping but exact review opens it',async({page})=>{
  await page.evaluate(async()=>{
   const {buildTransaction}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));
