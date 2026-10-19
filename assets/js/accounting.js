@@ -342,6 +342,21 @@ export function balanceSheet(transactions, asOfDate = null) {
   };
 }
 
+// Clearing is a bookkeeping control account, never personal wealth. Keep the
+// formal balance sheet intact so unresolved historical entries remain auditable.
+export function netWorthSnapshot(transactions, settings) {
+  const ledger=deriveLedger(transactions);
+  const accounts=new Map((settings?.accounts||[]).map(a=>[a.id,a]));
+  let assets=0,liabilities=0,excludedClearing=0;
+  for(const entry of ledger.accounts){
+    const account=accounts.get(entry.accountId);
+    if((account?.subtype||entry.accountSubtype)==='clearing')excludedClearing+=cents(entry.balance);
+    else if(entry.accountType==='asset')assets+=cents(entry.balance);
+    else if(entry.accountType==='liability')liabilities+=cents(entry.balance);
+  }
+  return {assets:assets/100,liabilities:liabilities/100,netWorth:(assets-liabilities)/100,excludedClearing:excludedClearing/100,balanced:ledger.balanced};
+}
+
 export function incomeStatement(transactions, month) {
   const { start, end } = monthRange(month);
   const filtered = transactions.filter((tx) => {

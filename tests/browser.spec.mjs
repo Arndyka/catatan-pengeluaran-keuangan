@@ -3,6 +3,16 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('net worth excludes clearing and explains all debt without leaking hidden balances',async({page})=>{
+ await page.evaluate(async()=>{const {buildTransaction}=await import('/assets/js/accounting.js');const d=JSON.parse(localStorage.getItem('spendly:demo:v1')),base={date:'2026-10-01',type:'opening_balance',sourceAccountId:'asset-bca',amount:1000.25};d.settings.profile.hideBalanceDefault=false;d.transactions=await Promise.all([buildTransaction(base,d.settings.profile),buildTransaction({...base,sourceAccountId:'liability-mandiri-cc',amount:2000.8},d.settings.profile),buildTransaction({...base,type:'transfer',sourceAccountId:'asset-transfer-clearing',destinationAccountId:'asset-bca',amount:125.5},d.settings.profile),buildTransaction({...base,type:'income',date:'2099-10-01',amount:5000},d.settings.profile)]);localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='dashboard');
+ await expect(page.locator('#netWorthCard>div>strong')).toHaveText('-Rp 875,05');
+ await page.locator('#netWorthDetails summary').click();await expect(page.locator('#netWorthDetails')).toContainText('1.125,75');await expect(page.locator('#netWorthDetails')).toContainText('2.000,8');await expect(page.locator('#netWorthDetails')).toContainText('bukan tagihan bulan ini');
+ for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ await page.emulateMedia({reducedMotion:'reduce'});for(const theme of ['dark','light']){await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);expect((await new AxeBuilder({page}).include('#netWorthCard').analyze()).violations).toEqual([]);}
+ await page.locator('#toggleBalanceButton').click();await expect(page.locator('#netWorthDetails')).toHaveAttribute('open','');await expect(page.locator('#netWorthCard')).not.toContainText(/\d/);
+});
+
 test('unmapped funds are a review queue, not a bank wallet balance',async({page})=>{
  await page.evaluate(async()=>{const {buildTransaction}=await import('/assets/js/accounting.js');const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));const t=await buildTransaction({type:'transfer',date:'2026-10-18',amount:3456,sourceAccountId:'asset-transfer-clearing',destinationAccountId:'asset-bca'},d.settings.profile);t.sourceMeta={pendingAllocation:'Periksa sumber'};d.transactions=[t];localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
  await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='wallets');

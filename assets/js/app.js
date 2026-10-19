@@ -8,7 +8,7 @@ import {matchImport,reconcileImports,importIdentity} from './import-reconciliati
 import { $, cleanText, downloadText, escapeHtml, formatDateId, formatDateLocal, formatRupiah, hideNotice, monthKey, parseLocalDate, setNotice, slugText } from "./utils.js";
 import { setupAuth, observeAuth, logout } from "./auth.js";
 import { state, resetState } from "./state.js";
-import { DEFAULT_CREDIT_SETTINGS, DEFAULT_SETTINGS, balanceSheet, buildTransaction, deriveLedger, incomeStatement,validateJournal } from "./accounting.js";
+import { DEFAULT_CREDIT_SETTINGS, DEFAULT_SETTINGS, balanceSheet, netWorthSnapshot, buildTransaction, deriveLedger, incomeStatement,validateJournal } from "./accounting.js";
 import { loadUserSettings, saveCreditSettings, saveProfileSettings, addAccount, toggleAccountActive, accountOptions } from "./settings.js";
 import { listenTransactions, deleteTransaction, deleteAllTransactions, listenRecurringRules, getBudgetPlan, saveBudgetPlan, migrateLegacyCollections } from "./repository.js";
 import { saveTransaction, transactionTypeLabel } from "./transactions.js";
@@ -150,11 +150,12 @@ function renderAccountSelects() {
 
 function renderDashboard() {
   const balance = balanceSheet(state.transactions);
+  const worth = netWorthSnapshot(state.transactions,state.settings);
   const statement = incomeStatement(state.transactions, monthKey());
 
-  $("dashboardAssets").textContent = money(balance.assets);
-  $("dashboardLiabilities").textContent = money(balance.liabilities);
-  $("dashboardEquity").textContent = money(balance.equity);
+  $("dashboardAssets").textContent = money(worth.assets);
+  $("dashboardLiabilities").textContent = money(worth.liabilities);
+  $("dashboardEquity").textContent = money(worth.netWorth);
   $("dashboardNetIncome").textContent = money(statement.netIncome);
 
   $("equationAssets").textContent = money(balance.assets);

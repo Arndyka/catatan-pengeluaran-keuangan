@@ -91,7 +91,7 @@
         <div class="dashboard-main-grid"><section class="panel"><div class="panel-header"><div><p class="section-label">CERITA UANGMU</p><h2>Transaksi terbaru</h2></div><button class="text-button" data-page="transactions" type="button">Semua ↗</button></div><div id="recentTransactions"></div></section><section class="panel goal-preview-panel"><div class="panel-header"><div><p class="section-label">SATU LANGKAH LEBIH DEKAT</p><h2>Mimpi yang ditabung</h2></div><button class="text-button" data-page="goals" type="button">Semua ↗</button></div><div id="goalsPreview"></div></section></div>
         <details class="accounting-details"><summary>Detail saldo & kesehatan pencatatan <span aria-hidden="true">+</span></summary>        <div class="stats-grid">
           <article class="stat-card">
-            <p>Total Aset</p>
+            <p>Aset tercatat tanpa akun sementara</p>
             <h2 id="dashboardAssets">Rp ••••••</h2>
           </article>
           <article class="stat-card">
@@ -99,7 +99,7 @@
             <h2 id="dashboardLiabilities">Rp ••••••</h2>
           </article>
           <article class="stat-card">
-            <p>Ekuitas Bersih</p>
+            <p>Kekayaan bersih tercatat</p>
             <h2 id="dashboardEquity">Rp ••••••</h2>
           </article>
           <article class="stat-card">
@@ -116,6 +116,7 @@
             </div>
             <span id="accountingEquationStatus" class="pill">Belum dihitung</span>
           </div>
+          <p class="helper-note">Persamaan pembukuan mencakup akun sementara untuk penelusuran jurnal. Kekayaan bersih di dashboard mengecualikan akun sementara tersebut.</p>
           <div class="equation-grid">
             <article>
               <p>Aset</p>
@@ -564,9 +565,10 @@
             <div class="panel-header">
               <div>
                 <p class="section-label">Balance Sheet</p>
-                <h2>Neraca Pribadi</h2>
+                <h2>Neraca Pembukuan</h2>
               </div>
             </div>
+            <p class="helper-note">Neraca mencakup akun sementara. Kekayaan bersih di dashboard mengecualikan akun sementara tersebut.</p>
             <div id="balanceSheetReport" class="summary-list"></div>
           </section>
         </div>

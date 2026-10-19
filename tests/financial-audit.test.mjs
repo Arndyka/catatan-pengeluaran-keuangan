@@ -1,8 +1,23 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildTransaction,DEFAULT_SETTINGS,balanceSheet,cashFlowStatement,incomeStatement,validateJournal,deriveLedger} from '../assets/js/accounting.js';
+import {buildTransaction,DEFAULT_SETTINGS,balanceSheet,cashFlowStatement,incomeStatement,validateJournal,deriveLedger,netWorthSnapshot} from '../assets/js/accounting.js';
 import {budgetAnalysis} from '../assets/js/budget.js';
 const base={type:'expense',date:'2026-10-01',amount:1000,sourceAccountId:'asset-bca',category:'Belanja'};
+test('personal net worth excludes both signs of clearing while retaining investments and all debt',async()=>{
+ const rows=await Promise.all([
+  buildTransaction({...base,type:'opening_balance',amount:100.25},DEFAULT_SETTINGS),
+  buildTransaction({...base,type:'opening_balance',sourceAccountId:'asset-investment',amount:50.11},DEFAULT_SETTINGS),
+  buildTransaction({...base,type:'opening_balance',sourceAccountId:'liability-mandiri-cc',amount:300.8},DEFAULT_SETTINGS),
+  buildTransaction({...base,type:'transfer',sourceAccountId:'asset-transfer-clearing',destinationAccountId:'asset-bca',amount:25},DEFAULT_SETTINGS),
+  buildTransaction({...base,type:'income',amount:999,date:'2099-10-01'},DEFAULT_SETTINGS)
+ ]);
+ const original=JSON.stringify(rows),raw=balanceSheet(rows);
+ assert.deepEqual(netWorthSnapshot(rows,DEFAULT_SETTINGS),{assets:175.36,liabilities:300.8,netWorth:-125.44,excludedClearing:-25,balanced:true});
+ assert.equal(JSON.stringify(rows),original);assert.equal(balanceSheet(rows).equity,raw.equity);
+ rows.push(await buildTransaction({...base,type:'transfer',destinationAccountId:'asset-transfer-clearing',amount:50},DEFAULT_SETTINGS));
+ const settings={...DEFAULT_SETTINGS,accounts:DEFAULT_SETTINGS.accounts.map(a=>({...a,active:false}))};
+ assert.deepEqual(netWorthSnapshot(rows,settings),{assets:125.36,liabilities:300.8,netWorth:-175.44,excludedClearing:25,balanced:true});
+});
 test('invalid account roles and inactive accounts cannot create misleading journals',async()=>{
  for(const input of [{...base,sourceAccountId:'liability-mandiri-cc'},{...base,type:'income',sourceAccountId:'liability-mandiri-cc'},{...base,type:'transfer',destinationAccountId:'liability-mandiri-cc'},{...base,type:'investment',destinationAccountId:'asset-krom'},{...base,installmentTenor:1.5}])await assert.rejects(buildTransaction(input,DEFAULT_SETTINGS));
  const settings={...DEFAULT_SETTINGS,accounts:DEFAULT_SETTINGS.accounts.map(a=>({...a,active:a.id!=='asset-bca'}))};
