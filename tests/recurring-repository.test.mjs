@@ -59,3 +59,20 @@ test('a new advance salary preserves its nominal period through transaction cons
  const saved=JSON.parse(memory.get('spendly:demo:v1')).transactions.find(t=>t.id===result.id);
  assert.equal(saved.date,'2022-12-30');assert.equal(saved.sourceMeta.recurringPeriod,'2023-01');
 });
+
+test('subscription reminders never auto-post; a confirmed card charge changes debt, not bank cash',async()=>{
+ const {confirmOccurrence,postDueRules}=await import('../assets/js/recurring.js');
+ const {deriveLedger,incomeStatement}=await import('../assets/js/accounting.js');
+ const rule={kind:'subscription',name:'Music membership',type:'credit_purchase',amount:30000,sourceAccountId:'liability-mandiri-cc',category:'Langganan',dayOfMonth:12,startDate:'2026-10-01',active:true};
+ const id=await repo.saveRecurringRule(DEMO_UID,rule),stored={...rule,id},read=()=>JSON.parse(memory.get('spendly:demo:v1')).transactions;
+ const before=read(),beforeAccounts=deriveLedger(before).accounts,balance=(accounts,id)=>accounts.find(a=>a.accountId===id)?.balance||0;
+ assert.deepEqual(await postDueRules(DEMO_UID,[stored],DEFAULT_SETTINGS,before),{created:0,duplicate:0,needsReview:1});
+ assert.deepEqual(read(),before);
+ const confirmed=await confirmOccurrence(DEMO_UID,stored,'2026-10',DEFAULT_SETTINGS,{date:'2026-10-12',amount:30000});
+ assert.equal(confirmed.created,true);
+ const after=read(),afterAccounts=deriveLedger(after).accounts;
+ for(const account of beforeAccounts.filter(a=>a.accountType==='asset'))assert.equal(balance(afterAccounts,account.accountId),account.balance);
+ assert.equal(balance(afterAccounts,'liability-mandiri-cc')-balance(beforeAccounts,'liability-mandiri-cc'),30000);
+ assert.equal(incomeStatement(after,'2026-10').expenses-incomeStatement(before,'2026-10').expenses,30000);
+ assert.equal((await confirmOccurrence(DEMO_UID,stored,'2026-10',DEFAULT_SETTINGS,{date:'2026-10-12',amount:30000})).duplicate,true);
+});

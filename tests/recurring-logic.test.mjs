@@ -73,3 +73,14 @@ test('legacy receipts cannot be reused across months even when period metadata i
  assert.throws(()=>validateSettlement(mapped,'2026-11',{...tx,sourceMeta:{recurringPeriod:'2026-11'}},'2026-11-01'),/periode lain/);
  assert.doesNotThrow(()=>validateSettlement({...salary,settledPeriods:{'2026-11':tx.id}},'2026-11',tx,'2026-11-01'));
 });
+
+test('subscriptions use an asset for debit and an active card liability for credit charges',()=>{
+ const accounts=[{id:'bank',type:'asset',active:true},{id:'card',type:'liability',subtype:'credit_card',active:true},{id:'loan',type:'liability',subtype:'loan',active:true},{id:'old-card',type:'liability',subtype:'credit_card',active:false}];
+ const subscription={kind:'subscription',name:'Music membership',amount:30000,dayOfMonth:12,startDate:'2026-11-01',type:'credit_purchase',sourceAccountId:'card'};
+ const valid=validateRecurringRule(subscription,accounts);
+ assert.equal(valid.type,'credit_purchase');assert.equal(valid.weekendPolicy,'none');assert.equal(occurrenceForMonth(valid,'2026-12').date,'2026-12-12');
+ for(const sourceAccountId of ['bank','loan','old-card'])assert.throws(()=>validateRecurringRule({...subscription,sourceAccountId},accounts));
+ assert.doesNotThrow(()=>validateRecurringRule({...subscription,type:'expense',sourceAccountId:'bank'},accounts));
+ assert.throws(()=>validateRecurringRule({...subscription,type:'expense'},accounts));
+ assert.throws(()=>validateRecurringRule({...subscription,type:'income',sourceAccountId:'bank'},accounts));
+});

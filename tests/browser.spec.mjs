@@ -3,6 +3,37 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('desktop sidebar collapses, remembers preference and keeps navigation usable on mobile',async({page})=>{
+ const before=await page.locator('#mainContent').boundingBox();
+ const toggle=page.getByRole('button',{name:'Ringkas sidebar',exact:true});await toggle.click();
+ await expect(page.locator('#sidebarToggle')).toHaveAttribute('aria-expanded','false');
+ await expect.poll(async()=>Math.round((await page.locator('#mainContent').boundingBox()).x)).toBeLessThan(Math.round(before.x)-80);
+ await expect(page.locator('#sidebar .nav-link[data-page="wallets"]')).toHaveAccessibleName('Dompet');
+ await page.locator('#sidebar .nav-link[data-page="wallets"]').click();await expect(page.locator('#page-wallets')).toBeVisible();
+ await page.reload();await waitForDemo(page);await expect(page.locator('#sidebarToggle')).toHaveAttribute('aria-expanded','false');
+ await page.setViewportSize({width:390,height:844});await expect(page.locator('#sidebar')).not.toBeVisible();await expect(page.locator('#sidebarToggle')).not.toBeVisible();
+ await page.locator('#bottomNav [data-page="transactions"]').click();await expect(page.locator('#page-transactions')).toBeVisible();
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ await page.setViewportSize({width:1440,height:1000});await page.getByRole('button',{name:'Buka sidebar',exact:true}).click();
+ await expect(page.locator('#sidebarToggle')).toHaveAttribute('aria-expanded','true');await expect(page.locator('#sidebar .sidebar-brand h1')).toBeVisible();
+});
+
+test('subscription form chooses card accounts and confirms a credit charge without withdrawing bank money',async({page})=>{
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions);
+ await page.evaluate(()=>location.hash='recurring');await page.locator('#recurringKind').selectOption('subscription');
+ await page.locator('#recurringName').fill('Music membership');await page.locator('#recurringType').selectOption('credit_purchase');
+ await expect(page.locator('#recurringSource option[value="asset-bca"]')).toHaveCount(0);
+ await page.locator('#recurringSource').selectOption('liability-mandiri-cc');await page.locator('#recurringAmount').fill('30000');await page.locator('#recurringDay').fill('12');await page.locator('#recurringStart').fill('2026-10-01');
+ await page.locator('#recurringSaveButton').click();await expect(page.locator('#recurringMessage')).toContainText('Jadwal disimpan');
+ const card=page.locator('#recurringRuleList .recurring-rule').filter({hasText:'Music membership'});await expect(card).toContainText('Dibebankan ke Mandiri Credit Card');
+ await page.locator('#postDueRecurringButton').click();expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions)).toEqual(before);
+ await card.getByRole('button',{name:'Ubah',exact:true}).click();await expect(page.locator('#recurringSource')).toHaveValue('liability-mandiri-cc');await page.locator('#cancelRecurringEdit').click();
+ await card.getByRole('button',{name:'Konfirmasi',exact:true}).click();await page.locator('#settleRecurringForm [name="existing"]').selectOption('new');await page.locator('#settleRecurringForm button[type="submit"]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();
+ const tx=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.find(t=>t.merchant==='Music membership'));
+ expect(tx.type).toBe('credit_purchase');expect(tx.sourceAccountId).toBe('liability-mandiri-cc');expect(tx.journal.some(j=>j.accountType==='asset')).toBe(false);
+ await page.locator('#recurringKind').selectOption('subscription');await page.locator('#recurringType').selectOption('expense');await expect(page.locator('#recurringSource option[value="liability-mandiri-cc"]')).toHaveCount(0);
+});
+
 test.describe('cached module upgrade',()=>{
 test.use({serviceWorkers:'block'});
 test('money story loads versioned account labels even when older unversioned modules are cached',async({page})=>{

@@ -126,7 +126,6 @@ function renderAccountSelects() {
   const allSelectIds = [
     "sourceAccount",
     "destinationAccount",
-    "recurringSource",
     "recurringDestination"
   ];
 

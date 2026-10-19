@@ -1,4 +1,18 @@
 /* Spendly / a calmer place for your money */
+.topbar-heading{display:flex;align-items:center;gap:14px;min-width:0}.topbar-heading>div{min-width:0}.icon-button.sidebar-toggle{display:none}.sidebar-toggle[aria-expanded=true] .icon{transform:rotate(180deg)}
+@media(min-width:851px){
+ .icon-button.sidebar-toggle{display:grid;width:38px;height:38px;border-radius:12px}
+ .sidebar{position:sticky;top:0;height:100dvh}
+ html[data-sidebar=collapsed] .app-shell{grid-template-columns:84px minmax(0,1fr)}
+ html[data-sidebar=collapsed] .sidebar-brand{justify-content:center;padding:24px 12px}
+ html[data-sidebar=collapsed] .sidebar-brand-copy,html[data-sidebar=collapsed] .nav-caption,html[data-sidebar=collapsed] .sidebar-tip,html[data-sidebar=collapsed] .sidebar-user>.section-label,html[data-sidebar=collapsed] .user-email,html[data-sidebar=collapsed] .nav-link>span:last-child,html[data-sidebar=collapsed] .sidebar-logout>span:last-child{display:none}
+ html[data-sidebar=collapsed] .sidebar .nav{padding:0 12px;gap:6px}
+ html[data-sidebar=collapsed] .sidebar .nav-link{justify-content:center;padding:13px;min-height:48px}
+ html[data-sidebar=collapsed] .sidebar .nav-link.active:after{display:none}
+ html[data-sidebar=collapsed] .sidebar-user{padding:16px 12px}
+ html[data-sidebar=collapsed] .sidebar-logout{width:100%;padding:12px}
+}
+@media(min-width:851px) and (prefers-reduced-motion:no-preference){.app-shell{transition:grid-template-columns .22s ease}.sidebar-toggle .icon{transition:transform .22s ease}}
 /* Informational scan states keep their contrast in either theme. */
 :root{--info:#175cd3;--info-soft:#eef4ff;--bank-purple:#6133b8;--bank-purple-soft:#f2eaff}
 :root[data-theme=dark]{--info:#a7c7ff;--info-soft:#29394f;--bank-purple:#d1b5ff;--bank-purple-soft:#3c2f4e}

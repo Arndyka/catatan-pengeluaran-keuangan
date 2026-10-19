@@ -100,6 +100,7 @@ async function install() {
 }
 export function setupExperience({setPage,updateTransactionFormMode}) {
  navigate=setPage;hydrateIcons();
+ setupDesktopSidebar();
  setupBankFeatures({getPlanning:()=>planning,savePlanning,dialog,toast,money});
  setupRecurringUI({dialog,toast,money});
  setupPaylaterUI({dialog,toast,money});
@@ -133,6 +134,23 @@ export function setupExperience({setPage,updateTransactionFormMode}) {
  window.addEventListener('online',()=>toast('Koneksi kembali tersedia.'));
  // A write may still be waiting for a server acknowledgement; keep its form visible.
  document.querySelectorAll('.notice').forEach(el=>el.setAttribute('role','status'));
+}
+
+function setupDesktopSidebar(){
+ const toggle=$('sidebarToggle');
+ for(const button of document.querySelectorAll('#sidebar .nav-link')){
+  const label=button.textContent.trim();button.setAttribute('aria-label',label);button.title=label;
+ }
+ const update=collapsed=>{
+  document.documentElement.dataset.sidebar=collapsed?'collapsed':'expanded';
+  toggle.setAttribute('aria-expanded',String(!collapsed));
+  const label=collapsed?'Buka sidebar':'Ringkas sidebar';toggle.setAttribute('aria-label',label);toggle.title=label;
+ };
+ update(document.documentElement.dataset.sidebar==='collapsed');
+ toggle.addEventListener('click',()=>{
+  const collapsed=document.documentElement.dataset.sidebar!=='collapsed';update(collapsed);
+  try{localStorage.setItem('spendly:sidebar',collapsed?'collapsed':'expanded');}catch{}
+ });
 }
 
 function smallGoal(goal) {

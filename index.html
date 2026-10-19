@@ -11,17 +11,18 @@
   <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <script>document.documentElement.dataset.theme='dark';try{document.documentElement.dataset.theme=localStorage.getItem('spendly:theme')||'dark'}catch{}</script>
+  <script>try{document.documentElement.dataset.sidebar=localStorage.getItem('spendly:sidebar')==='collapsed'?'collapsed':'expanded'}catch{}</script>
   <link rel="stylesheet" href="assets/styles.css?v=paylater-20261016">
-  <link rel="stylesheet" href="assets/experience.css?v=account-route-20261019-2">
+  <link rel="stylesheet" href="assets/experience.css?v=subscriptions-sidebar-20261019">
   <script type="importmap">
     {"imports":{
-      "./assets/js/experience.js":"./assets/js/experience.js?v=account-route-20261019-2",
+      "./assets/js/experience.js":"./assets/js/experience.js?v=subscriptions-sidebar-20261019",
       "./assets/js/transaction-filters.js":"./assets/js/transaction-filters.js?v=account-route-20261019-2",
       "./assets/js/financial-health.js":"./assets/js/financial-health.js?v=account-route-20261019-2",
       "./assets/js/accounting.js":"./assets/js/accounting.js?v=account-route-20261019-2",
-      "./assets/js/recurring-logic.js":"./assets/js/recurring-logic.js?v=salary-weekday-20261019",
-      "./assets/js/recurring-ui.js":"./assets/js/recurring-ui.js?v=salary-weekday-20261019",
-      "./assets/js/recurring.js":"./assets/js/recurring.js?v=salary-weekday-20261019",
+      "./assets/js/recurring-logic.js":"./assets/js/recurring-logic.js?v=subscriptions-sidebar-20261019",
+      "./assets/js/recurring-ui.js":"./assets/js/recurring-ui.js?v=subscriptions-sidebar-20261019",
+      "./assets/js/recurring.js":"./assets/js/recurring.js?v=subscriptions-sidebar-20261019",
       "./assets/js/repository-cloud.js":"./assets/js/repository-cloud.js?v=salary-weekday-20261019",
       "./assets/js/transaction-quality.js":"./assets/js/transaction-quality.js?v=salary-weekday-20261019",
       "./assets/js/import-reconciliation.js":"./assets/js/import-reconciliation.js?v=salary-weekday-20261019"
@@ -64,10 +65,10 @@
   </section>
 
   <div id="appShell" class="app-shell hidden">
-    <aside class="sidebar">
+    <aside id="sidebar" class="sidebar">
       <div class="brand-row sidebar-brand">
         <div class="brand-logo">S</div>
-        <div>
+        <div class="sidebar-brand-copy">
           <h1>Spendly</h1>
           <p>Make room for your dreams.</p>
         </div>
@@ -78,15 +79,18 @@
       <div class="sidebar-user">
         <p class="section-label">Login sebagai</p>
         <p id="userEmail" class="user-email">-</p>
-        <button id="logoutButton" class="btn btn-light" type="button">Keluar</button>
+        <button id="logoutButton" class="btn btn-light sidebar-logout" type="button" aria-label="Keluar" title="Keluar"><span data-icon="logout"></span><span>Keluar</span></button>
       </div>
     </aside>
 
     <main id="mainContent" class="content" tabindex="-1"><div class="mobile-brand"><span class="brand-logo">S.</span><strong>Spendly<span>.</span></strong><span class="mobile-tag">YOUR MONEY, YOUR WAY</span></div><div id="demoBanner" class="demo-banner hidden">Ruang demo · Angka contoh, perubahan hanya di browser ini. <a href="./">Masuk ke akun →</a></div>
       <header class="topbar">
-        <div>
+        <div class="topbar-heading">
+          <button id="sidebarToggle" class="icon-button sidebar-toggle" type="button" aria-label="Ringkas sidebar" title="Ringkas sidebar" aria-controls="sidebar" aria-expanded="true"><span data-icon="chevron"></span></button>
+          <div>
           <p id="pageEyebrow" class="section-label">Overview</p>
           <h1 id="pageTitle">Ringkasan</h1><p id="pageDescription" class="page-description">Selamat datang. Mari buat rencana baik hari ini.</p>
+          </div>
         </div>
         <div class="topbar-actions">
           <span id="syncStatus" class="sync-status" role="status">Menyambungkan...</span><button id="themeButton" class="icon-button" aria-label="Ganti tema" title="Ganti tema" type="button"><span data-icon="moon"></span></button><button id="installButton" class="icon-button" aria-label="Pasang Spendly" title="Pasang Spendly" type="button"><span data-icon="download"></span></button>
@@ -328,7 +332,7 @@
             </div>
           </div>
 
-          <form id="recurringForm" class="form-grid"><input id="recurringRuleId" type="hidden"><div class="field"><label for="recurringKind">Jenis jadwal</label><select id="recurringKind"><option value="standard">Transaksi rutin</option><option value="salary">Gaji bulanan</option></select></div>
+          <form id="recurringForm" class="form-grid"><input id="recurringRuleId" type="hidden"><div class="field"><label for="recurringKind">Jenis jadwal</label><select id="recurringKind"><option value="standard">Transaksi rutin</option><option value="salary">Gaji bulanan</option><option value="subscription">Langganan</option></select></div>
             <div class="field">
               <label for="recurringName">Nama Aturan</label>
               <input id="recurringName" type="text" placeholder="Contoh: Gaji, Internet, Netflix" required>
@@ -337,7 +341,8 @@
               <label for="recurringType">Tipe</label>
               <select id="recurringType">
                 <option value="income">Pemasukan</option>
-                <option value="expense">Pengeluaran</option>
+                <option value="expense">Pengeluaran (rekening / debit)</option>
+                <option value="credit_purchase">Belanja Kredit / PayLater</option>
                 <option value="transfer">Transfer</option>
                 <option value="credit_payment">Bayar Kredit / PayLater</option>
                 <option value="investment">Investasi</option>
@@ -380,6 +385,7 @@
               <label for="recurringEnd">Berakhir (opsional)</label>
               <input id="recurringEnd" type="date">
             </div>
+            <p id="recurringPaymentHelp" class="helper-note form-span hidden"></p>
             <p class="helper-note form-span">Tanggal 29–31 mengikuti hari terakhir jika bulan lebih pendek. Gaji belum menambah saldo sampai dikonfirmasi.</p><button id="recurringSaveButton" class="btn btn-primary form-submit" type="submit">Simpan jadwal</button><button id="cancelRecurringEdit" class="btn btn-light" type="button">Reset formulir</button>
           </form>
 
@@ -831,7 +837,7 @@
   <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
-  <script type="module" src="assets/js/boot.js?v=salary-weekday-20261019"></script>
+  <script type="module" src="assets/js/boot.js?v=subscriptions-sidebar-20261019"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 

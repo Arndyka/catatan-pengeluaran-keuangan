@@ -1,6 +1,8 @@
 import {formatDateLocal} from './utils.js';
 export const isSalaryRule=rule=>rule.kind==='salary'||(!rule.kind&&rule.type==='income'&&/gaji|salary|payroll/i.test([rule.name,rule.category].join(' ')));
 export const salaryWeekendPolicy=rule=>isSalaryRule(rule)?(rule.weekendPolicy||'previous_weekday'):'none';
+export const requiresRecurringConfirmation=rule=>isSalaryRule(rule)||rule.kind==='subscription'||rule.type==='credit_purchase';
+export const recurringSourceAccounts=(type,accounts)=>accounts.filter(a=>a.active!==false&&(type==='credit_purchase'?a.type==='liability'&&['credit_card','paylater'].includes(a.subtype):a.type==='asset'));
 export function recurringReceiptInPeriod(receipt,candidate){
  const month=candidate.date?.slice(0,7);
  return !!month&&(receipt.date?.slice(0,7)===month||(receipt.sourceMeta?.recurringPeriod||receipt.recurringPeriod)===month);
@@ -11,10 +13,11 @@ export function validateRecurringRule(input,accounts){
  if(!rule.name||rule.name.length>100)throw new Error('Nama aturan wajib diisi, maksimal 100 karakter.');
  if(!Number.isFinite(rule.amount)||rule.amount<=0||!Number.isInteger(rule.dayOfMonth)||rule.dayOfMonth<1||rule.dayOfMonth>31)throw new Error('Nominal harus positif dan tanggal bulanan antara 1–31.');
  if(!validDate(rule.startDate)||(rule.endDate&&(!validDate(rule.endDate)||rule.endDate<rule.startDate)))throw new Error('Rentang tanggal aturan tidak valid.');
- if(!['income','expense','transfer','credit_payment','investment'].includes(rule.type))throw new Error('Jenis transaksi rutin tidak valid.');
- const source=accounts.find(a=>a.id===rule.sourceAccountId&&a.active!==false);
- if(!source||source.type!=='asset')throw new Error('Pilih rekening sumber/penerima aset yang aktif.');
+ if(!['income','expense','transfer','credit_purchase','credit_payment','investment'].includes(rule.type))throw new Error('Jenis transaksi rutin tidak valid.');
  if(rule.kind==='salary'){rule.type='income';rule.category='Gaji';rule.destinationAccountId='';}
+ if(rule.kind==='subscription'&&!['expense','credit_purchase'].includes(rule.type))throw new Error('Langganan harus dibayar dari rekening atau dibebankan ke kartu kredit / PayLater.');
+ const source=recurringSourceAccounts(rule.type,accounts).find(a=>a.id===rule.sourceAccountId);
+ if(!source)throw new Error(rule.type==='credit_purchase'?'Pilih kartu kredit / PayLater yang aktif.':'Pilih rekening sumber/penerima aset yang aktif.');
  if(rule.weekendPolicy!=null&&!['none','previous_weekday'].includes(rule.weekendPolicy))throw new Error('Pilih aturan akhir pekan yang valid.');
  rule.weekendPolicy=salaryWeekendPolicy(rule);
  if(['transfer','investment','credit_payment'].includes(rule.type)){

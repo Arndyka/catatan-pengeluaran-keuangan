@@ -40,6 +40,14 @@ Penyelesaian jadwal dan penulisan/penautan transaksi dilakukan atomik. Identitas
 
 Jika input manual mirip dengan gaji/rutin yang telah dikonfirmasi, dialog meminta pemeriksaan sebelum menambah catatan. Pilih **Batal** jika merupakan transaksi sama; **OK** hanya untuk transaksi berbeda. Pencocokan kemiripan tidak otomatis menghapus transaksi yang mungkin berbeda.
 
+## Langganan dan sidebar desktop (19 Oktober)
+
+- Jenis jadwal **Langganan** mendukung pengeluaran rekening/debit dan belanja kartu kredit/PayLater. Pilihan akun mengikuti metode pembayaran; kartu nonaktif atau akun pinjaman biasa tidak dapat dipakai untuk belanja kredit.
+- Menyimpan jadwal tidak membuat transaksi. Gaji, langganan, dan belanja kredit rutin selalu memerlukan konfirmasi satu per satu; tombol pencatatan massal melewatinya. Tautkan catatan yang sudah ada jika biayanya sudah masuk dari statement.
+- Konfirmasi belanja kartu menambah beban dan utang kartu. Pembayaran tagihan kartu nantinya mengurangi utang dan saldo rekening, sehingga bebannya tidak dihitung dua kali.
+- Daftar jadwal menampilkan rekening/kartu pembayaran dan tanggal mulai untuk jadwal mendatang. Nominal/tanggal yang belum terbukti pada statement tetap berasal dari keterangan pemilik, tanpa membuat transaksi historis tambahan.
+- Tombol di sebelah judul halaman meringkas sidebar PC menjadi ikon. Preferensi tersimpan di browser; label aksesibilitas dan tooltip tetap tersedia. Pada HP, navigasi bawah tetap dipakai.
+
 ## Validasi
 
 - Node: `npm.cmd test` — logika transaksi, filter, rekonsiliasi, saran, tanggal jadwal, dan idempotensi repository demo.
@@ -51,3 +59,5 @@ Jika input manual mirip dengan gaji/rutin yang telah dikonfirmasi, dialog memint
 Hasil awal 15 Oktober: 38 unit Node, 6 backend, dan 17 skenario browser lulus. Enam audit desktop/HP bebas overflow dan temuan axe; screenshot disimpan di `artifacts/previews/payroll-*.png`.
 
 Pembaruan jadwal akhir pekan 19 Oktober: 147 unit Node dan 43 skenario browser lulus, disertai pemeriksaan ulang lima skenario gaji/cache setelah perbaikan penguncian periode lama. Form gaji pada lebar 1440/390 piksel lolos pemeriksaan overflow dan axe. Audit salinan lokal pembukuan memastikan saldo terkonfirmasi serta arus kas September–Oktober tetap sama. Pengujian ini tidak menulis ke Firebase produksi atau memanggil model NVIDIA.
+
+Pembaruan langganan dan sidebar 19 Oktober: 149 unit Node dan 45 skenario browser lulus. Audit 16 kombinasi lebar layar, tema, dan sidebar serta form langganan HP tidak menemukan overflow atau pelanggaran axe. Konfirmasi langganan kartu diuji menambah beban/utang sekali tanpa mengurangi saldo rekening; jadwal tidak diposting otomatis.
