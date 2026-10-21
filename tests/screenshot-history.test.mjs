@@ -1,7 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseImageText,chooseHistoryReading} from '../assets/js/scanner.js';
+import {parseImageText,chooseHistoryReading,detectBankFromText} from '../assets/js/scanner.js';
 const parse=(bank,text)=>parseImageText(text,{bank,accountId:'asset-'+bank,pageNumber:1,merchantRules:{}});
+test('Livin history shared with a generic filename is recognized by its issuer layout',()=>{
+ const text='Transaksi e-Statement\nSeptember Oktober\n20 Okt 2026\nBiaya - IDR 2.000\nBiaya transaksi bank\nBayar/Top-up - IDR 120.000\nPembayaran ShopeePay\n+1 poin\nQR Bayar - IDR 5.000\nPembayaran QR ke Kedai Contoh';
+ const detected=detectBankFromText(text,'shared-image.jpeg');
+ assert.equal(detected.bank,'mandiri');
+ assert.deepEqual(parse(detected.bank,text).map(r=>[r.date,r.signedAmount]),[['2026-10-20',-2000],['2026-10-20',-120000],['2026-10-20',-5000]]);
+ assert.equal(detectBankFromText('Transaksi berhasil\nBayar/Top-up - IDR 120.000','shared-image.jpeg').bank,'generic');
+ assert.equal(detectBankFromText('Transaksi e-Statement\n20 Okt 2026\nKedai Contoh - IDR 5.000','shared-image.jpeg').bank,'generic');
+});
 test('OCR numeric prefixes are never accepted as complete amounts',()=>{
  for(const amount of ['-Rp12 000','-Rp 1 234,56','-Rp12.000S','-Rp1.234,567','-Rp12,34,567'])assert.equal(parse('krom',`Riwayat Transaksi\n15 Okt 2026\nMerchant ${amount}\nUang Keluar`).length,0,amount);
 });

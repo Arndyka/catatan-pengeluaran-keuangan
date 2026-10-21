@@ -19,7 +19,7 @@ import { creditCardSnapshot, confirmedCardSnapshot } from "./credit-card.js";
 import {filterTransactions,historyAccounts,accountActivity,transactionPresentation,sortTransactionHistory} from './transaction-filters.js';
 import {financialHealth,balanceEvidenceIssues} from './financial-health.js';
 import { buildMonthlyReport } from "./reports.js";
-import { scanStatementFiles } from "./scanner.js?v=transaction-editor-20261019";
+import { scanStatementFiles } from "./scanner.js?v=livin-history-20261021";
 
 
 const authScreen = $("authScreen");

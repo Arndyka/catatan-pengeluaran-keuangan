@@ -260,6 +260,12 @@ export function detectBankFromText(pageText, fileName = "") {
   if(/livin|mandiri/i.test(fileName))scores.mandiri+=15;
   if(/(?:^|[_\s-])blu(?:[.\s_-]|$)/i.test(fileName))scores.blu+=15;
   if(/krom/i.test(fileName))scores.krom+=15;
+  // Shared screenshots lose their bank-specific filename. Livin's history
+  // header and transaction controls identify the issuer, not the counterparty.
+  if (/(?:^|\n)\s*Transaksi\s+e[- ]?Statement\s*(?:\n|$)/i.test(pageText)
+      && /\b(?:QR\s*Bayar|Bayar\s*\/\s*Top[ -]*up|Transfer\s+Rupiah)\b/i.test(pageText)
+      && /[+\u2212\u2013-]\s*IDR\s*\d/i.test(pageText)
+      && /\b\d{1,2}\s+[a-z]+\s+20\d{2}\b/i.test(pageText)) scores.mandiri+=12;
   // Issuer marks outweigh bank names mentioned in transaction descriptions.
   if (/bankmandiri\.co\.id|mandiri call/.test(text)) scores.mandiri += 12;
   if (/blubybcadigital\.id|\bbluaccount\b/.test(text)) scores.blu += 12;
