@@ -19,7 +19,7 @@ import { creditCardSnapshot, confirmedCardSnapshot } from "./credit-card.js";
 import {filterTransactions,historyAccounts,accountActivity,transactionPresentation,sortTransactionHistory} from './transaction-filters.js';
 import {financialHealth,balanceEvidenceIssues} from './financial-health.js';
 import { buildMonthlyReport } from "./reports.js";
-import { scanStatementFiles } from "./scanner.js?v=loan-investment-20261021";
+import { scanStatementFiles } from "./scanner.js?v=six-source-ocr-20261021";
 
 
 const authScreen = $("authScreen");
@@ -952,7 +952,11 @@ async function scanFiles() {
   };
 
   const mandiriCards=state.settings.accounts.filter(account=>account.active!==false&&account.type==='liability'&&account.subtype==='credit_card'&&/mandiri/i.test(account.name));
+  const shopeeWallets=assetAccounts.filter(a=>/shopee\s*pay/i.test(a.name));
+  const shopeePaylaters=state.settings.accounts.filter(a=>a.active!==false&&a.subtype==='paylater'&&/spaylater|shopee/i.test(a.name));
   const bankAccountMap = {
+    shopee:shopeeWallets.length===1?shopeeWallets[0].id:'',
+    shopeePaylater:shopeePaylaters.length===1?shopeePaylaters[0].id:'',
     mandiriCard:mandiriCards.length===1?mandiriCards[0].id:'',
     blu: findBankAccount(['blu','BCA Digital','blu BCA Digital']),
     mandiri: findBankAccount([
@@ -1074,7 +1078,7 @@ async function scanFiles() {
 
       // Pengeluaran/pemasukan biasa selalu memakai rekening
       // bank yang terdeteksi dari e-Statement.
-      if (nextCandidate.type !== "transfer") {
+      if (nextCandidate.type !== "transfer" && detectedBank!=="shopee") {
         nextCandidate.sourceAccountId =
           nextCandidate.type==='credit_purchase'?(bankAccountMap.mandiriCard||''):detectedBankAccount;
         nextCandidate.destinationAccountId = "";
@@ -1228,6 +1232,7 @@ function renderStatementSummaries() {
               </div>
 
               ${(()=>{const p=statementOpeningProposal(statement,scanStatements,state.transactions,state.settings),index=scanStatements.indexOf(statement);return `<div class="statement-opening-note">${p.status==='ready'?`<label><input type="checkbox" data-scan-opening="${index}" ${statement.openingSelected?'checked':''}><span><strong>Sertakan saldo awal ${money(p.input.amount)}</strong><br>${escapeHtml(p.reason)}</span></label>`:`<p>${escapeHtml(p.reason)}</p>`}${p.transactionId?`<button class="text-button" type="button" data-history-transaction="${escapeHtml(p.transactionId)}">Lihat saldo awal ↗</button>`:''}</div>`;})()}
+              ${statement.evidence?`<section class="statement-opening-note" data-scan-evidence><h3>${escapeHtml(statement.evidence.title)}</h3><p>Bukti informasi saja; belum disimpan sebagai transaksi atau tagihan. Cocokkan dengan bukti pembayaran/pencairan sebelum memperbarui pembukuan.</p>${(statement.evidence.fields||[]).map(f=>`<p>${escapeHtml(f.label)}: <strong>${money(f.amount)}</strong></p>`).join('')}${(statement.evidence.bills||[]).map(b=>`<p>Jatuh tempo ${escapeHtml(b.date)}: <strong>${money(b.amount)}</strong></p>`).join('')}</section>`:''}
               <div class="statement-summary-grid compact-summary-grid">
                 <div class="statement-summary-item summary-wide">
                   <p>Periode</p>
@@ -1454,7 +1459,7 @@ function renderScanCandidates() {
                       <option value="transfer" ${item.type === "transfer" ? "selected" : ""}>
                         Transfer
                       </option>
-                      <option value="credit_purchase" ${item.type === "credit_purchase" ? "selected" : ""}>Belanja Kartu Kredit</option>
+                      <option value="credit_purchase" ${item.type === "credit_purchase" ? "selected" : ""}>Belanja Kartu / PayLater</option>
                     </select>
 
                     ${
@@ -1469,11 +1474,11 @@ function renderScanCandidates() {
                   <td data-label="Rekening">
                     <div class="account-pair">
                       <label>
-                        <span>${item.type==='credit_purchase'?'Kartu kredit':'Sumber'}</span>
+                        <span>${item.type==='credit_purchase'?'Kartu / PayLater':'Sumber'}</span>
                         <select data-scan-field="sourceAccountId">
                           ${accountOptionsHtml(
                             item.sourceAccountId,
-                            item.type==='credit_purchase'?{includeAssets:false,includeLiabilities:true,subtype:['credit_card']}:{ includeLiabilities: false }
+                            item.type==='credit_purchase'?{includeAssets:false,includeLiabilities:true,subtype:item.bank==='shopee'?['paylater']:['credit_card']}:{ includeLiabilities: false }
                           )}
                         </select>
                       </label>

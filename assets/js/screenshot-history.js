@@ -12,7 +12,7 @@ const plain=lines=>lines.map(l=>l.replace(/^\s*(?:[©®=~]+|\d\))\s*/,'')).filte
 // or neighbouring screenshots to fill a clipped transaction's missing date.
 export function screenshotHistory(rawText,{bank,parseMoney}){
  const text=String(rawText||'').replace(/[−–]/g,'-');
- const handled=bank==='bca'?/account transactions/i.test(text):bank==='blu'||bank==='krom'?/riwayat transaksi/i.test(text):bank==='mandiri'?/\btransaksi\b/i.test(text)&&(/e-statement|Transfer Rupiah|QR\s?Bayar/i.test(text)):false;
+ const handled=bank==='bca'?/account transactions/i.test(text):bank==='blu'||bank==='krom'?/riwayat transaksi/i.test(text):bank==='shopee'?/riwayat transaksi/i.test(text):bank==='mandiri'?/\btransaksi\b/i.test(text)&&(/e-statement|Transfer Rupiah|QR\s?Bayar/i.test(text)):false;
  if(!handled)return {handled:false,rows:[],excluded:[]};
  let lines=text.split('\n').map(l=>l.trimEnd()).filter(l=>l.trim()),rows=[],excluded=[],ordinal=0;
  const reject=reason=>excluded.push({row:++ordinal,reason});
@@ -36,6 +36,8 @@ export function screenshotHistory(rawText,{bank,parseMoney}){
    const incoming=/dana masuk|uang masuk/i.test(joined),outgoing=/uang keluar|transfer ke|pembayaran/i.test(joined);
    if(incoming!==outgoing)sign=incoming?1:-1;
   }
+  if(sign>0&&/lentera dana nu(?:santara)?\b|pencairan (?:SPinjam|pinjaman)/i.test(joined)){omit('Dana pencairan pinjaman perlu dicocokkan dengan pokok dan biaya; bukan pemasukan biasa.');return;}
+  if(bank==='shopee'&&!/\b(?:berhasil|selesai|successful|completed)\b/i.test(joined)){omit('Status transaksi ShopeePay belum terbaca berhasil.');return;}
   if(!sign){omit('Arah uang masuk/keluar tidak cukup jelas.');return;}
   let description=plain(block).replace(token[0].trim(),'').replace(datePattern,'').replace(/\b\d{2}:\d{2}(?::\d{2})?\s*(?:WIB)?/g,'').trim();
   const reason=scanExclusionReason({description});if(reason){omit(reason);return;}

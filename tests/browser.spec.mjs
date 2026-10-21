@@ -675,8 +675,7 @@ test('credit card sections have breathing room on desktop and mobile',async({pag
  await page.evaluate(()=>location.hash='credit-card');
  for(const width of [1440,390]){
   await page.setViewportSize({width,height:900});
-  const stats=await page.locator('.credit-stats').boundingBox(),grid=await page.locator('.credit-grid').boundingBox();
-  expect(grid.y-(stats.y+stats.height)).toBeGreaterThanOrEqual(23);
+  await expect.poll(()=>page.evaluate(()=>{const stats=document.querySelector('.credit-stats').getBoundingClientRect(),grid=document.querySelector('.credit-grid').getBoundingClientRect();return grid.y-stats.bottom;})).toBeGreaterThanOrEqual(23);
  }
 });
 
@@ -933,4 +932,22 @@ test('PayLater records actual payment once and linking a bank import never subtr
  const payment=await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js');return state.transactions.find(t=>t.sourceMeta?.paylaterBillId==='bill-0').id;});
  await page.evaluate(async id=>{const {state}=await import('/assets/js/state.js'),{deleteTransaction}=await import('/assets/js/repository.js');await deleteTransaction(state.user.uid,id);},payment);
  await expect(page.locator('[data-paylater-pay="bill-0"]')).toBeVisible();
+});
+
+test('Shopee paid order routes to its wallet or PayLater and leaves external bank payments unmapped',async({page})=>{
+ const prefix='Shopee\nRincian Pesanan\nPesanan Selesai\nWaktu Pembayaran 21 Okt 2026 10:11\nTotal Pembayaran Rp45.000\nMetode Pembayaran ';
+ await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js');state.settings.accounts.push({id:'shopee-wallet-test',name:'ShopeePay',type:'asset',subtype:'ewallet',active:true},{id:'spay-test',name:'SPayLater',type:'liability',subtype:'paylater',active:true});});
+ await page.evaluate(()=>location.hash='scanner');
+ for(const [method,type,account] of [['ShopeePay','expense','shopee-wallet-test'],['SPayLater','credit_purchase','spay-test'],['Transfer Bank BCA','expense','']]){
+  await localOcr(page,prefix+method);await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+  const row=page.locator('[data-scan-index]');await expect(row).toHaveCount(1);await expect(row.locator('[data-scan-field=sourceAccountId]')).toHaveValue(account);await expect(row.locator('[data-scan-field=type]')).toHaveValue(type);await expect(row.locator('[data-scan-field=selected]')).not.toBeChecked();
+ }
+});
+test('Shopee loan evidence is readable on phones but never enters transaction selection',async({page})=>{
+ const text='Rincian Pinjaman\nRp1.000.000\nTotal pinjaman\nWaktu Pengajuan 21 Okt 2026 10:11\nDurasi Pinjaman 2 bulan\nBiaya Pencairan Rp10.000\nBiaya Cicilan Rp60.000\nRincian Pembayaran Bulanan\n1/2, Rp530.000\nJatuh Tempo:21 Nov 2026 Belum Dibayar\n2/2, Rp530.000\nJatuh Tempo:21 Des 2026 Belum Dibayar';
+ await localOcr(page,text);const before=await page.evaluate(()=>localStorage.getItem('spendly:demo:v1'));
+ await page.evaluate(()=>location.hash='scanner');await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-evidence]')).toContainText('1.000.000');await expect(page.locator('[data-scan-evidence]')).toContainText('530.000');await expect(page.locator('[data-scan-index]')).toHaveCount(0);
+ for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ expect(await page.evaluate(()=>localStorage.getItem('spendly:demo:v1'))).toBe(before);
 });

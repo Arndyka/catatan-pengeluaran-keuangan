@@ -1,3 +1,5 @@
+import {readHistoryAmounts} from './history-amounts.js';
+import {isShopeeScreen,shopeeScreenshot} from './shopee-screenshot.js';
 import {
   cleanText,
   formatDateLocal,
@@ -29,6 +31,7 @@ const BANK_LABELS = {
   bca: "BCA",
   krom: "Krom",
   blu: "blu",
+  shopee: "Shopee",
   generic: "Format Umum"
 };
 
@@ -255,12 +258,15 @@ export function detectBankFromText(pageText, fileName = "") {
     mandiri: 0,
     bca: 0,
     krom: 0,
+    shopee: 0,
     blu: 0
   };
   if(/mybca/i.test(fileName))scores.bca+=15;
   if(/livin|mandiri/i.test(fileName))scores.mandiri+=15;
   if(/(?:^|[_\s-])blu(?:[.\s_-]|$)/i.test(fileName))scores.blu+=15;
   if(/krom/i.test(fileName))scores.krom+=15;
+  if(/shopee/i.test(fileName))scores.shopee+=15;
+  if(isShopeeScreen(pageText))scores.shopee+=12;
   if(isMandiriCardHistory(pageText))scores.mandiri+=20;
   // Shared screenshots lose their bank-specific filename. Livin's history
   // header and transaction controls identify the issuer, not the counterparty.
@@ -281,6 +287,8 @@ export function detectBankFromText(pageText, fileName = "") {
       && firstHistoryAmount>=0 && firstHistoryDate>firstHistoryAmount
       && /\b(?:Pembayaran [QO]RIS|Dana Masuk|Uang Masuk|Transfer ke)\b/i.test(pageText)
       && /Rp\s*[\d.,]+[^\n]*\n(?:[^\n]*\n){0,3}\s*\d{1,2}\s+[a-z]+\s+20\d{2}\s+\d{2}:\d{2}(?::\d{2})?\s*WIB\b/i.test(pageText)) scores.blu+=12;
+  if(firstHistoryDate>=0&&/pemindahan saldo|bunga tabungan utama/i.test(pageText))scores.krom+=12;
+  if(/total saldo/i.test(pageText)&&/akumulasi bunga/i.test(pageText)&&/kantong|tabungan utama/i.test(pageText))scores.krom+=12;
   // Issuer marks outweigh bank names mentioned in transaction descriptions.
   if (/bankmandiri\.co\.id|mandiri call/.test(text)) scores.mandiri += 12;
   if (/blubybcadigital\.id|\bbluaccount\b/.test(text)) scores.blu += 12;
@@ -1727,8 +1735,9 @@ export function parseImageText(rawText,options){
 export function parseScreenshotHistory(rawText,options){
  const card=cardHistory(rawText,{parseDate:parseDateFromText,parseMoney:parseIdrValue});
  if(card.handled)return {...card,candidates:card.rows.map(row=>({...createBaseCandidate({bank:'mandiri',type:'credit_purchase',date:row.date,amount:row.amount,signedAmount:-row.amount,sourceAccountId:options.cardAccountId||'',category:inferCategory(row.description,'',options.merchantRules||{}),merchant:'',description:row.description,pageNumber:options.pageNumber||1,rowNumber:row.row,method:'mandiri-card-history-ocr',confidence:.7,statementAccountName:'Kartu kredit · Belum tertagih',selected:false}),cardBillingStatus:'unbilled',aiReason:'Belanja kartu kredit. Periksa kartu, tanggal, nominal, dan kecocokan transaksi sebelum menyimpan.'}))};
- const parsed=screenshotHistory(rawText,{...options,parseMoney:parseIdrValue});
- return {...parsed,candidates:parsed.rows.map(row=>({...createBaseCandidate({bank:options.bank,type:row.signedAmount>0?'income':'expense',date:row.date,time:row.time,amount:row.amount,signedAmount:row.signedAmount,sourceAccountId:options.accountId,category:inferCategory(row.description,merchantFromDescription(row.description),options.merchantRules||{}),merchant:merchantFromDescription(row.description),description:row.description,pageNumber:options.pageNumber||1,rowNumber:row.row,method:`${options.bank}-history-ocr`,confidence:.7,selected:false}),aiReason:'Hasil OCR history: periksa nominal, tanggal, dan apakah ini transfer milik sendiri sebelum memilih.'}))};
+ const shop=shopeeScreenshot(rawText,{...options,parseMoney:parseIdrValue});
+ const parsed=shop.handled?shop:screenshotHistory(rawText,{...options,parseMoney:parseIdrValue});
+ return {...parsed,candidates:parsed.rows.map(row=>({...createBaseCandidate({bank:options.bank,type:row.type||(row.signedAmount>0?'income':'expense'),date:row.date,time:row.time,amount:row.amount,signedAmount:row.signedAmount,sourceAccountId:row.sourceAccountId??options.accountId,reference:row.reference||'',category:inferCategory(row.description,merchantFromDescription(row.description),options.merchantRules||{}),merchant:merchantFromDescription(row.description),description:row.description,pageNumber:options.pageNumber||1,rowNumber:row.row,method:`${options.bank}-history-ocr`,confidence:.7,selected:false}),aiReason:'Hasil OCR history: periksa nominal, tanggal, dan apakah ini transfer milik sendiri sebelum memilih.'}))};
 }
 
 export function chooseHistoryReading(primary,retry){
@@ -2635,7 +2644,7 @@ async function readImageStatement({
   const rawText = result?.data?.text || "";
   const detection = detectBankFromText(rawText, file.name);
   const bank = detection.bank;
-  const options={bank,pageNumber:1,accountId:bankAccountMap[bank]||bankAccountMap.generic,cardAccountId:bankAccountMap.mandiriCard||'',merchantRules};
+  const options={bank,pageNumber:1,accountId:bank==='shopee'?(bankAccountMap.shopee||''):(bankAccountMap[bank]||bankAccountMap.generic),cardAccountId:bankAccountMap.mandiriCard||'',paylaterAccountId:bankAccountMap.shopeePaylater||'',merchantRules};
   let history=parseScreenshotHistory(rawText,options);
   const cardHistoryImage=isMandiriCardHistory(rawText);
   if(cardHistoryImage){
@@ -2645,9 +2654,11 @@ async function readImageStatement({
     if(shouldCancel())throw new Error('Proses scan dibatalkan.');
     // Contrast recovers the faint date headings; never borrow the due date.
     history=parseScreenshotHistory(text,options);
-  } else if(history.handled&&(!history.candidates.length||history.excluded.some(e=>/nominal OCR ambigu/i.test(e.reason)))){
+  } else if(history.handled&&!history.evidence&&(!history.candidates.length||history.excluded.some(e=>/nominal OCR ambigu/i.test(e.reason)))){
     onProgress({stage:'ocr',fileName:file.name,bank,pageNumber:1,pageCount:1,stageProgress:0});
-    const retry=await worker.recognize(await highContrastImage(file));
+    const canvas=await highContrastImage(file);
+    const retry=await worker.recognize(canvas);
+    if(bank==='krom')retry.data.text=await readHistoryAmounts(retry.data,canvas,worker,shouldCancel);
     if(shouldCancel())throw new Error('Proses scan dibatalkan.');
     history=chooseHistoryReading(history,parseScreenshotHistory(retry?.data?.text||'',options));
   }
@@ -2659,7 +2670,7 @@ async function readImageStatement({
   }));
 
   const validated = validateRunningBalances(parsed, {});
-  const informational=!parsed.length&&!history.handled&&/total saldo|active balance|akumulasi bunga|spaylater|bluloyalty|saldo tersedia/i.test(rawText);
+  const informational=!!history.evidence||(!parsed.length&&!history.handled&&/total saldo|active balance|akumulasi bunga|spaylater|bluloyalty|saldo tersedia/i.test(rawText));
 
   return {
     candidates: validated.candidates,
@@ -2669,6 +2680,7 @@ async function readImageStatement({
       bank,
       bankLabel: BANK_LABELS[bank],
       bankConfidence: detection.confidence,
+      evidence:history.evidence||null,
       pageCount: 1,
       nativePages: 0,
       ocrPages: parsed.length ? 1 : 0,

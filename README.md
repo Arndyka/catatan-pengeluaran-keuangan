@@ -21,6 +21,13 @@ Screenshot Livin Mandiri pada tab **Belum Tertagih** juga didukung. Belanja dipe
 
 Pembaca mendukung format sampel myBCA Tahapan Xpresi, bluAccount, dan rekening koran konsolidasi Mandiri, termasuk PDF berpassword. Ringkasan, informasi kartu, disclaimer dan transaksi gagal tidak menjadi transaksi. Nominal, total dan saldo per baris diperiksa hingga pecahan rupiah. Format lain tetap memerlukan peninjauan.
 
+Screenshot yang diuji: riwayat myBCA, Livin debit, blu, Krom, serta transaksi belum tertagih kartu kredit Mandiri. Deteksi tata letak tetap bekerja untuk nama file generik dari WhatsApp. Krom mengabaikan pemindahan antar-kantong dalam akun konsolidasi; nominal ambigu dibaca ulang dari potongan gambar dan hanya diterima jika digit yang sudah terbaca tetap sama.
+
+Shopee dibedakan menurut bukti: riwayat ShopeePay bertanggal lengkap dan berstatus berhasil; pesanan dibayar memakai tanggal pembayaran dan total akhir; belanja SPayLater menuju akun PayLater. Metode bayar bank yang belum dipetakan dibiarkan kosong. Saldo, limit, tagihan, serta rincian SPinjam tampil sebagai informasi, bukan transaksi otomatis. Dana pencairan pinjaman yang dikenali perlu dicocokkan dengan pokok/biaya; tidak diperlakukan sebagai penghasilan.
+
+Batas pengujian Shopee: gambar asli yang tersedia adalah halaman saldo dan rincian pinjaman. Riwayat ShopeePay dan pesanan dibayar diuji dengan gambar sintetis melalui Tesseract (`node tools/ocr-shopee-smoke.mjs`), belum mencakup semua variasi aplikasi. Format terpotong, tanggal relatif tanpa tahun, refund, pembayaran campuran, dan angka tidak pasti tetap memerlukan bukti lebih lengkap. Semua kandidat perlu diperiksa; scan tidak otomatis menyimpan pembukuan.
+
+
 Referensi scanner disimpan terpisah dari pembukuan pada akun yang login. Konsolidasi membandingkan bank, rekening, periode, saldo, total, dan seluruh urutan transaksi; nominal yang kebetulan sama tidak membuktikan duplikat. File asli tidak dihapus. Hasil ekstraksi belum otomatis menjadi label kategori yang benar.
 
 Saran kategori menggunakan pencocokan karakter lokal dari sedikitnya dua contoh berbeda yang sudah dikonfirmasi. Saran yang bertentangan atau kurang mirip tidak ditampilkan. Nominal dan tanggal tidak diubah model; pengguna tetap memilih apakah menerapkan saran. Data contoh dan koreksi hanya menjadi pengetahuan akun tersebut.
