@@ -17,6 +17,8 @@ Gunakan **Catat lunas** setelah pembayaran benar-benar terjadi. Tautkan mutasi b
 
 Scanner memakai teks asli PDF dan OCR lokal untuk halaman gambar. Panggilan NVIDIA/LLM dinonaktifkan; frontend tidak memerlukan backend AI, API key, Render, atau kartu pembayaran. Folder backend lama hanya merupakan arsip implementasi sebelumnya.
 
+Screenshot Livin Mandiri pada tab **Belum Tertagih** juga didukung. Belanja dipetakan ke akun kartu kredit, bukan rekening debit; bila ada beberapa kartu, pilih kartu yang sesuai saat review. Ringkasan tagihan, limit, dan tanggal jatuh tempo tidak diimpor sebagai transaksi. Tanggal abu-abu dibaca ulang dengan kontras lebih tinggi, dan sen kecil di kanan atas nominal diperiksa melalui potongan gambar. Baris dengan tanggal/nominal tidak jelas serta pembayaran/refund kartu dikecualikan untuk ditinjau. Screenshot yang tumpang tindih diperiksa terhadap kandidat lain dan transaksi tersimpan; hasil OCR tidak otomatis disimpan.
+
 Pembaca mendukung format sampel myBCA Tahapan Xpresi, bluAccount, dan rekening koran konsolidasi Mandiri, termasuk PDF berpassword. Ringkasan, informasi kartu, disclaimer dan transaksi gagal tidak menjadi transaksi. Nominal, total dan saldo per baris diperiksa hingga pecahan rupiah. Format lain tetap memerlukan peninjauan.
 
 Referensi scanner disimpan terpisah dari pembukuan pada akun yang login. Konsolidasi membandingkan bank, rekening, periode, saldo, total, dan seluruh urutan transaksi; nominal yang kebetulan sama tidak membuktikan duplikat. File asli tidak dihapus. Hasil ekstraksi belum otomatis menjadi label kategori yang benar.

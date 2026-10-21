@@ -7,6 +7,7 @@ import {visionCandidates,imageDataUrl} from './scan-vision.js';
 import {scanExclusionReason} from './transaction-quality.js';
 import {explicitBankReference} from './import-reconciliation.js';
 import {screenshotHistory} from './screenshot-history.js';
+import {isMandiriCardHistory,cardHistory,readCardCents} from './card-history.js';
 
 const MONTHS = {
   jan: "01", januari: "01", january: "01",
@@ -260,6 +261,7 @@ export function detectBankFromText(pageText, fileName = "") {
   if(/livin|mandiri/i.test(fileName))scores.mandiri+=15;
   if(/(?:^|[_\s-])blu(?:[.\s_-]|$)/i.test(fileName))scores.blu+=15;
   if(/krom/i.test(fileName))scores.krom+=15;
+  if(isMandiriCardHistory(pageText))scores.mandiri+=20;
   // Shared screenshots lose their bank-specific filename. Livin's history
   // header and transaction controls identify the issuer, not the counterparty.
   if (/(?:^|\n)\s*Transaksi\s+e[- ]?Statement\s*(?:\n|$)/i.test(pageText)
@@ -1723,6 +1725,8 @@ export function parseImageText(rawText,options){
 }
 
 export function parseScreenshotHistory(rawText,options){
+ const card=cardHistory(rawText,{parseDate:parseDateFromText,parseMoney:parseIdrValue});
+ if(card.handled)return {...card,candidates:card.rows.map(row=>({...createBaseCandidate({bank:'mandiri',type:'credit_purchase',date:row.date,amount:row.amount,signedAmount:-row.amount,sourceAccountId:options.cardAccountId||'',category:inferCategory(row.description,'',options.merchantRules||{}),merchant:'',description:row.description,pageNumber:options.pageNumber||1,rowNumber:row.row,method:'mandiri-card-history-ocr',confidence:.7,statementAccountName:'Kartu kredit · Belum tertagih',selected:false}),cardBillingStatus:'unbilled',aiReason:'Belanja kartu kredit. Periksa kartu, tanggal, nominal, dan kecocokan transaksi sebelum menyimpan.'}))};
  const parsed=screenshotHistory(rawText,{...options,parseMoney:parseIdrValue});
  return {...parsed,candidates:parsed.rows.map(row=>({...createBaseCandidate({bank:options.bank,type:row.signedAmount>0?'income':'expense',date:row.date,time:row.time,amount:row.amount,signedAmount:row.signedAmount,sourceAccountId:options.accountId,category:inferCategory(row.description,merchantFromDescription(row.description),options.merchantRules||{}),merchant:merchantFromDescription(row.description),description:row.description,pageNumber:options.pageNumber||1,rowNumber:row.row,method:`${options.bank}-history-ocr`,confidence:.7,selected:false}),aiReason:'Hasil OCR history: periksa nominal, tanggal, dan apakah ini transfer milik sendiri sebelum memilih.'}))};
 }
@@ -2631,9 +2635,17 @@ async function readImageStatement({
   const rawText = result?.data?.text || "";
   const detection = detectBankFromText(rawText, file.name);
   const bank = detection.bank;
-  const options={bank,pageNumber:1,accountId:bankAccountMap[bank]||bankAccountMap.generic,merchantRules};
+  const options={bank,pageNumber:1,accountId:bankAccountMap[bank]||bankAccountMap.generic,cardAccountId:bankAccountMap.mandiriCard||'',merchantRules};
   let history=parseScreenshotHistory(rawText,options);
-  if(history.handled&&(!history.candidates.length||history.excluded.some(e=>/nominal OCR ambigu/i.test(e.reason)))){
+  const cardHistoryImage=isMandiriCardHistory(rawText);
+  if(cardHistoryImage){
+    const canvas=await highContrastImage(file);
+    const retry=await worker.recognize(canvas);
+    const text=await readCardCents(retry.data,canvas,worker,shouldCancel);
+    if(shouldCancel())throw new Error('Proses scan dibatalkan.');
+    // Contrast recovers the faint date headings; never borrow the due date.
+    history=parseScreenshotHistory(text,options);
+  } else if(history.handled&&(!history.candidates.length||history.excluded.some(e=>/nominal OCR ambigu/i.test(e.reason)))){
     onProgress({stage:'ocr',fileName:file.name,bank,pageNumber:1,pageCount:1,stageProgress:0});
     const retry=await worker.recognize(await highContrastImage(file));
     if(shouldCancel())throw new Error('Proses scan dibatalkan.');
@@ -2641,7 +2653,7 @@ async function readImageStatement({
   }
   const parsed = (history.handled?history.candidates:parseImageText(rawText,options)).map((item) => ({
     ...item,
-    ...(history.handled?{sourceRevision:'history-v1'}:{}),
+    ...(history.handled?{sourceRevision:cardHistoryImage?'card-history-v1':'history-v1'}:{}),
     sourceFile: file.name,
     sourceFileOrder: fileOrder
   }));

@@ -322,6 +322,34 @@ test('confirmed card totals are dated, inclusive, private and fit small screens'
 async function localOcr(page,text){
  await page.evaluate(text=>{window.Tesseract={createWorker:async()=>({setParameters:async()=>{},recognize:async()=>({data:{text}}),terminate:async()=>{}})};},text);
 }
+
+test('card scan posts only to credit liability after review and detects repeated images',async({page})=>{
+ const text='Transaksi e-Billing\n09 Sep - 08 Okt Belum Tertagih\n14 Okt 2026\nToko Uji Rp 123.456,78\nKOTA ID';
+ await localOcr(page,text);
+ const before=await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js');const {balanceSheet}=await import('/assets/js/accounting.js');return {count:state.transactions.length,...balanceSheet(state.transactions)};});
+ await page.evaluate(()=>location.hash='scanner');await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ const row=page.locator('[data-scan-index]');await expect(row).toHaveCount(1);
+ await expect(row.locator('[data-scan-field=type]')).toHaveValue('credit_purchase');
+ await expect(row.locator('[data-scan-field=sourceAccountId]')).toHaveValue('liability-mandiri-cc');
+ await expect(row.locator('[data-scan-field=selected]')).not.toBeChecked();
+ await expect(row.locator('[data-scan-field=sourceAccountId] option[value=asset-mandiri]')).toHaveCount(0);
+ for(const width of [390,320,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ await row.locator('[data-scan-field=selected]').check();await page.locator('#saveScanCandidates').click();
+ await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
+ const after=await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js');const {balanceSheet}=await import('/assets/js/accounting.js');return {count:state.transactions.length,...balanceSheet(state.transactions)};});
+ expect(after.count).toBe(before.count+1);expect(after.assets).toBe(before.assets);expect(after.liabilities).toBeCloseTo(before.liabilities+123456.78,2);
+ await page.locator('#scanButton').click();await expect(row.locator('[data-scan-field=selected]')).toBeDisabled();
+});
+
+test('card scan with several Mandiri cards requires an explicit card choice',async({page})=>{
+ await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js');state.settings.accounts.push({id:'card-second',name:'Mandiri kedua',type:'liability',subtype:'credit_card',active:true});});
+ await localOcr(page,'Transaksi e-Billing\nBelum Tertagih\n14 Okt 2026\nToko Uji Rp 31.500,00');
+ await page.evaluate(()=>location.hash='scanner');await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
+ await expect(page.locator('[data-scan-index]')).toHaveCount(1);await expect(page.locator('[data-scan-field=sourceAccountId]')).toHaveValue('');
+ await page.locator('[data-scan-field=selected]').check();await page.locator('#saveScanCandidates').click();
+ await expect(page.locator('#scanMessage')).toHaveClass(/error/);
+ await page.locator('[data-scan-field=sourceAccountId]').selectOption('card-second');await expect(page.locator('[data-scan-field=selected]')).not.toBeChecked();
+});
 async function statementPdf(context){
  const fixture=await context.newPage();
  const tokens=[['REKENING TAHAPAN XPRESI',30,800],['NO. REKENING : 0000000001',300,740],['PERIODE : AGUSTUS 2026',300,700],

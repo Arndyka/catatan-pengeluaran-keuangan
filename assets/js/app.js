@@ -19,7 +19,7 @@ import { creditCardSnapshot, confirmedCardSnapshot } from "./credit-card.js";
 import {filterTransactions,historyAccounts,accountActivity,transactionPresentation,sortTransactionHistory} from './transaction-filters.js';
 import {financialHealth,balanceEvidenceIssues} from './financial-health.js';
 import { buildMonthlyReport } from "./reports.js";
-import { scanStatementFiles } from "./scanner.js?v=bank-history-20261021";
+import { scanStatementFiles } from "./scanner.js?v=card-history-20261021";
 
 
 const authScreen = $("authScreen");
@@ -942,7 +942,9 @@ async function scanFiles() {
     return partial?.id || genericAsset;
   };
 
+  const mandiriCards=state.settings.accounts.filter(account=>account.active!==false&&account.type==='liability'&&account.subtype==='credit_card'&&/mandiri/i.test(account.name));
   const bankAccountMap = {
+    mandiriCard:mandiriCards.length===1?mandiriCards[0].id:'',
     blu: findBankAccount(['blu','BCA Digital','blu BCA Digital']),
     mandiri: findBankAccount([
       "Mandiri",
@@ -1065,7 +1067,7 @@ async function scanFiles() {
       // bank yang terdeteksi dari e-Statement.
       if (nextCandidate.type !== "transfer") {
         nextCandidate.sourceAccountId =
-          detectedBankAccount;
+          nextCandidate.type==='credit_purchase'?(bankAccountMap.mandiriCard||''):detectedBankAccount;
         nextCandidate.destinationAccountId = "";
       }
 
@@ -1443,6 +1445,7 @@ function renderScanCandidates() {
                       <option value="transfer" ${item.type === "transfer" ? "selected" : ""}>
                         Transfer
                       </option>
+                      <option value="credit_purchase" ${item.type === "credit_purchase" ? "selected" : ""}>Belanja Kartu Kredit</option>
                     </select>
 
                     ${
@@ -1457,11 +1460,11 @@ function renderScanCandidates() {
                   <td data-label="Rekening">
                     <div class="account-pair">
                       <label>
-                        <span>Sumber</span>
+                        <span>${item.type==='credit_purchase'?'Kartu kredit':'Sumber'}</span>
                         <select data-scan-field="sourceAccountId">
                           ${accountOptionsHtml(
                             item.sourceAccountId,
-                            { includeLiabilities: false }
+                            item.type==='credit_purchase'?{includeAssets:false,includeLiabilities:true,subtype:['credit_card']}:{ includeLiabilities: false }
                           )}
                         </select>
                       </label>
@@ -1622,7 +1625,7 @@ function syncScanCandidates() {
     item.signedAmount =
       item.type === "income"
         ? Number(item.amount || 0)
-        : item.type === "expense"
+        : ['expense','credit_purchase'].includes(item.type)
           ? -Number(item.amount || 0)
           : Math.sign(item.statementSignedAmount||item.signedAmount||0)*Number(item.amount||0);
     if(core(item)!==previousCore){item.importDecision='';item.selected=false;}
@@ -1754,7 +1757,8 @@ async function handleScanReviewClick(event) {
           statementAccountNumber: item.statementAccountNumber || '',
           movementReference: item.movementReference || '',
           internalMovement: item.internalMovement === true,
-          statementSignedAmount:item.statementSignedAmount??item.signedAmount
+          statementSignedAmount:item.statementSignedAmount??item.signedAmount,
+          ...(item.cardBillingStatus?{cardBillingStatus:item.cardBillingStatus}:{})
         },
         externalBalance: item.balanceAfter,
         validationStatus: item.validationStatus,
