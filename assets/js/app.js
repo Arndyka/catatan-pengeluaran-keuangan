@@ -710,7 +710,7 @@ function setupEvents() {
     if (!button) return;
 
     if (!confirm("Hapus transaksi ini?")) return;
-    await deleteTransaction(state.user.uid, button.dataset.deleteTransaction);
+    try{await deleteTransaction(state.user.uid, button.dataset.deleteTransaction);}catch(error){alert(error.message);}
   });
 
   $("deleteAllTransactionsButton").addEventListener("click", async () => {
@@ -728,8 +728,7 @@ function setupEvents() {
       return;
     }
 
-    const deleted = await deleteAllTransactions(state.user.uid);
-    alert(`${deleted} transaksi dihapus.`);
+    try{const deleted=await deleteAllTransactions(state.user.uid);alert(`${deleted} transaksi dihapus.`);}catch(error){alert(error.message);}
   });
 
   $("migrateLegacyButton").addEventListener("click", async () => {
@@ -1964,7 +1963,7 @@ setupAuth({
   }
 });
 
-setupExperience({ setPage, updateTransactionFormMode });
+setupExperience({ setPage, updateTransactionFormMode, refresh:renderAll });
 setupNavigation();
 setupEvents();
 setupManualSuggestions(updateTransactionFormMode);

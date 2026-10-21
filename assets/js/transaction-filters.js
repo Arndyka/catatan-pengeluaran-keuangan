@@ -3,7 +3,7 @@ import {formatDateLocal} from './utils.js';
 import {validDate} from './recurring-logic.js';
 const touches=(t,id)=>t.sourceAccountId===id||t.destinationAccountId===id||journalEntries(t.journal).some(j=>j.accountId===id);
 export const historyAccounts=(accounts,transactions)=>accounts.filter(a=>a.active!==false||transactions.some(t=>touches(t,a.id)));
-const isAdjustment=t=>['opening_balance','balance_adjustment'].includes(t.type);
+const isAdjustment=t=>['opening_balance','balance_adjustment','investment_valuation'].includes(t.type);
 // Import timestamps describe ingestion, not when money moved. Keep ties stable.
 const activityKey=t=>{
  const time=String(t.sourceMeta?.time||'');
@@ -47,7 +47,7 @@ export function transactionPresentation(t,accounts=[],accountId='all'){
   const a=byId.get(j.accountId);
   return (!accountId||accountId==='all'||j.accountId===accountId)&&(a?.type||j.accountType)==='asset'&&!['clearing','investment'].includes(a?.subtype||j.accountSubtype);
  }).reduce((n,j)=>n+Math.round(j.debit*100)-Math.round(j.credit*100),0);
- const sign=isAdjustment(t)?'':delta?(liability?(delta>0?'−':'+'):(delta>0?'+':'−')):['transfer','investment'].includes(t.type)?'↔':'';
+ const sign=isAdjustment(t)?'':delta?(liability?(delta>0?'−':'+'):(delta>0?'+':'−')):['transfer','investment','investment_buy','investment_sell'].includes(t.type)?'↔':'';
  return {source,destination,sourceLabel:label(source),destinationLabel:label(destination),accountLabel,pending,unmapped,settled,delta,cashDelta,sign,
   tone:delta>0?'positive':delta<0?'negative':'neutral',
   directionLabel:isAdjustment(t)?'Di luar aktivitas':!liability&&t.type==='credit_purchase'?'Belanja kredit · non-tunai':delta?(liability?(delta>0?'Utang berkurang':'Utang bertambah'):(delta>0?'Uang masuk':'Uang keluar')):'Transfer antar akun'};
@@ -59,7 +59,7 @@ export function filterTransactions(transactions,filter={},accounts=[]){
   const p=transactionPresentation(t,accounts,filter.accountId);
   const typeMatch=!filter.type||filter.type==='all'||(filter.type==='cash_in'?p.cashDelta>0:filter.type==='cash_out'?p.cashDelta<0:t.type===filter.type);
   const statusMatch=!filter.status||filter.status==='all'||(filter.status==='pending'?p.pending:filter.status==='unmapped'?p.unmapped:filter.status==='settled'?p.settled:filter.status==='complete'?!p.pending&&!p.settled:false);
-  const bookkeepingVisible=filter.includeBookkeeping!==false||!isAdjustment(t)||['opening_balance','balance_adjustment'].includes(filter.type)||filter.status==='pending'||recordIds;
+  const bookkeepingVisible=filter.includeBookkeeping!==false||!isAdjustment(t)||['opening_balance','balance_adjustment','investment_valuation'].includes(filter.type)||filter.status==='pending'||recordIds;
   return bookkeepingVisible&&(!recordIds||recordIds.has(t.id))&&(!filter.accountId||filter.accountId==='all'||touches(t,filter.accountId))&&typeMatch&&statusMatch&&
    (!filter.source||filter.source==='all'||p.source===filter.source)&&(!filter.destination||filter.destination==='all'||p.destination===filter.destination)&&
    (!filter.from||t.date>=filter.from)&&(!filter.to||t.date<=filter.to)&&(!search||[t.date,t.category,t.merchant,t.description,p.sourceLabel,p.destinationLabel,names.get(t.sourceAccountId),names.get(t.destinationAccountId)].join(' ').toLocaleLowerCase('id').includes(search));
@@ -70,7 +70,7 @@ export function accountActivity(transactions,accountId,today=formatDateLocal()){
  for(const t of transactions){
   if(!t.date||t.date>today)continue;
   const delta=journalEntries(t.journal).filter(j=>j.accountId===accountId).reduce((n,j)=>n+Math.round(j.debit*100)-Math.round(j.credit*100),0);
-  if(['opening_balance','balance_adjustment'].includes(t.type)){adjustments+=delta;continue;}
+  if(['opening_balance','balance_adjustment','investment_valuation'].includes(t.type)){adjustments+=delta;continue;}
   if(delta>0)inflow+=delta;else outflow-=delta;
  }
  return {inflow:inflow/100,outflow:outflow/100,adjustments:adjustments/100};

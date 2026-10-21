@@ -3,6 +3,44 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('investment order editing, partial match and sale remain coherent on phone and desktop',async({page})=>{
+ await page.evaluate(()=>location.hash='investments');
+ await page.getByRole('button',{name:'Tambah order',exact:true}).click();
+ const form=page.locator('#investmentForm');
+ await form.locator('[name=symbol]').fill('TEST');await form.locator('[name=name]').fill('Saham uji');
+ await form.locator('[name=quantity]').fill('400');await form.locator('[name=limitPrice]').fill('1000');
+ await form.locator('[type=submit]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();
+ const card=page.locator('[data-investment-order]');await expect(card).toContainText('Menunggu matched');
+ await card.getByRole('button',{name:'Edit order',exact:true}).click();await form.locator('[name=limitPrice]').fill('1100');await form.locator('[type=submit]').click();
+ await expect(card).toContainText('1.100');await card.getByRole('button',{name:'Catat matched',exact:true}).click();
+ await form.locator('[name=quantity]').fill('200');await form.locator('[name=price]').fill('1000');await form.locator('[name=fee]').fill('1000');await form.locator('[name=cashAccountId]').selectOption('asset-mandiri');
+ await form.locator('[type=submit]').click();await expect(card).toContainText('Matched sebagian');
+ const pos=page.locator('[data-investment-position]');await expect(pos).toContainText('201.000');
+ await pos.getByRole('button',{name:'Catat penjualan',exact:true}).click();await form.locator('[name=quantity]').fill('100');await form.locator('[name=price]').fill('1200');await form.locator('[name=fee]').fill('500');await form.locator('[name=cashAccountId]').selectOption('asset-mandiri');
+ await expect(form.locator('[data-sale-preview]')).toContainText('19.000');await form.locator('[type=submit]').click();
+ await expect(pos).toContainText('100 lembar');await expect(page.locator('[data-investment-events]')).toContainText('19.000');
+ const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).settings.profile.investmentPortfolio);expect(saved.events.map(e=>e.kind)).toEqual(['buy','sell']);
+ for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ await pos.getByRole('button',{name:'Edit posisi',exact:true}).click();await expect(form.locator('[name=quantity]')).toHaveAttribute('readonly','');await expect(form.locator('[name=cost]')).toHaveAttribute('readonly','');await page.locator('.dialog-close').click();
+ await page.locator('#toggleBalanceButton').click();await expect(page.locator('#investmentView')).not.toContainText('19.000');
+ await page.reload();await waitForDemo(page);await expect(page.locator('[data-investment-position]')).toContainText('100 lembar');
+});
+
+test('investment conflict refreshes the order before the editor is reopened',async({page})=>{
+ await page.evaluate(async()=>{
+  const {state}=await import('/assets/js/state.js'),{changeInvestmentPortfolio}=await import('/assets/js/repository.js'),{investmentVersion}=await import('/assets/js/investment-ledger.js');
+  const r=await changeInvestmentPortfolio(state.user.uid,{id:crypto.randomUUID(),kind:'order',symbol:'TEST',name:'Test',quantity:100,limitPrice:1000,date:'2026-10-20',expectedVersion:investmentVersion(state.settings)});state.settings=r.profile;
+ });await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='investments');
+ await page.getByRole('button',{name:'Edit order',exact:true}).click();
+ await page.evaluate(async()=>{
+  const {state}=await import('/assets/js/state.js'),{changeInvestmentPortfolio}=await import('/assets/js/repository.js'),{investmentVersion,investmentPortfolio}=await import('/assets/js/investment-ledger.js'),o=investmentPortfolio(state.settings).orders[0];
+  await changeInvestmentPortfolio(state.user.uid,{...o,orderId:o.id,id:crypto.randomUUID(),kind:'order',limitPrice:1500,expectedVersion:investmentVersion(state.settings)});
+ });
+ await page.locator('#investmentForm [type=submit]').click();await expect(page.locator('#investmentForm [role=alert]')).toContainText('Posisi atau order berubah');
+ await page.locator('.dialog-close').click();await page.getByRole('button',{name:'Edit order',exact:true}).click();await expect(page.locator('#investmentForm [name=limitPrice]')).toHaveValue('1500');
+ await page.locator('#investmentForm [name=limitPrice]').fill('1600');await page.locator('#investmentForm [type=submit]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();await expect(page.locator('[data-investment-order]')).toContainText('1.600');
+});
+
 test.describe('scanner selection regression',()=>{
 test.use({serviceWorkers:'block'});
 test('opening import respects incoming transfer direction and skips same-account pocket movements',async({page})=>{

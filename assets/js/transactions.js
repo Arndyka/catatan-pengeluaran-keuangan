@@ -20,6 +20,9 @@ export function transactionTypeLabel(type) {
     credit_purchase: "Belanja Kredit / PayLater",
     credit_payment: "Bayar Kredit / PayLater",
     investment: "Investasi",
+    investment_buy: "Beli Saham",
+    investment_sell: "Jual Saham",
+    investment_valuation: "Penilaian Investasi",
     loan_disbursement: 'Pencairan Pinjaman'
   };
 

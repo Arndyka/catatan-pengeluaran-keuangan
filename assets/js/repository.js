@@ -17,3 +17,5 @@ export const deleteRecurringRule = (...args) => backend.deleteRecurringRule(...a
 export const getBudgetPlan = (...args) => backend.getBudgetPlan(...args);
 export const saveBudgetPlan = (...args) => backend.saveBudgetPlan(...args);
 export const migrateLegacyCollections = (...args) => backend.migrateLegacyCollections(...args);
+
+export const changeInvestmentPortfolio=(...args)=>backend.changeInvestmentPortfolio(...args);

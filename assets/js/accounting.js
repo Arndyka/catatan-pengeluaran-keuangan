@@ -1,3 +1,4 @@
+export const isPositionAccount=(settings,id)=>!!id&&((settings.accounts||[]).some(a=>a.id===id&&a.managedInvestment)||[...(settings.investmentPortfolio?.positions||[]),...(settings.investmentEvidence?.holdings||[])].some(p=>p.accountId===id));
 import {
   canonicalJson,
   cleanText,
@@ -189,6 +190,7 @@ export async function buildTransaction(input, settings) {
   }
   const source=accountById(settings,input.sourceAccountId),target=accountById(settings,input.destinationAccountId);
   if(!source||source.active===false)throw new Error('Pilih rekening sumber/penerima yang aktif.');
+  if(isPositionAccount(settings,source?.id)||isPositionAccount(settings,target?.id))throw new Error('Gunakan Posisi & order untuk perubahan saham agar jumlah dan modal tetap sesuai.');
   if(input.type==='loan_disbursement'){
     const principal=input.sourceMeta?.loanPrincipal,fee=input.sourceMeta?.disbursementFee;
     if(source.type!=='asset'||!['bank','cash','ewallet'].includes(source.subtype)||!target||target.active===false||target.type!=='liability'||target.subtype!=='loan'||![principal,fee].every(n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&Number.isSafeInteger(cents(n))&&Math.abs(n*100-cents(n))<.0001)||cents(principal)-cents(fee)!==cents(amount))throw new Error('Periksa rekening, pokok pinjaman, potongan biaya, dan dana bersih yang diterima.');

@@ -200,3 +200,32 @@ html{scroll-behavior:smooth;scroll-padding-bottom:110px}body{font-family:'Segoe 
 .statement-opening-note { margin:16px; padding:14px; border:1px solid var(--line); border-radius:14px; color:var(--text); background:var(--soft); font-size:13px; line-height:1.6; }
 .statement-opening-note label { display:flex; align-items:flex-start; gap:12px; cursor:pointer; }
 .statement-opening-note input[type=checkbox] { margin-top:4px; width:24px; height:24px; }
+
+/* Investment positions stay separate from the allocation note and from each other. */
+.investment-portfolio { margin-top: 24px; }
+.investment-position-grid { display: grid; gap: 16px; min-width: 0; }
+.investment-card { padding: 20px; border: 1px solid var(--line); border-radius: 20px; min-width: 0; overflow-wrap: anywhere; }
+.investment-card-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.investment-card h3 { margin: 0; font-size: 1.05rem; }
+.investment-card-heading > span { font-size: .85rem; }
+.investment-facts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; margin: 20px 0; }
+.investment-facts dt { font-size: .85rem; opacity: .8; margin-bottom: 6px; }
+.investment-facts dd { margin: 0; font-weight: 650; }
+.investment-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.investment-summary { display: flex; flex-wrap: wrap; gap: 12px 24px; margin: 20px 0; font-size: .9rem; }
+.investment-summary strong { display: inline-block; margin-left: 8px; }
+.investment-subheading { margin: 28px 0 16px; }
+.investment-event-details { margin-top: 24px; }
+.investment-event-details summary { cursor: pointer; padding: 12px 0; }
+.investment-preview { padding: 0 16px; border-left: 3px solid var(--line); }
+.investment-gain { color: #20704c; }
+.investment-loss { color: #af303a; }
+[data-theme="dark"] .investment-gain { color: #a2d8b2; }
+[data-theme="dark"] .investment-loss { color: #ffaaaa; }
+#investmentForm input[readonly] { opacity: .7; }
+@media(max-width:600px) {
+ .investment-card { padding: 16px; }
+ .investment-facts { grid-template-columns: minmax(0,1fr); gap: 12px; }
+ .investment-actions .btn { flex: 1 1 130px; white-space: normal; }
+ .investment-portfolio .panel-header { flex-wrap: wrap; gap: 16px; }
+}

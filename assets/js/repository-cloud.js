@@ -1,3 +1,4 @@
+import {changeInvestment,investmentProtected,guardInvestmentProfileWrite} from './investment-ledger.js';
 import { db } from "./firebase.js";
 import {settlePaylater} from './paylater-settlement.js';
 import {reopenRecurringTransaction,isSalaryRule,isSettled,validateSettlement} from './recurring-logic.js';
@@ -23,6 +24,16 @@ function userCollection(uid, name) {
 
 function userDoc(uid, collectionName, docId) {
   return doc(db, "users", uid, collectionName, docId);
+}
+
+
+export async function changeInvestmentPortfolio(uid,action){
+ return runTransaction(db,async transaction=>changeInvestment({
+  getProfile:async()=>{const s=await transaction.get(userDoc(uid,'settings','profile'));return s.exists()?s.data():null;},
+  getTransaction:async id=>{const s=await transaction.get(userDoc(uid,'transactions',id));return s.exists()?s.data():null;},
+  putProfile:profile=>transaction.set(userDoc(uid,'settings','profile'),{...profile,updatedAt:serverTimestamp()}),
+  putTransaction:tx=>transaction.set(userDoc(uid,'transactions',tx.id),{...tx,createdAt:serverTimestamp(),updatedAt:serverTimestamp()})
+ },action));
 }
 
 export async function settlePaylaterBill(uid,billId,details){
@@ -55,6 +66,11 @@ export async function getSettings(uid, docId, fallback) {
 }
 
 export async function saveSettings(uid, docId, data) {
+  if(docId==='profile')return runTransaction(db,async transaction=>{
+    const ref=userDoc(uid,'settings','profile'),snapshot=await transaction.get(ref);
+    guardInvestmentProfileWrite(snapshot.exists()?snapshot.data():null,data);
+    transaction.set(ref,{...data,updatedAt:serverTimestamp()},{merge:true});
+  });
   await setDoc(
     userDoc(uid, "settings", docId),
     {
@@ -92,6 +108,8 @@ export async function createTransactionPermanent(uid, transactionData) {
       };
     }
 
+    const profile=await transaction.get(userDoc(uid,'settings','profile'));
+    if(investmentProtected(transactionData,profile.exists()?profile.data():null))throw new Error('Gunakan Posisi & order untuk transaksi saham.');
     transaction.set(ref, {
       ...transactionData,
       createdAt: serverTimestamp(),
@@ -122,6 +140,8 @@ export async function deleteTransaction(uid, id) {
   await runTransaction(db,async transaction=>{
     const snapshot=await transaction.get(ref);if(!snapshot.exists())return;
     const tx=snapshot.data();
+    const profile=await transaction.get(userDoc(uid,'settings','profile'));
+    if(investmentProtected(tx,profile.exists()?profile.data():null))throw new Error('Catatan terhubung ke posisi saham. Penghapusan langsung akan memutus jumlah saham dan modal.');
     if(tx.recurringRuleId){
       const ruleRef=userDoc(uid,'recurring_rules',tx.recurringRuleId),rule=await transaction.get(ruleRef);
       if(rule.exists())transaction.update(ruleRef,{...reopenRecurringTransaction(rule.data(),tx,id),updatedAt:serverTimestamp()});
@@ -134,6 +154,8 @@ export async function deleteTransaction(uid, id) {
 export async function deleteAllTransactions(uid) {
   const snapshot = await getDocs(userCollection(uid, "transactions"));
   const docs = snapshot.docs;
+  const profile=await getDoc(userDoc(uid,'settings','profile'));
+  if(docs.some(d=>investmentProtected(d.data(),profile.exists()?profile.data():null)))throw new Error('Pembukuan memiliki posisi saham terhubung. Penghapusan massal dibatalkan agar posisi dan modal tetap konsisten.');
   let deleted = 0;
 
   for(const item of docs){await deleteTransaction(uid,item.id);deleted+=1;}
@@ -186,6 +208,8 @@ export async function settleRecurringOccurrence(uid,ruleId,period,{transactionDa
   const txRef=userDoc(uid,'transactions',id),txSnapshot=await transaction.get(txRef);
   if(existingTransactionId&&!txSnapshot.exists())throw new Error('Transaksi yang dipilih sudah tidak tersedia.');
   const data=txSnapshot.exists()?txSnapshot.data():transactionData;
+  const profile=await transaction.get(userDoc(uid,'settings','profile'));
+  if(investmentProtected(data,profile.exists()?profile.data():null))throw new Error('Gunakan Posisi & order untuk transaksi saham.');
   validateSettlement(rule,period,{...data,id});
   const sourceMeta={...data.sourceMeta,recurringPeriod:period,recurringKind:isSalaryRule(rule)?'salary':'standard'};
   if(txSnapshot.exists())transaction.update(txRef,{recurringRuleId:ruleId,sourceMeta,updatedAt:serverTimestamp()});

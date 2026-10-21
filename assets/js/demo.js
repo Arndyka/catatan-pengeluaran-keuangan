@@ -1,3 +1,4 @@
+import {changeInvestment,investmentProtected,guardInvestmentProfileWrite} from './investment-ledger.js';
 import { DEFAULT_SETTINGS, DEFAULT_CREDIT_SETTINGS, buildTransaction } from './accounting.js';
 import {settlePaylater} from './paylater-settlement.js';
 import { monthKey, formatDateLocal } from './utils.js';
@@ -59,8 +60,11 @@ export async function initializeDemo() {
   save();
 }
 export const demoRepository = {
+  changeInvestmentPortfolio(uid,action){
+    const task=paylaterQueue.then(async()=>{const before=JSON.stringify(data),next=clone(data);const result=await changeInvestment({getProfile:async()=>next.settings.profile,getTransaction:async id=>next.transactions.find(t=>t.id===id),putProfile:p=>next.settings.profile=clone(p),putTransaction:t=>next.transactions.unshift(clone(t))},action);if(JSON.stringify(data)!==before)throw new Error('Data berubah saat menyimpan. Coba simpan kembali.');localStorage.setItem(KEY,JSON.stringify(next));data=next;notify('transactions');return result;});paylaterQueue=task.catch(()=>{});return task;
+  },
   async getSettings(uid,id,fallback) { return clone(data.settings[id] || fallback); },
-  async saveSettings(uid,id,value) { data.settings[id] = {...data.settings[id],...clone(value)}; save(); },
+  async saveSettings(uid,id,value) { if(id==='profile')guardInvestmentProfileWrite(data.settings.profile,value);data.settings[id] = {...data.settings[id],...clone(value)}; save(); },
   settlePaylaterBill(uid,billId,details) {
     const task=paylaterQueue.then(async()=>{
       const next=clone(data);
@@ -71,7 +75,7 @@ export const demoRepository = {
     paylaterQueue=task.catch(()=>{});return task;
   },
   listenTransactions(uid,callback) { return listen('transactions',callback); },
-  async createTransactionPermanent(uid,tx) { const duplicate=data.transactions.find(item=>transactionKeys(item).includes(tx.fingerprint));if(duplicate) return {created:false,duplicate:true,id:duplicate.id}; data.transactions.unshift({...clone(tx),id:tx.fingerprint}); data.transactions.sort((a,b)=>b.date.localeCompare(a.date)); save(); notify('transactions'); return {created:true,duplicate:false,id:tx.fingerprint}; },
+  async createTransactionPermanent(uid,tx) { if(investmentProtected(tx,data.settings.profile))throw new Error('Gunakan Posisi & order untuk transaksi saham.');const duplicate=data.transactions.find(item=>transactionKeys(item).includes(tx.fingerprint));if(duplicate) return {created:false,duplicate:true,id:duplicate.id}; data.transactions.unshift({...clone(tx),id:tx.fingerprint}); data.transactions.sort((a,b)=>b.date.localeCompare(a.date)); save(); notify('transactions'); return {created:true,duplicate:false,id:tx.fingerprint}; },
   updateTransaction(uid,id,patch,expected) {
     const task=paylaterQueue.then(async()=>{
       let edited;
@@ -88,11 +92,13 @@ export const demoRepository = {
   },
   async deleteTransaction(uid,id) {
     const tx=data.transactions.find(tx=>tx.id===id);
+    if(investmentProtected(tx,data.settings.profile))throw new Error('Catatan terhubung ke posisi saham; tidak dapat dihapus terpisah.');
     const rule=tx&&data.recurring.find(r=>r.id===tx.recurringRuleId);
     if(rule)Object.assign(rule,reopenRecurringTransaction(rule,tx,id));
     data.transactions=data.transactions.filter(tx=>tx.id!==id);save();notify('transactions');notify('recurring');
   },
   async deleteAllTransactions() {
+    if(data.transactions.some(tx=>investmentProtected(tx,data.settings.profile)))throw new Error('Pembukuan memiliki posisi saham terhubung. Penghapusan massal dibatalkan.');
     const n=data.transactions.length;
     for(const tx of data.transactions){const rule=data.recurring.find(r=>r.id===tx.recurringRuleId);if(rule)Object.assign(rule,reopenRecurringTransaction(rule,tx,tx.id));}
     data.transactions=[];save();notify('transactions');notify('recurring');return n;
@@ -105,7 +111,7 @@ export const demoRepository = {
     if(isSettled(rule,period))return {created:false,duplicate:true,id:rule.settledPeriods?.[period]||''};
     const id=existingTransactionId||transactionData?.id,existing=data.transactions.find(t=>t.id===id);
     if(existingTransactionId&&!existing)throw new Error('Transaksi yang dipilih sudah tidak tersedia.');
-    const tx=clone(existing||transactionData);validateSettlement(rule,period,tx);
+    const tx=clone(existing||transactionData);if(investmentProtected(tx,data.settings.profile))throw new Error('Gunakan Posisi & order untuk transaksi saham.');validateSettlement(rule,period,tx);
     tx.recurringRuleId=ruleId;tx.sourceMeta={...tx.sourceMeta,recurringPeriod:period,recurringKind:isSalaryRule(rule)?'salary':'standard'};
     if(existing)data.transactions=data.transactions.map(t=>t.id===id?tx:t);else data.transactions.unshift(tx);
     rule.settledPeriods={...rule.settledPeriods,[period]:id};data.transactions.sort((a,b)=>b.date.localeCompare(a.date));save();notify('transactions');notify('recurring');

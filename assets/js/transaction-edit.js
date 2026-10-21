@@ -1,3 +1,4 @@
+import {investmentProtected} from './investment-ledger.js';
 import {buildTransaction,validateJournal} from './accounting.js';
 import {canonicalJson,formatDateLocal} from './utils.js';
 import {validateSettlement} from './recurring-logic.js';
@@ -9,6 +10,7 @@ export const editVersion=tx=>canonicalJson(snapshot(tx));
 export const transactionKeys=tx=>[...new Set([tx.id,tx.fingerprint,...(tx.editFingerprints||[])].filter(Boolean))];
 
 export function editRestriction(tx,settings,plan){
+ if(investmentProtected(tx,settings))return 'Catatan terhubung ke posisi saham. Hanya keterangan yang dapat diubah di sini.';
  if(tx.type==='loan_disbursement')return 'Pencairan terhubung ke rincian pinjaman. Keterangan dapat diubah; pokok, biaya, dan rekening mengikuti bukti pencairan.';
  if(settings.accounts.find(a=>a.id===tx.sourceAccountId)?.subtype==='clearing'&&['opening_balance','balance_adjustment'].includes(tx.type))return 'Saldo arsip sistem: hanya keterangan dan kategori yang dapat diubah di sini.';
  if(plan?.openingTransactionId===tx.id||Object.values(plan?.settlements||{}).includes(tx.id)||tx.sourceMeta?.paylaterBillId)return 'Catatan terhubung ke tagihan PayLater. Ubah keterangan di sini; nominal dan rekening mengikuti tagihan agar tidak terhitung dua kali.';
@@ -19,11 +21,11 @@ export async function prepareTransactionEdit(old,patch,settings,{rule,plan}={}){
  const next={...old,...Object.fromEntries(fields.filter(k=>Object.hasOwn(patch,k)).map(k=>[k,patch[k]]))};
  const financialChanged=financial.some(k=>String(old[k]??'')!==String(next[k]??''));
  const restriction=editRestriction(old,settings,plan);
- if(restriction&&(financialChanged||(old.type==='loan_disbursement'&&old.category!==next.category)))throw new Error(restriction);
+ if(restriction&&(financialChanged||((old.type==='loan_disbursement'||investmentProtected(old,settings))&&old.category!==next.category)))throw new Error(restriction);
  if(old.type==='opening_balance'&&['type','date','sourceAccountId'].some(k=>next[k]!==old[k]))throw new Error('Tanggal dan akun saldo awal tetap mengikuti awal pembukuan. Koreksi nominalnya di sini.');
  if(old.type!=='opening_balance'&&next.type==='opening_balance')throw new Error('Catat saldo awal melalui Dompet agar tidak membuat saldo awal ganda.');
  if(next.date>formatDateLocal())throw new Error('Transaksi aktual tidak boleh bertanggal masa depan. Gunakan jadwal rutin.');
- if(!['transfer','investment','credit_payment','loan_disbursement'].includes(next.type))next.destinationAccountId='';
+ if(!['transfer','investment','investment_buy','investment_sell','credit_payment','loan_disbursement'].includes(next.type))next.destinationAccountId='';
  // Keeping an archived account is allowed; moving money to a different inactive account is not.
  const buildSettings={...settings,accounts:settings.accounts.map(a=>[old.sourceAccountId,old.destinationAccountId].includes(a.id)?{...a,active:true}:a)};
  const rebuilt=restriction?{...next}:await buildTransaction({...next,recurringPeriod:old.sourceMeta?.recurringPeriod},buildSettings);

@@ -71,7 +71,7 @@ Di folder SPENDLY, jalankan `npm.cmd start` pada Windows (atau `npm start` di sh
 - Batas belanja bulanan terpisah dari alokasi kategori. Sisa budget dibagi hari tersisa termasuk hari ini. Belanja kartu kredit masuk konsumsi; transfer/investasi tidak.
 - Goals: buat, perbarui, hapus; target tanggal, jumlah terkumpul dan estimasi tabungan bulanan. Pencatatan manual goals tidak mengubah saldo rekening.
 - Dompet: semua rekening, termasuk saldo nol, dengan saldo dari jurnal.
-- Investasi: saldo tercatat dan riwayat alokasi. Belum ada harga pasar langsung atau perhitungan keuntungan pasar.
+- Investasi: edit posisi dan order, matched sebagian/seluruhnya, pembatalan sisa order, serta penjualan sebagian/seluruh posisi. Laba/rugi penjualan memakai modal rata-rata termasuk biaya beli dan hasil jual bersih setelah biaya/pajak. Posisi lama perlu jumlah saham dan modal asli; nilai pasar diperbarui manual. Riwayat eksekusi terhubung atomik dengan jurnal, sehingga transaksi saham tidak dapat dihapus atau diubah nominalnya secara terpisah.
 - Tema tersimpan per browser, privasi saldo, navigasi bawah, animasi yang mengikuti pengaturan reduced motion.
 - Scanner: unggah file lebih mudah; hasil pembacaan ditinjau bersama saran lokal sebelum disimpan.
 
