@@ -1,6 +1,6 @@
 import { hydrateIcons } from './icons.js';
 hydrateIcons();
-try { await import('./app.js?v=livin-history-20261021'); }
+try { await import('./app.js?v=bank-history-20261021'); }
 catch(error) {
  console.error('Spendly startup failed',error);
  const notice=document.getElementById('authMessage');

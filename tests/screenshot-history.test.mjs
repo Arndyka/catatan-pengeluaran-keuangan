@@ -10,6 +10,25 @@ test('Livin history shared with a generic filename is recognized by its issuer l
  assert.equal(detectBankFromText('Transaksi berhasil\nBayar/Top-up - IDR 120.000','shared-image.jpeg').bank,'generic');
  assert.equal(detectBankFromText('Transaksi e-Statement\n20 Okt 2026\nKedai Contoh - IDR 5.000','shared-image.jpeg').bank,'generic');
 });
+test('myBCA history layout identifies its bank without a filename or bank name',()=>{
+ const text='< Account Information\nAccount No.\nAccount Transactions Card Pocket\nSearch\nOctober\n2 0 TGL:1020 QR Kedai\nTRANSAKSI DEBIT\nOct\n2026 IDR 45,000.00\n1 6 TRANSFER DR Contoh Mandiri\nBI-FAST CR\nOct\n2026 IDR 80,000.25\n1610/FTFVA/EXAMPLE/SHOPEEPAY\n1 6\nOct TRSF E-BANKING DB\n2026 IDR 210,321.00\n1 5 Transfer terpotong\nOct TRSF E-BANKING DB';
+ const {bank}=detectBankFromText(text,'shared-image.jpeg');
+ assert.equal(bank,'bca');
+ const rows=parse(bank,text);
+ assert.deepEqual(rows.map(r=>[r.date,r.signedAmount]),[['2026-10-20',-45000],['2026-10-16',80000.25],['2026-10-16',-210321]]);
+ assert(rows.every(r=>r.sourceAccountId==='asset-bca'&&!r.selected));
+ assert.equal(detectBankFromText('Account Information\nAccount Transactions Card Pocket\nActive balance IDR 100,000.00').bank,'generic');
+});
+test('blu footer-date layout outweighs counterparty bank names and never shifts dates to the next amount',()=>{
+ const text='Riwayat Transaksi\nOktober 2026\nPembayaran QRIS\nKedai Contoh - Rp 3.000,00\nUang Keluar\n21 Okt 2026 08:19 WIB\nPembayaran ORIS\nKEDAI MANDIRI - Rp 7.000,00\nMakanan & Minuman\n20 Okt 2026 08:20 WIB\nDana Masuk dari BANK MANDIRI\n+ Rp 25.000,50\nUang Masuk\n18 Okt 2026 17:35 WIB\nPembayaran QRIS\nBaris terpotong - Rp 9.000,00';
+ const {bank}=detectBankFromText(text,'shared-image.jpeg');
+ assert.equal(bank,'blu');
+ const rows=parse(bank,text);
+ assert.deepEqual(rows.map(r=>[r.date,r.time,r.signedAmount]),[['2026-10-21','08:19:00',-3000],['2026-10-20','08:20:00',-7000],['2026-10-18','17:35:00',25000.5]]);
+ assert(rows.every(r=>r.sourceAccountId==='asset-blu'&&!r.selected));
+ assert.equal(detectBankFromText('Riwayat Transaksi\n20 Okt 2026\nPembayaran QRIS - Rp 10.000\nUang Keluar').bank,'generic');
+ assert.equal(detectBankFromText('Riwayat Transaksi\n20 Okt 2026 09:00 WIB\nPembayaran QRIS - Rp 10.000\nUang Keluar\n19 Okt 2026 08:00 WIB\nPembayaran QRIS - Rp 5.000\nUang Keluar').bank,'generic');
+});
 test('OCR numeric prefixes are never accepted as complete amounts',()=>{
  for(const amount of ['-Rp12 000','-Rp 1 234,56','-Rp12.000S','-Rp1.234,567','-Rp12,34,567'])assert.equal(parse('krom',`Riwayat Transaksi\n15 Okt 2026\nMerchant ${amount}\nUang Keluar`).length,0,amount);
 });

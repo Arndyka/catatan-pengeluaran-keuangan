@@ -266,6 +266,19 @@ export function detectBankFromText(pageText, fileName = "") {
       && /\b(?:QR\s*Bayar|Bayar\s*\/\s*Top[ -]*up|Transfer\s+Rupiah)\b/i.test(pageText)
       && /[+\u2212\u2013-]\s*IDR\s*\d/i.test(pageText)
       && /\b\d{1,2}\s+[a-z]+\s+20\d{2}\b/i.test(pageText)) scores.mandiri+=12;
+  if (/\bAccount Information\b/i.test(pageText)
+      && /\bAccount Transactions\s+Card\s+Pocket\b/i.test(pageText)
+      && /\b(?:TRANSAKSI DEBIT|BI-FAST CR|TRSF E-BANKING (?:CR|DB))\b/i.test(pageText)
+      && /\bIDR\s*\d/i.test(pageText)) scores.bca+=12;
+  // blu puts each full date/time BELOW its amount. A merchant named Mandiri
+  // must not switch this screenshot to a parser with dates above the amount.
+  const historyBody=String(pageText||'').split(/\bRiwayat Transaksi\b/i)[1]||'';
+  const firstHistoryAmount=historyBody.search(/Rp\s*\d/i);
+  const firstHistoryDate=historyBody.search(/\b\d{1,2}\s+[a-z]+\s+20\d{2}\b/i);
+  if (/\bRiwayat Transaksi\b/i.test(pageText)
+      && firstHistoryAmount>=0 && firstHistoryDate>firstHistoryAmount
+      && /\b(?:Pembayaran [QO]RIS|Dana Masuk|Uang Masuk|Transfer ke)\b/i.test(pageText)
+      && /Rp\s*[\d.,]+[^\n]*\n(?:[^\n]*\n){0,3}\s*\d{1,2}\s+[a-z]+\s+20\d{2}\s+\d{2}:\d{2}(?::\d{2})?\s*WIB\b/i.test(pageText)) scores.blu+=12;
   // Issuer marks outweigh bank names mentioned in transaction descriptions.
   if (/bankmandiri\.co\.id|mandiri call/.test(text)) scores.mandiri += 12;
   if (/blubybcadigital\.id|\bbluaccount\b/.test(text)) scores.blu += 12;
