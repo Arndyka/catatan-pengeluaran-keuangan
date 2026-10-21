@@ -94,6 +94,10 @@ export function buildJournal(input, settings) {
   };
 
   switch (input.type) {
+    case 'loan_disbursement': {
+      const principal=Number(input.sourceMeta.loanPrincipal),fee=Number(input.sourceMeta.disbursementFee);
+      return [accountEntry(source,amount,0),...(fee?[accountEntry(expenseAccount,fee,0)]:[]),accountEntry(destination,0,principal)];
+    }
     case "balance_adjustment": {
       const equity={id:'equity-reconciliation',name:'Penyesuaian saldo terkonfirmasi',type:'equity',subtype:'reconciliation'};
       const debit=(source.type==='asset')===(input.adjustmentDirection==='increase');
@@ -185,6 +189,10 @@ export async function buildTransaction(input, settings) {
   }
   const source=accountById(settings,input.sourceAccountId),target=accountById(settings,input.destinationAccountId);
   if(!source||source.active===false)throw new Error('Pilih rekening sumber/penerima yang aktif.');
+  if(input.type==='loan_disbursement'){
+    const principal=input.sourceMeta?.loanPrincipal,fee=input.sourceMeta?.disbursementFee;
+    if(source.type!=='asset'||!['bank','cash','ewallet'].includes(source.subtype)||!target||target.active===false||target.type!=='liability'||target.subtype!=='loan'||![principal,fee].every(n=>typeof n==='number'&&Number.isFinite(n)&&n>=0&&Number.isSafeInteger(cents(n))&&Math.abs(n*100-cents(n))<.0001)||cents(principal)-cents(fee)!==cents(amount))throw new Error('Periksa rekening, pokok pinjaman, potongan biaya, dan dana bersih yang diterima.');
+  }
   if(input.type==='balance_adjustment'){
     if(!['asset','liability'].includes(source.type)||source.subtype==='clearing'||!['increase','decrease'].includes(input.adjustmentDirection)||!cleanText(input.description))throw new Error('Penyesuaian memerlukan akun, arah koreksi, dan alasan yang jelas.');
   }else if(input.type==='opening_balance'){
@@ -386,7 +394,7 @@ export function cashFlowStatement(transactions, month, settings) {
     const account=settings?.accounts?.find(a=>a.id===entry.accountId);
     return (account?.type||entry.accountType)==='asset'&&!['investment','clearing'].includes(account?.subtype||entry.accountSubtype);
   };
-  let operatingInflow=0,operatingOutflow=0,investingInflow=0,investingOutflow=0,financingOutflow=0,otherNet=0,openingAdjustments=0,balanceAdjustments=0;
+  let operatingInflow=0,operatingOutflow=0,investingInflow=0,investingOutflow=0,financingInflow=0,financingOutflow=0,otherNet=0,openingAdjustments=0,balanceAdjustments=0;
   for(const tx of actualTransactions(transactions).filter(tx=>tx.date.startsWith(month))){
     const entries=journalEntries(tx.journal);
     const delta=entries.filter(cashEntry).reduce((n,j)=>n+cents(j.debit)-cents(j.credit),0)/100;
@@ -395,11 +403,12 @@ export function cashFlowStatement(transactions, month, settings) {
     if(!delta)continue;
     const investment=entries.some(j=>(settings?.accounts?.find(a=>a.id===j.accountId)?.subtype||j.accountSubtype)==='investment');
     if(investment){if(delta>0)investingInflow+=delta;else investingOutflow-=delta;}
+    else if(tx.type==='loan_disbursement')financingInflow+=delta;
     else if(tx.type==='credit_payment')financingOutflow-=delta;
     else if(tx.type==='income'||tx.type==='expense'){if(delta>0)operatingInflow+=delta;else operatingOutflow-=delta;}
     else otherNet+=delta;
   }
-  const values={operatingInflow,operatingOutflow,investingInflow,investingOutflow,financingOutflow,otherNet,openingAdjustments,balanceAdjustments,netOperating:operatingInflow-operatingOutflow,netInvesting:investingInflow-investingOutflow,netCashFlow:operatingInflow-operatingOutflow+investingInflow-investingOutflow-financingOutflow+otherNet};
+  const values={operatingInflow,operatingOutflow,investingInflow,investingOutflow,financingInflow,financingOutflow,otherNet,openingAdjustments,balanceAdjustments,netOperating:operatingInflow-operatingOutflow,netInvesting:investingInflow-investingOutflow,netCashFlow:operatingInflow-operatingOutflow+investingInflow-investingOutflow+financingInflow-financingOutflow+otherNet};
   return Object.fromEntries(Object.entries(values).map(([key,value])=>[key,roundMoney(value)]));
 }
 
@@ -419,4 +428,10 @@ export function trialBalance(transactions, asOfDate = null) {
     totalCredits: ledger.totalCredits,
     balanced: ledger.balanced
   };
+}
+
+// A net loan receipt is financing; only its withheld fee is spending.
+export function transactionExpense(tx){
+ if(tx.type==='loan_disbursement')return journalEntries(tx.journal).filter(j=>j.accountType==='expense').reduce((n,j)=>n+Math.round(Number(j.debit)*100)-Math.round(Number(j.credit)*100),0)/100;
+ return ['expense','credit_purchase'].includes(tx.type)?Number(tx.amount||0):0;
 }

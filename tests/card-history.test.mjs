@@ -31,7 +31,7 @@ test('unreadable date headings break date inheritance and payments never become 
   const rows=parse(header+'14 Okt 2026\nMerchant A Rp 20.000,00\n'+heading+'\nMerchant B Rp 30.000,00');
   assert.equal(rows.length,1,heading);assert.equal(rows[0].amount,20000);
  }
- for(const description of ['PAYMENT THANK YOU Rp 20.000,00','PEMBAYARAN VIA LIVIN Rp 20.000,00','Refund Rp − 20.000,00'])assert.equal(parse(header+'14 Okt 2026\n'+description).length,0);
+ for(const description of ['PAYMENT - LIVIN Rp 20.000,00','PAYMENT THANK YOU Rp 20.000,00','PEMBAYARAN VIA LIVIN Rp 20.000,00','Refund Rp − 20.000,00'])assert.equal(parse(header+'14 Okt 2026\n'+description).length,0);
 });
 test('raised cents are verified even when initial OCR looks valid; nonzero cents survive and uncertainty excludes',async()=>{
  const original=globalThis.document;

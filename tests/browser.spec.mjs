@@ -322,6 +322,35 @@ test('confirmed card totals are dated, inclusive, private and fit small screens'
 async function localOcr(page,text){
  await page.evaluate(text=>{window.Tesseract={createWorker:async()=>({setParameters:async()=>{},recognize:async()=>({data:{text}}),terminate:async()=>{}})};},text);
 }
+test('loan schedule and pending investments show evidence without making extra transactions',async({page})=>{
+ await page.evaluate(async()=>{
+  const d=JSON.parse(localStorage.getItem('spendly:demo:v1'));
+  d.settings.profile.loanPlans=[{id:'loan-demo',accountId:'loan-demo',name:'Pinjaman uji',date:'2026-10-21',principal:1000000,disbursementFee:10000,installmentFee:60000,bills:[{id:'loan-a',dueDate:'2026-11-21',amount:530000},{id:'loan-b',dueDate:'2026-12-21',amount:530000}]}];
+  d.settings.profile.investmentEvidence={holdings:[{symbol:'TEST',name:'Saham contoh',asOfDate:'2026-10-21',value:123000,unrealizedChange:-1000}],orders:[{symbol:'WAIT',quantityLots:2,limitPrice:1000,total:200000,status:'pending',asOfDate:'2026-10-21'}]};
+  localStorage.setItem('spendly:demo:v1',JSON.stringify(d));
+ });
+ await page.reload();await waitForDemo(page);
+ const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions);
+ await page.evaluate(()=>location.hash='credit-card');await page.locator('[data-credit-view=loans]').click();
+ await expect(page.locator('[data-loan-bill]')).toHaveCount(2);await expect(page.locator('#loanView')).toContainText('1.060.000');await expect(page.locator('#creditBankView')).toBeHidden();
+ for(const width of [320,390,1440]){await page.setViewportSize({width,height:950});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);}
+ await page.evaluate(()=>location.hash='investments');await expect(page.locator('[data-investment-order]')).toContainText('Menunggu matched');
+ await page.locator('#toggleBalanceButton').click();await expect(page.locator('#investmentView')).not.toContainText('200.000');
+ await page.evaluate(()=>location.hash='credit-card');await expect(page.locator('#loanView')).not.toContainText('1.060.000');
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions)).toEqual(before);
+});
+test('recorded repayment settles the official card bill despite an older issuer snapshot',async({page})=>{
+ await page.evaluate(async()=>{
+  const d=JSON.parse(localStorage.getItem('spendly:demo:v1')),{buildTransaction}=await import('/assets/js/accounting.js');
+  d.settings.credit_card.officialStatementDate='2026-10-07';d.settings.credit_card.officialStatementAmount=300;
+  d.settings.credit_card.issuerSnapshot={accountId:'liability-mandiri-cc',asOfDate:'2026-10-19',statementDate:'2026-10-07',runningTotal:500,currentBill:300,availableCredit:100,dueDate:'2026-10-27',currentBillIncluded:true,minimumPayment:30};
+  d.transactions.push(await buildTransaction({type:'credit_payment',date:'2026-10-21',amount:300,sourceAccountId:'asset-mandiri',destinationAccountId:'liability-mandiri-cc'},d.settings.profile));
+  localStorage.setItem('spendly:demo:v1',JSON.stringify(d));
+ });
+ await page.reload();await waitForDemo(page);await page.evaluate(()=>location.hash='credit-card');
+ await expect(page.locator('#ccBilled')).toHaveText('Rp 0');await expect(page.locator('#ccMinimum')).toHaveText('Rp 0');
+ await expect(page.locator('#ccAvailable')).toHaveText('Rp 100');
+});
 
 test('card scan posts only to credit liability after review and detects repeated images',async({page})=>{
  const text='Transaksi e-Billing\n09 Sep - 08 Okt Belum Tertagih\n14 Okt 2026\nToko Uji Rp 123.456,78\nKOTA ID';

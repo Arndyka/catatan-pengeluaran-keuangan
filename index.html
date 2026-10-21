@@ -294,6 +294,7 @@
               <select id="transactionAccountFilter" aria-label="Filter akun"><option value="all">Semua akun</option></select>
               <select id="transactionFilter" aria-label="Filter jenis transaksi">
                 <option value="all">Semua Tipe</option>
+                <option value="loan_disbursement">Pencairan Pinjaman</option>
                 <option value="cash_in">Uang masuk ke akun</option>
                 <option value="cash_out">Uang keluar dari akun</option>
                 <option value="opening_balance">Saldo Awal</option>
@@ -425,7 +426,7 @@
       </section>
 
       <section id="page-credit-card" class="page-section hidden">
-        <div class="investment-tabs credit-view-tabs" role="group" aria-label="Jenis kewajiban"><button type="button" data-credit-view="bank" aria-pressed="true" class="active">Kartu kredit</button><button type="button" data-credit-view="paylater" aria-pressed="false">PayLater</button></div>
+        <div class="investment-tabs credit-view-tabs" role="group" aria-label="Jenis kewajiban"><button type="button" data-credit-view="bank" aria-pressed="true" class="active">Kartu kredit</button><button type="button" data-credit-view="paylater" aria-pressed="false">PayLater</button><button type="button" data-credit-view="loans" aria-pressed="false">Pinjaman</button></div>
         <div id="creditBankView">
         <p id="ccBankSnapshotNote" class="notice hidden"></p>
         <section class="stats-grid credit-stats">
@@ -516,7 +517,7 @@
           <div id="creditReconcileMessage" class="notice hidden"></div>
           <div id="creditReconcileSummary" class="reconcile-summary"></div>
         </section>
-        </div><section id="paylaterView" class="hidden" aria-label="Tagihan PayLater"></section>
+        </div><section id="paylaterView" class="hidden" aria-label="Tagihan PayLater"></section><section id="loanView" class="hidden" aria-label="Tagihan pinjaman"></section>
       </section>
 
       <section id="page-budget" class="page-section hidden"><div id="monthlyBudgetCard" class="budget-limit-panel"></div>
@@ -845,7 +846,7 @@
   <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
-  <script type="module" src="assets/js/boot.js?v=card-history-20261021"></script>
+  <script type="module" src="assets/js/boot.js?v=loan-investment-20261021"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 

@@ -1,5 +1,5 @@
 import { formatDateLocal } from './utils.js';
-import {journalEntries,validateJournal} from './accounting.js';
+import {journalEntries,validateJournal,transactionExpense} from './accounting.js';
 
 // Cash, not profit: card purchases affect debt; payments affect available funds.
 export function cashPosition(transactions,settings,month,today=formatDateLocal()){
@@ -21,9 +21,9 @@ export function cashPosition(transactions,settings,month,today=formatDateLocal()
 export function dailyAllowance(transactions, limit, today = formatDateLocal()) {
   const [year, month, day] = today.split('-').map(Number);
   const daysLeft = Math.max(1, new Date(year, month, 0).getDate() - day + 1);
-  const expenses = transactions.filter(tx => ['expense', 'credit_purchase'].includes(tx.type) && tx.date?.startsWith(today.slice(0,7)) && tx.date <= today);
-  const spent = expenses.reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
-  const todaySpent = expenses.filter(tx => tx.date === today).reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  const expenses = transactions.filter(tx => transactionExpense(tx)>0 && tx.date?.startsWith(today.slice(0,7)) && tx.date <= today);
+  const spent = expenses.reduce((sum, tx) => sum + transactionExpense(tx), 0);
+  const todaySpent = expenses.filter(tx => tx.date === today).reduce((sum, tx) => sum + transactionExpense(tx), 0);
   const configured = Number.isFinite(Number(limit)) && Number(limit) > 0;
   const remaining = configured ? Number(limit) - spent : 0;
   return { spent, remaining, daysLeft, daily: Math.max(0, remaining) / daysLeft, todaySpent, configured };

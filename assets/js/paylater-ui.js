@@ -2,6 +2,7 @@ import {$,escapeHtml as e,formatDateLocal,formatDateId,parseLocalDate} from './u
 import {state} from './state.js';
 import {paylaterSnapshot,paymentMatches} from './paylater.js';
 import {settlePaylaterBill} from './repository.js';
+import {loanPlansHtml} from './loan-ui.js';
 let ctx,view='',filter='unpaid';
 const dateLabel=value=>formatDateId(parseLocalDate(value));
 const periodLabel=value=>new Intl.DateTimeFormat('id-ID',{month:'long',year:'numeric'}).format(parseLocalDate(value+'-01'));
@@ -20,6 +21,8 @@ export function renderPaylaterUI(){
  const plan=state.paylater;
  if(!view)view=plan?.bills?.length?'paylater':'bank';
  $('creditBankView').classList.toggle('hidden',view!=='bank');$('paylaterView').classList.toggle('hidden',view!=='paylater');
+ $('loanView').classList.toggle('hidden',view!=='loans');
+ $('loanView').innerHTML=loanPlansHtml(state.settings.loanPlans,ctx.money);
  document.querySelectorAll('[data-credit-view]').forEach(b=>{b.classList.toggle('active',b.dataset.creditView===view);b.setAttribute('aria-pressed',String(b.dataset.creditView===view));});
  if(!plan?.accountId||!plan.bills?.length){$('paylaterView').innerHTML='<div class="panel empty-state"><h2>Tagihan PayLater</h2><p>Belum ada jadwal PayLater di akun ini. Jadwal dari rincian tagihan akan tampil terpisah dari kartu kredit.</p></div>';return;}
  let snapshot;try{snapshot=paylaterSnapshot(plan,state.transactions);}catch(error){$('paylaterView').innerHTML=`<div class="notice error" role="alert">${e(error.message)}</div>`;return;}

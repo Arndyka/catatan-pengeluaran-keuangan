@@ -19,7 +19,8 @@ export function transactionTypeLabel(type) {
     transfer: "Transfer",
     credit_purchase: "Belanja Kredit / PayLater",
     credit_payment: "Bayar Kredit / PayLater",
-    investment: "Investasi"
+    investment: "Investasi",
+    loan_disbursement: 'Pencairan Pinjaman'
   };
 
   return labels[type] || type;

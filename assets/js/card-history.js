@@ -17,7 +17,7 @@ export function cardHistory(text, {parseDate, parseMoney}) {
     const description = active.description.join(' ').trim();
     const reason = !active.date ? 'Tanggal transaksi belum terbaca lengkap.'
       : !active.amount ? 'Nominal termasuk sen belum terbaca pasti; periksa gambar asli.'
-      : /(?:^|\s)[+−–-]\s*(?:Rp|IDR)|\b(refund|pengembalian|pembayaran|payment received|payment thank|kredit kembali|CR)\b/i.test(active.raw+' '+description)
+      : /(?:^|\s)[+−–-]\s*(?:Rp|IDR)|\b(refund|pengembalian|pembayaran|payment\b|kredit kembali|CR)\b/i.test(active.raw+' '+description)
         ? 'Pembayaran/refund kartu perlu klasifikasi tersendiri; bukan belanja kartu.' : '';
     if (reason) excluded.push({row:active.row, reason});
     else rows.push({...active, description});

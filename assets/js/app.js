@@ -19,7 +19,7 @@ import { creditCardSnapshot, confirmedCardSnapshot } from "./credit-card.js";
 import {filterTransactions,historyAccounts,accountActivity,transactionPresentation,sortTransactionHistory} from './transaction-filters.js';
 import {financialHealth,balanceEvidenceIssues} from './financial-health.js';
 import { buildMonthlyReport } from "./reports.js";
-import { scanStatementFiles } from "./scanner.js?v=card-history-20261021";
+import { scanStatementFiles } from "./scanner.js?v=loan-investment-20261021";
 
 
 const authScreen = $("authScreen");
@@ -398,8 +398,15 @@ function renderCreditCard() {
     $('ccUsed').textContent=money(confirmed.totalObligation);
     $('ccAvailable').textContent=money(confirmed.availableCredit);
     $('ccBilled').textContent=money(confirmed.currentBill);
+    const sameStatement=snapshot.officialStatementApplied&&confirmed.statementDate===formatDateLocal(snapshot.cycle.lastStatement);
+    if(sameStatement){
+      $('ccBilled').previousElementSibling.textContent='Tagihan tersisa setelah pembayaran';
+      $('ccBilled').textContent=money(snapshot.billed);
+      $('ccBankSnapshotNote').textContent+=' Tagihan tersisa mengikuti pembayaran tercatat sejak tanggal cetak; angka limit tetap mengikuti bukti bank terakhir.';
+    }
     $('ccUnbilled').textContent=money(confirmed.unbilled);
     $('ccMinimum').textContent=confirmed.minimumPayment===null?'Cek e-Billing':money(confirmed.minimumPayment);
+    if(sameStatement&&confirmed.minimumPayment!==null)$('ccMinimum').textContent=money(Math.max(0,Math.min(snapshot.billed,confirmed.minimumPayment-snapshot.qualifyingPaymentsAfterStatement)));
     $('ccInstallment').textContent=confirmed.installmentThisMonth===null?'Belum dikonfirmasi':money(confirmed.installmentThisMonth);
     $('ccDueDate').textContent=formatDateId(parseLocalDate(confirmed.dueDate));
     const cycleRows=[['Data bank terakhir',observedDate],['Jatuh tempo dari bank',formatDateId(parseLocalDate(confirmed.dueDate))],['Tanggal cetak',confirmed.statementDate?formatDateId(parseLocalDate(confirmed.statementDate)):'Belum dikonfirmasi']];
@@ -500,6 +507,7 @@ function renderReports() {
     ["Transfer belum terklasifikasi", report.cashFlow.otherNet],
     ["Saldo awal kas (bukan arus kas)", report.cashFlow.openingAdjustments],
     ["Penyesuaian saldo (bukan arus kas)", report.cashFlow.balanceAdjustments],
+    ["Pencairan pinjaman bersih", report.cashFlow.financingInflow],
     ["Pembayaran Liabilitas", -report.cashFlow.financingOutflow],
     ["Perubahan Kas Bersih", report.cashFlow.netCashFlow]
   ].map(([label, value]) => `
@@ -598,6 +606,7 @@ function csvFromReport() {
     ["Transfer belum terklasifikasi", report.cashFlow.otherNet],
     ["Saldo awal kas (bukan arus kas)", report.cashFlow.openingAdjustments],
     ["Penyesuaian saldo (bukan arus kas)", report.cashFlow.balanceAdjustments],
+    ["Pencairan pinjaman bersih", report.cashFlow.financingInflow],
     ["Pembayaran Liabilitas", -report.cashFlow.financingOutflow],
     ["Perubahan Kas Bersih", report.cashFlow.netCashFlow]
   ];

@@ -1,5 +1,5 @@
 import {
-  incomeStatement
+  incomeStatement, transactionExpense
 } from "./accounting.js";
 import {
   monthRange,
@@ -35,7 +35,7 @@ export function budgetActual(transactions, month, item) {
     .filter((tx) => {
       if (item.category === "needs") {
         return (
-          ["expense", "credit_purchase"].includes(tx.type) &&
+          transactionExpense(tx)>0 &&
           NEED_CATEGORIES.includes(tx.category)
         );
       }
@@ -45,11 +45,11 @@ export function budgetActual(transactions, month, item) {
       }
 
       return (
-        ["expense", "credit_purchase"].includes(tx.type) &&
+        transactionExpense(tx)>0 &&
         tx.category === item.category
       );
     })
-    .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+    .reduce((sum, tx) => sum + (item.category === "Investasi" ? Number(tx.amount || 0) : transactionExpense(tx)), 0);
 }
 
 export function budgetTarget(transactions, month, item) {
