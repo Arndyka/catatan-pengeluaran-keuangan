@@ -7,7 +7,7 @@ const browser=await chromium.launch();
 try{
  const page=await browser.newPage(),cloud=[];
  await page.route('**/*',route=>{if(/firestore|identitytoolkit|integrate.api.nvidia/i.test(route.request().url())){cloud.push(route.request().url());return route.abort();}return route.continue();});
- await page.goto(process.env.SPENDLY_TEST_URL||'http://127.0.0.1:4173/?demo=1');await page.waitForFunction(()=>window.Tesseract);
+ await page.goto(process.env.SPENDLY_TEST_URL||'http://127.0.0.1:4173/?demo=1');await page.waitForFunction(()=>window.Tesseract);await page.waitForFunction(()=>document.querySelector('#syncStatus')?.textContent.includes('Mode demo')&&localStorage.getItem('spendly:demo:v1'));
  const before=await page.evaluate(()=>localStorage.getItem('spendly:demo:v1'));
  for(const [i,fixture] of fixtures.entries()){
   const drawing=await browser.newPage({viewport:{width:850,height:1000}});await drawing.setContent(`<body style="margin:0;background:#fff;color:#111;font:28px/1.8 Arial;padding:35px">${fixture.lines.map(l=>`<div>${l}</div>`).join('')}</body>`);const bytes=await drawing.screenshot({fullPage:true});await drawing.close();
