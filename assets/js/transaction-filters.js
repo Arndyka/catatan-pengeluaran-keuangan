@@ -47,7 +47,7 @@ export function transactionPresentation(t,accounts=[],accountId='all'){
   const a=byId.get(j.accountId);
   return (!accountId||accountId==='all'||j.accountId===accountId)&&(a?.type||j.accountType)==='asset'&&!['clearing','investment'].includes(a?.subtype||j.accountSubtype);
  }).reduce((n,j)=>n+Math.round(j.debit*100)-Math.round(j.credit*100),0);
- const sign=isAdjustment(t)?'':delta?(liability?(delta>0?'−':'+'):(delta>0?'+':'−')):['transfer','investment','investment_buy','investment_sell'].includes(t.type)?'↔':'';
+ const sign=isAdjustment(t)?'':delta?(liability?(delta>0?'−':'+'):(delta>0?'+':'−')):['transfer','investment','investment_buy','investment_sell','investment_settlement'].includes(t.type)?'↔':'';
  return {source,destination,sourceLabel:label(source),destinationLabel:label(destination),accountLabel,pending,unmapped,settled,delta,cashDelta,sign,
   tone:delta>0?'positive':delta<0?'negative':'neutral',
   directionLabel:isAdjustment(t)?'Di luar aktivitas':!liability&&t.type==='credit_purchase'?'Belanja kredit · non-tunai':delta?(liability?(delta>0?'Utang berkurang':'Utang bertambah'):(delta>0?'Uang masuk':'Uang keluar')):'Transfer antar akun'};

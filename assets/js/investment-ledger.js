@@ -56,12 +56,24 @@ export async function changeInvestment(io,action,today=formatDateLocal()){
   const total=price*q+fee;if(!Number.isSafeInteger(total))throw new Error('Nilai transaksi terlalu besar.');
   const settlement=cash();let p=portfolio.positions.find(p=>p.symbol===o.symbol);
   if(!p){const id=`asset-stock-${o.symbol.toLowerCase()}`;if(account(id))throw new Error('Kode akun saham sudah digunakan. Periksa akun investasi.');accounts.push({id,name:`Saham ${o.symbol}`,type:'asset',subtype:'investment',active:true,managedInvestment:true});p={id:`position-${o.symbol}`,symbol:o.symbol,name:o.name,accountId:id,quantity:0,cost:0,bookValue:0,traded:false};portfolio.positions.push(p);}
-  known(p);chronological(p,d);const a=stock(p);journal=[entry(a,total),entry(settlement,0,total)];
+  const due=action.settlementDate||d;if(!validDate(due)||due<d)throw new Error('Tanggal penyelesaian tidak boleh mendahului matched.');
+  let payment=settlement;
+  if(due>d){const id='liability-stock-settlement';payment=account(id);if(payment&&(!payment.managedInvestment||payment.type!=='liability'||payment.subtype!=='investment_settlement'||payment.active===false))throw new Error('Akun penyelesaian saham tidak sesuai.');if(!payment){payment={id,name:'Pembelian saham belum diselesaikan',type:'liability',subtype:'investment_settlement',active:true,managedInvestment:true};accounts.push(payment);}}
+  known(p);chronological(p,d);const a=stock(p);journal=[entry(a,total),entry(payment,0,total)];
   quantity(p.quantity+q);money(value(money(p.cost)+total));money(value(money(p.bookValue)+total));
   p.quantity+=q;p.cost=value(money(p.cost)+total);p.bookValue=value(money(p.bookValue)+total);p.asOfDate=d;p.lastEventDate=d;p.traded=true;
   o.filledQuantity+=q;o.status=o.filledQuantity===o.quantity?'matched':'partial';
-  type='investment_buy';amount=value(total);sourceAccountId=settlement.id;destinationAccountId=a.id;
-  event={kind:'buy',positionId:p.id,orderId:o.id,symbol:p.symbol,date:d,quantity:q,price:action.price,fee:action.fee,total:amount,cashAccountId:settlement.id};
+  type='investment_buy';amount=value(total);sourceAccountId=payment.id;destinationAccountId=a.id;
+  event={kind:'buy',positionId:p.id,orderId:o.id,symbol:p.symbol,date:d,quantity:q,price:action.price,fee:action.fee,total:amount,cashAccountId:settlement.id,...(due>d?{settlementDate:due,settlementStatus:'pending',payableAccountId:payment.id}:{})};
+ }else if(action.kind==='settle'){
+  const original=portfolio.events.find(x=>x.id===action.eventId),d=date(action.date,today);
+  if(!original||original.kind!=='buy'||original.settlementStatus!=='pending')throw new Error('Tidak ada pembelian menunggu penyelesaian.');
+  if(d<original.settlementDate)throw new Error('Tanggal masih sebelum jadwal penyelesaian.');
+  const payment=account(original.cashAccountId),payable=account(original.payableAccountId),total=money(original.total);
+  if(!payment||payment.type!=='asset'||payment.managedInvestment||!payable||payable.type!=='liability')throw new Error('Akun penyelesaian tidak tersedia.');
+  journal=[entry(payable,total),entry(payment,0,total)];type='investment_settlement';amount=original.total;sourceAccountId=payment.id;destinationAccountId=payable.id;
+  original.settlementStatus='settled';original.settledDate=d;original.settlementTransactionId=`investment-${action.id}`;
+  event={kind:'settlement',positionId:original.positionId,symbol:original.symbol,date:d,total:amount,cashAccountId:payment.id,buyEventId:original.id};
  }else if(action.kind==='sell'){
   const p=position();known(p);const q=quantity(action.quantity),price=money(action.price,'Harga jual'),fee=money(action.fee,'Biaya jual'),d=date(action.date,today);chronological(p,d);
   if(!price||q>p.quantity)throw new Error('Jumlah jual melebihi saham yang dimiliki atau harga belum valid.');
@@ -87,7 +99,7 @@ export async function changeInvestment(io,action,today=formatDateLocal()){
   if(!validateJournal(journal).valid)throw new Error('Jurnal investasi tidak seimbang.');
   if(await io.getTransaction(id))throw new Error('ID transaksi sudah digunakan. Muat ulang posisi.');
   event={...event,id:action.id,transactionId:id,reference:String(action.reference||'').trim().slice(0,120)};
-  tx={id,fingerprint:id,type,date:event.date,amount,sourceAccountId,destinationAccountId,category:type==='investment_valuation'?'Penilaian Investasi':'Investasi Saham',merchant:event.symbol,description:`${type==='investment_buy'?'Beli':type==='investment_sell'?'Jual':'Perbarui nilai'} ${event.symbol}${event.quantity?` ${event.quantity} lembar`:''}`,journal,journalCheck:validateJournal(journal),origin:'investment-portfolio',sourceMeta:{investmentEventId:action.id,positionId:event.positionId,reference:event.reference,profit:event.profit??null},createdAtClient:new Date().toISOString()};
+  tx={id,fingerprint:id,type,date:event.date,amount,sourceAccountId,destinationAccountId,category:type==='investment_valuation'?'Penilaian Investasi':'Investasi Saham',merchant:event.symbol,description:`${type==='investment_buy'?'Beli':type==='investment_sell'?'Jual':type==='investment_settlement'?'Penyelesaian dana':'Perbarui nilai'} ${event.symbol}${event.quantity?` ${event.quantity} lembar`:''}${event.settlementStatus==='pending'?` · Dana belum terpotong; penyelesaian ${event.settlementDate}`:''}`,journal,journalCheck:validateJournal(journal),origin:'investment-portfolio',sourceMeta:{investmentEventId:action.id,positionId:event.positionId,reference:event.reference,profit:event.profit??null,...(event.settlementDate?{settlementDate:event.settlementDate}:{})},createdAtClient:new Date().toISOString()};
   portfolio.events.push(event);
  }
  for(const a of accounts)if(portfolio.positions.some(p=>p.accountId===a.id))a.managedInvestment=true;

@@ -41,6 +41,22 @@ test('investment conflict refreshes the order before the editor is reopened',asy
  await page.locator('#investmentForm [name=limitPrice]').fill('1600');await page.locator('#investmentForm [type=submit]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();await expect(page.locator('[data-investment-order]')).toContainText('1.600');
 });
 
+test('deferred stock settlement waits for confirmation and never purchases shares twice',async({page})=>{
+ await page.evaluate(()=>location.hash='investments');await page.getByRole('button',{name:'Tambah order',exact:true}).click();const form=page.locator('#investmentForm');
+ await form.locator('[name=symbol]').fill('WAIT');await form.locator('[name=name]').fill('Pending settlement');await form.locator('[name=quantity]').fill('100');await form.locator('[name=limitPrice]').fill('1000');await form.locator('[name=date]').fill('2026-10-20');await form.locator('[type=submit]').click();
+ await page.getByRole('button',{name:'Catat matched',exact:true}).click();await form.locator('[name=date]').fill('2026-10-20');await form.locator('[name=settlementDate]').fill('2026-10-21');await form.locator('[name=fee]').fill('500');await form.locator('[name=cashAccountId]').selectOption('asset-mandiri');await form.locator('[type=submit]').click();
+ await expect(page.locator('.investment-portfolio')).toContainText('Dana menunggu penyelesaian');
+ await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js'),{openTransactionEditor}=await import('/assets/js/transaction-editor-ui.js');await openTransactionEditor(state.transactions.find(t=>t.type==='investment_buy').id);});
+ await expect(page.locator('#transactionEditForm [name=sourceAccountId]')).toHaveValue('liability-stock-settlement');await page.locator('#cancelTransactionEdit').click();
+ const before=await page.evaluate(async()=>{const {deriveLedger}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));return deriveLedger(d.transactions).accounts.find(a=>a.accountId==='asset-mandiri').balance;});
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'Konfirmasi dana terpotong',exact:true}).click();await form.locator('[name=date]').fill('2026-10-21');await form.locator('[type=submit]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();
+ await expect(page.getByRole('button',{name:'Konfirmasi dana terpotong',exact:true})).toHaveCount(0);
+ const after=await page.evaluate(async()=>{const {deriveLedger}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));return {balance:deriveLedger(d.transactions).accounts.find(a=>a.accountId==='asset-mandiri').balance,position:d.settings.profile.investmentPortfolio.positions[0]};});
+ expect(before-after.balance).toBe(100500);expect(after.position.quantity).toBe(100);await expect(page.locator('[data-investment-events]')).toContainText('Tidak membeli saham lagi');
+ await page.evaluate(async()=>{const {state}=await import('/assets/js/state.js'),{openTransactionEditor}=await import('/assets/js/transaction-editor-ui.js');await openTransactionEditor(state.transactions.find(t=>t.type==='investment_settlement').id);});
+ await expect(page.locator('#transactionEditForm [name=destinationAccountId]')).toHaveValue('liability-stock-settlement');
+});
+
 test.describe('scanner selection regression',()=>{
 test.use({serviceWorkers:'block'});
 test('opening import respects incoming transfer direction and skips same-account pocket movements',async({page})=>{
@@ -796,6 +812,8 @@ async function salaryRule(page,{name='Gaji pengujian',amount='1234567',account='
  await expect(page.locator('#recurringMessage')).toContainText('Jadwal disimpan');
 }
 test('salary setup previews Friday payday, persists policy, and leaves balances unchanged',async({page})=>{
+ // Keep this pre-payday scenario deterministic when the real calendar reaches payday.
+ await page.clock.setFixedTime(new Date('2026-10-21T12:00:00+07:00'));await page.reload();await waitForDemo(page);
  const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions);
  await page.evaluate(()=>location.hash='recurring');await page.locator('#salarySetupButton').click();
  await expect(page.locator('#recurringDay')).toHaveValue('25');

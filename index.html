@@ -13,28 +13,28 @@
   <script>document.documentElement.dataset.theme='dark';try{document.documentElement.dataset.theme=localStorage.getItem('spendly:theme')||'dark'}catch{}</script>
   <script>try{document.documentElement.dataset.sidebar=localStorage.getItem('spendly:sidebar')==='collapsed'?'collapsed':'expanded'}catch{}</script>
   <link rel="stylesheet" href="assets/styles.css?v=paylater-20261016">
-  <link rel="stylesheet" href="assets/experience.css?v=investment-orders-20261021">
+  <link rel="stylesheet" href="assets/experience.css?v=investment-settlement-20261023">
   <script type="importmap">
     {"imports":{
-      "./assets/js/transactions.js":"./assets/js/transactions.js?v=investment-orders-20261021",
-      "./assets/js/investment-ledger.js":"./assets/js/investment-ledger.js?v=investment-orders-20261021",
-      "./assets/js/investment-ui.js":"./assets/js/investment-ui.js?v=investment-orders-20261021",
-      "./assets/js/repository.js":"./assets/js/repository.js?v=investment-orders-20261021",
-      "./assets/js/demo.js":"./assets/js/demo.js?v=investment-orders-20261021",
+      "./assets/js/transactions.js":"./assets/js/transactions.js?v=investment-settlement-20261023",
+      "./assets/js/investment-ledger.js":"./assets/js/investment-ledger.js?v=investment-settlement-20261023",
+      "./assets/js/investment-ui.js":"./assets/js/investment-ui.js?v=investment-settlement-20261023",
+      "./assets/js/repository.js":"./assets/js/repository.js?v=investment-settlement-20261023",
+      "./assets/js/demo.js":"./assets/js/demo.js?v=investment-settlement-20261023",
       "./assets/js/finance-insights.js":"./assets/js/finance-insights.js?v=transaction-editor-20261019",
       "./assets/js/statement-opening.js":"./assets/js/statement-opening.js?v=transaction-editor-20261019",
-      "./assets/js/transaction-edit.js":"./assets/js/transaction-edit.js?v=investment-orders-20261021",
-      "./assets/js/transaction-editor-ui.js":"./assets/js/transaction-editor-ui.js?v=investment-orders-20261021",
+      "./assets/js/transaction-edit.js":"./assets/js/transaction-edit.js?v=investment-settlement-20261023",
+      "./assets/js/transaction-editor-ui.js":"./assets/js/transaction-editor-ui.js?v=investment-settlement-20261023",
       "./assets/js/icons.js":"./assets/js/icons.js?v=sidebar-header-20261019",
       "./assets/js/credit-card.js":"./assets/js/credit-card.js?v=card-ebilling-20261019",
-      "./assets/js/experience.js":"./assets/js/experience.js?v=investment-orders-20261021",
-      "./assets/js/transaction-filters.js":"./assets/js/transaction-filters.js?v=investment-orders-20261021",
+      "./assets/js/experience.js":"./assets/js/experience.js?v=investment-settlement-20261023",
+      "./assets/js/transaction-filters.js":"./assets/js/transaction-filters.js?v=investment-settlement-20261023",
       "./assets/js/financial-health.js":"./assets/js/financial-health.js?v=account-route-20261019-2",
-      "./assets/js/accounting.js":"./assets/js/accounting.js?v=investment-orders-20261021",
+      "./assets/js/accounting.js":"./assets/js/accounting.js?v=investment-settlement-20261023",
       "./assets/js/recurring-logic.js":"./assets/js/recurring-logic.js?v=subscriptions-sidebar-20261019",
       "./assets/js/recurring-ui.js":"./assets/js/recurring-ui.js?v=subscriptions-sidebar-20261019",
       "./assets/js/recurring.js":"./assets/js/recurring.js?v=subscriptions-sidebar-20261019",
-      "./assets/js/repository-cloud.js":"./assets/js/repository-cloud.js?v=investment-orders-20261021",
+      "./assets/js/repository-cloud.js":"./assets/js/repository-cloud.js?v=investment-settlement-20261023",
       "./assets/js/transaction-quality.js":"./assets/js/transaction-quality.js?v=salary-weekday-20261019",
       "./assets/js/import-reconciliation.js":"./assets/js/import-reconciliation.js?v=salary-weekday-20261019"
     }}
@@ -308,7 +308,7 @@
                 <option value="credit_purchase">Belanja Kredit / PayLater</option>
                 <option value="credit_payment">Bayar Kredit / PayLater</option>
                 <option value="investment">Investasi</option>
-              <option value="investment_buy">Beli Saham</option><option value="investment_sell">Jual Saham</option><option value="investment_valuation">Penilaian Investasi</option></select>
+              <option value="investment_settlement">Penyelesaian Saham</option><option value="investment_buy">Beli Saham</option><option value="investment_sell">Jual Saham</option><option value="investment_valuation">Penilaian Investasi</option></select>
               <select id="transactionStatusFilter" aria-label="Filter status pemeriksaan">
                 <option value="all">Semua status</option>
                 <option value="pending">Perlu rincian</option>
@@ -849,7 +849,7 @@
   <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
-  <script type="module" src="assets/js/boot.js?v=investment-orders-20261021"></script>
+  <script type="module" src="assets/js/boot.js?v=investment-settlement-20261023"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 

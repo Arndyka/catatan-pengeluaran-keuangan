@@ -1,6 +1,6 @@
 ﻿import test from 'node:test';import assert from 'node:assert/strict';
 import {investmentPortfolio,investmentVersion,changeInvestment,investmentProtected,guardInvestmentProfileWrite} from '../assets/js/investment-ledger.js';
-import {DEFAULT_SETTINGS,deriveLedger,incomeStatement,validateJournal,buildTransaction} from '../assets/js/accounting.js';
+import {DEFAULT_SETTINGS,deriveLedger,incomeStatement,validateJournal,buildTransaction,cashFlowStatement} from '../assets/js/accounting.js';
 import {prepareTransactionEdit} from '../assets/js/transaction-edit.js';
 const fixture=()=>{let profile={...structuredClone(DEFAULT_SETTINGS),accounts:[...structuredClone(DEFAULT_SETTINGS.accounts),{id:'rdn',name:'RDN uji',type:'asset',subtype:'investment',active:true}]},txs=[];return {get profile(){return profile;},get txs(){return txs;},async act(action){return changeInvestment({getProfile:async()=>structuredClone(profile),getTransaction:async id=>txs.find(t=>t.id===id),putProfile:p=>profile=structuredClone(p),putTransaction:t=>txs.push(t)}, {...action,id:action.id||crypto.randomUUID(),expectedVersion:action.expectedVersion||investmentVersion(profile)},'2026-10-21');},setProfile:p=>profile=p};};
 const order={kind:'order',symbol:'TEST',name:'Saham contoh',quantity:400,limitPrice:1000,date:'2026-10-20'};
@@ -68,4 +68,28 @@ test('overselling, stale forms, future dates, invalid fees and editing a filled 
  await f.act(fill);await assert.rejects(f.act({...order,orderId:o.id}));
  const p=investmentPortfolio(f.profile).positions[0];await assert.rejects(f.act({kind:'sell',positionId:p.id,quantity:401,price:1000,fee:0,date:'2026-10-21',cashAccountId:'rdn'}));
  await assert.rejects(f.act({kind:'position',positionId:p.id,name:'Changed',quantity:401,cost:1,bookValue:400000,date:'2026-10-21'}));assert.equal(f.txs.length,1);
+});
+
+test('a deferred stock purchase records payable while cash waits for actual settlement',async()=>{
+ const f=fixture();await f.act(order);const o=investmentPortfolio(f.profile).orders[0];
+ await f.act({kind:'fill',orderId:o.id,quantity:400,price:1000,fee:2000,date:'2026-10-20',settlementDate:'2026-10-21',cashAccountId:'rdn'});
+ let portfolio=investmentPortfolio(f.profile),buy=portfolio.events[0],ledger=deriveLedger(f.txs);
+ assert.equal(buy.settlementStatus,'pending');assert.equal(ledger.accounts.find(a=>a.accountId==='rdn')?.balance||0,0);
+ assert.equal(ledger.accounts.find(a=>a.accountId===buy.payableAccountId).balance,402000);
+ assert.equal(portfolio.positions[0].quantity,400);assert.equal(incomeStatement(f.txs,'2026-10').netIncome,0);
+ await assert.rejects(f.act({kind:'settle',eventId:buy.id,date:'2026-10-20'}));
+ const action={kind:'settle',id:'settlement-test-id',eventId:buy.id,date:'2026-10-21'};await f.act(action);await f.act(action);
+ portfolio=investmentPortfolio(f.profile);ledger=deriveLedger(f.txs);
+ assert.equal(portfolio.events[0].settlementStatus,'settled');assert.equal(ledger.accounts.find(a=>a.accountId==='rdn').balance,-402000);assert.equal(ledger.accounts.find(a=>a.accountId===buy.payableAccountId).balance,0);
+ assert.equal(f.txs.length,2);assert.equal(portfolio.positions[0].cost,402000);
+ await assert.rejects(f.act({...action,id:crypto.randomUUID()}));
+});
+
+test('bank-funded deferred purchase becomes investing cash outflow only on settlement',async()=>{
+ const f=fixture();await f.act(order);const o=investmentPortfolio(f.profile).orders[0];
+ await f.act({kind:'fill',orderId:o.id,quantity:400,price:1000,fee:2000,date:'2026-10-20',settlementDate:'2026-10-21',cashAccountId:'asset-mandiri'});
+ assert.equal(cashFlowStatement(f.txs,'2026-10',f.profile).investingOutflow,0);
+ await f.act({kind:'settle',eventId:investmentPortfolio(f.profile).events[0].id,date:'2026-10-21'});
+ assert.equal(cashFlowStatement(f.txs,'2026-10',f.profile).investingOutflow,402000);
+ assert.equal(cashFlowStatement(f.txs,'2026-10',f.profile).otherNet,0);
 });

@@ -403,7 +403,7 @@ export function cashFlowStatement(transactions, month, settings) {
     if(tx.type==='opening_balance'){openingAdjustments+=delta;continue;}
     if(tx.type==='balance_adjustment'){balanceAdjustments+=delta;continue;}
     if(!delta)continue;
-    const investment=entries.some(j=>(settings?.accounts?.find(a=>a.id===j.accountId)?.subtype||j.accountSubtype)==='investment');
+    const investment=tx.type==='investment_settlement'||entries.some(j=>(settings?.accounts?.find(a=>a.id===j.accountId)?.subtype||j.accountSubtype)==='investment');
     if(investment){if(delta>0)investingInflow+=delta;else investingOutflow-=delta;}
     else if(tx.type==='loan_disbursement')financingInflow+=delta;
     else if(tx.type==='credit_payment')financingOutflow-=delta;

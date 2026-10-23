@@ -21,6 +21,7 @@ export function transactionTypeLabel(type) {
     credit_payment: "Bayar Kredit / PayLater",
     investment: "Investasi",
     investment_buy: "Beli Saham",
+    investment_settlement: "Penyelesaian Saham",
     investment_sell: "Jual Saham",
     investment_valuation: "Penilaian Investasi",
     loan_disbursement: 'Pencairan Pinjaman'
