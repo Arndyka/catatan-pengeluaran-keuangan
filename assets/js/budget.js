@@ -35,7 +35,7 @@ export function budgetActual(transactions, month, item) {
     .filter((tx) => {
       if (item.category === "needs") {
         return (
-          transactionExpense(tx)>0 &&
+          transactionExpense(tx)!==0 &&
           NEED_CATEGORIES.includes(tx.category)
         );
       }
@@ -45,7 +45,7 @@ export function budgetActual(transactions, month, item) {
       }
 
       return (
-        transactionExpense(tx)>0 &&
+        transactionExpense(tx)!==0 &&
         tx.category === item.category
       );
     })

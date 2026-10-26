@@ -21,7 +21,7 @@ export function cashPosition(transactions,settings,month,today=formatDateLocal()
 export function dailyAllowance(transactions, limit, today = formatDateLocal()) {
   const [year, month, day] = today.split('-').map(Number);
   const daysLeft = Math.max(1, new Date(year, month, 0).getDate() - day + 1);
-  const expenses = transactions.filter(tx => transactionExpense(tx)>0 && tx.date?.startsWith(today.slice(0,7)) && tx.date <= today);
+  const expenses = transactions.filter(tx => transactionExpense(tx)!==0 && tx.date?.startsWith(today.slice(0,7)) && tx.date <= today);
   const spent = expenses.reduce((sum, tx) => sum + transactionExpense(tx), 0);
   const todaySpent = expenses.filter(tx => tx.date === today).reduce((sum, tx) => sum + transactionExpense(tx), 0);
   const configured = Number.isFinite(Number(limit)) && Number(limit) > 0;

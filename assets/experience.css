@@ -229,3 +229,5 @@ html{scroll-behavior:smooth;scroll-padding-bottom:110px}body{font-family:'Segoe 
  .investment-actions .btn { flex: 1 1 130px; white-space: normal; }
  .investment-portfolio .panel-header { flex-wrap: wrap; gap: 16px; }
 }
+
+.chart-bar.refund{background:var(--mint)}

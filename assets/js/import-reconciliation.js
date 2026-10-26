@@ -13,7 +13,7 @@ function reference(tx) {
  if(/^(krom-native-layout|bca-native-layout)/.test(method)&&value!==norm(explicitBankReference(tx.description)))return '';
  return value.length>=6 && !/^(0+|unknown|undefined|null|na)$/.test(value) ? value : '';
 }
-const isMovement=tx=>['transfer','investment','credit_payment'].includes(tx.type);
+const isMovement=tx=>['transfer','investment','credit_payment','credit_cash_advance'].includes(tx.type);
 function sameAccounts(a,b) {
  return a.type===b.type &&
   !!a.sourceAccountId && a.sourceAccountId===b.sourceAccountId &&
@@ -34,6 +34,11 @@ export function matchImport(candidate, existing) {
   const a=reference(candidate),b=reference(other),p=provenance(candidate),q=provenance(other);
   const candidateBank=candidate.bank||meta(candidate).bank, otherBank=other.bank||meta(other).bank;
   const differentBanks=candidateBank&&otherBank&&candidateBank!=='generic'&&otherBank!=='generic'&&candidateBank!==otherBank;
+  // A net bank payout may already be represented by gross card funding plus a separate fee.
+  const receiptAccount=isMovement(candidate)&&candidate.signedAmount>0?candidate.destinationAccountId:candidate.sourceAccountId;
+  if(other.type==='credit_cash_advance'&&candidate.date===other.date&&receiptAccount===other.destinationAccountId&&Number(candidate.amount)>0&&Number(candidate.amount)===Number(meta(other).netProceeds)&&(candidate.signedAmount??(candidate.type==='income'?candidate.amount:0))>0){
+   possible={status:'review',reason:'Dana bersih ini mungkin sudah tercatat sebagai pencairan kartu dan potongan biaya. Periksa catatan terkait agar tidak menjadi pemasukan kedua.',matchId:other.id||'',matched:other};continue;
+  }
   // Reviewed consolidation retains exact source rows, including evidence from
   // both banks of one transfer. Amount alone never establishes this link.
   const aliases=meta(other).provenanceAliases||[];

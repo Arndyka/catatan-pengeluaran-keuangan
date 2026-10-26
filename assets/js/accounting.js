@@ -95,6 +95,10 @@ export function buildJournal(input, settings) {
   };
 
   switch (input.type) {
+    case 'credit_cash_advance':
+      return [accountEntry(destination,amount,0),accountEntry(source,0,amount)];
+    case 'expense_refund':
+      return [accountEntry(source,amount,0),accountEntry(expenseAccount,0,amount)];
     case 'loan_disbursement': {
       const principal=Number(input.sourceMeta.loanPrincipal),fee=Number(input.sourceMeta.disbursementFee);
       return [accountEntry(source,amount,0),...(fee?[accountEntry(expenseAccount,fee,0)]:[]),accountEntry(destination,0,principal)];
@@ -199,6 +203,8 @@ export async function buildTransaction(input, settings) {
     if(!['asset','liability'].includes(source.type)||source.subtype==='clearing'||!['increase','decrease'].includes(input.adjustmentDirection)||!cleanText(input.description))throw new Error('Penyesuaian memerlukan akun, arah koreksi, dan alasan yang jelas.');
   }else if(input.type==='opening_balance'){
     if(!['asset','liability'].includes(source.type)||source.subtype==='clearing')throw new Error('Saldo awal memerlukan akun aset atau kewajiban.');
+  }else if(input.type==='credit_cash_advance'){
+    if(source.type!=='liability'||source.subtype!=='credit_card'||!target||target.active===false||target.type!=='asset'||!['bank','cash','ewallet'].includes(target.subtype))throw new Error('Pencairan memerlukan kartu kredit dan rekening penerima dana aktif.');
   }else if(input.type==='credit_purchase'){
     if(source.type!=='liability'||!['credit_card','paylater'].includes(source.subtype))throw new Error('Pilih akun kartu kredit atau PayLater untuk belanja kredit.');
   }else if(source.type!=='asset')throw new Error('Pilih akun aset. Belanja kartu dicatat sebagai Belanja Kartu Kredit.');
@@ -405,9 +411,9 @@ export function cashFlowStatement(transactions, month, settings) {
     if(!delta)continue;
     const investment=tx.type==='investment_settlement'||entries.some(j=>(settings?.accounts?.find(a=>a.id===j.accountId)?.subtype||j.accountSubtype)==='investment');
     if(investment){if(delta>0)investingInflow+=delta;else investingOutflow-=delta;}
-    else if(tx.type==='loan_disbursement')financingInflow+=delta;
+    else if(['loan_disbursement','credit_cash_advance'].includes(tx.type))financingInflow+=delta;
     else if(tx.type==='credit_payment')financingOutflow-=delta;
-    else if(tx.type==='income'||tx.type==='expense'){if(delta>0)operatingInflow+=delta;else operatingOutflow-=delta;}
+    else if(['income','expense','expense_refund'].includes(tx.type)){if(delta>0)operatingInflow+=delta;else operatingOutflow-=delta;}
     else otherNet+=delta;
   }
   const values={operatingInflow,operatingOutflow,investingInflow,investingOutflow,financingInflow,financingOutflow,otherNet,openingAdjustments,balanceAdjustments,netOperating:operatingInflow-operatingOutflow,netInvesting:investingInflow-investingOutflow,netCashFlow:operatingInflow-operatingOutflow+investingInflow-investingOutflow+financingInflow-financingOutflow+otherNet};
@@ -434,6 +440,7 @@ export function trialBalance(transactions, asOfDate = null) {
 
 // A net loan receipt is financing; only its withheld fee is spending.
 export function transactionExpense(tx){
+ if(tx.type==='expense_refund')return -Number(tx.amount||0);
  if(tx.type==='loan_disbursement')return journalEntries(tx.journal).filter(j=>j.accountType==='expense').reduce((n,j)=>n+Math.round(Number(j.debit)*100)-Math.round(Number(j.credit)*100),0)/100;
  return ['expense','credit_purchase'].includes(tx.type)?Number(tx.amount||0):0;
 }

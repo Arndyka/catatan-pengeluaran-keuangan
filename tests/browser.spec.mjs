@@ -3,6 +3,19 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('credit funding and expense reimbursements retain accounts and journals in mobile editing',async({page})=>{
+ await page.evaluate(async()=>{const {buildTransaction}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.transactions=[];for(const input of [{type:'credit_cash_advance',amount:100000,sourceAccountId:'liability-mandiri-cc',destinationAccountId:'asset-blu',merchant:'Card funding',category:'Pencairan Kartu'},{type:'expense_refund',amount:30000,sourceAccountId:'asset-mandiri',merchant:'Meal reimbursement',category:'Makan'}])d.transactions.push(await buildTransaction({...input,date:'2026-10-20'},d.settings.profile));localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
+ await page.reload();await waitForDemo(page);await expect(page.locator('#spendingChart .chart-bar.refund')).toHaveCount(1);await expect(page.locator('#spendingChart .chart-bar.refund')).toHaveAttribute('aria-label',/Penggantian pengeluaran/);await page.setViewportSize({width:390,height:844});await page.evaluate(()=>location.hash='transactions');
+ for(const type of ['credit_cash_advance','expense_refund']){
+  await page.evaluate(async type=>{const {state}=await import('/assets/js/state.js'),{openTransactionEditor}=await import('/assets/js/transaction-editor-ui.js');await openTransactionEditor(state.transactions.find(t=>t.type===type).id);},type);
+  const form=page.locator('#transactionEditForm');await expect(form.locator('[name=type] option[value=expense_refund]')).toHaveCount(1);await expect(form.locator('[name=type] option[value=credit_cash_advance]')).toHaveCount(1);await expect(form.locator('[name=type]')).toHaveValue(type);await expect(form.locator('[name=sourceAccountId]')).toHaveValue(type==='credit_cash_advance'?'liability-mandiri-cc':'asset-mandiri');
+  if(type==='credit_cash_advance')await expect(form.locator('[name=destinationAccountId]')).toHaveValue('asset-blu');await form.locator('[name=description]').fill('Reviewed note');await form.locator('[type=submit]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();
+ }
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const totals=await page.evaluate(async()=>{const {incomeStatement,deriveLedger}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));return {statement:incomeStatement(d.transactions,'2026-10'),accounts:deriveLedger(d.transactions).accounts};});
+ expect(totals.statement.income).toBe(0);expect(totals.statement.expenses).toBe(-30000);expect(totals.accounts.find(a=>a.accountId==='asset-blu').balance).toBe(100000);
+});
+
 test('investment order editing, partial match and sale remain coherent on phone and desktop',async({page})=>{
  await page.evaluate(()=>location.hash='investments');
  await page.getByRole('button',{name:'Tambah order',exact:true}).click();

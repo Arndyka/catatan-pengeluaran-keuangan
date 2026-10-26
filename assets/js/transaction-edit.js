@@ -25,7 +25,7 @@ export async function prepareTransactionEdit(old,patch,settings,{rule,plan}={}){
  if(old.type==='opening_balance'&&['type','date','sourceAccountId'].some(k=>next[k]!==old[k]))throw new Error('Tanggal dan akun saldo awal tetap mengikuti awal pembukuan. Koreksi nominalnya di sini.');
  if(old.type!=='opening_balance'&&next.type==='opening_balance')throw new Error('Catat saldo awal melalui Dompet agar tidak membuat saldo awal ganda.');
  if(next.date>formatDateLocal())throw new Error('Transaksi aktual tidak boleh bertanggal masa depan. Gunakan jadwal rutin.');
- if(!['transfer','investment','investment_buy','investment_sell','investment_settlement','credit_payment','loan_disbursement'].includes(next.type))next.destinationAccountId='';
+ if(!['transfer','investment','investment_buy','investment_sell','investment_settlement','credit_cash_advance','credit_payment','loan_disbursement'].includes(next.type))next.destinationAccountId='';
  // Keeping an archived account is allowed; moving money to a different inactive account is not.
  const buildSettings={...settings,accounts:settings.accounts.map(a=>[old.sourceAccountId,old.destinationAccountId].includes(a.id)?{...a,active:true}:a)};
  const rebuilt=restriction?{...next}:await buildTransaction({...next,recurringPeriod:old.sourceMeta?.recurringPeriod},buildSettings);

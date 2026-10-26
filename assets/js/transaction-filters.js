@@ -20,13 +20,13 @@ export function transactionPresentation(t,accounts=[],accountId='all'){
  const endpoint=id=>byId.get(id)?.subtype==='clearing'?'unmapped':id||'';
  const party=t.sourceMeta?.counterparty||t.merchant||'Pihak lain';
  let source=endpoint(t.sourceAccountId),destination=endpoint(t.destinationAccountId);
- if(t.type==='income'){destination=source;source='external';}
+ if(['income','expense_refund'].includes(t.type)){destination=source;source='external';}
  if(t.type==='loan_disbursement'){destination=source;source=endpoint(t.destinationAccountId);}
  if(['expense','credit_purchase'].includes(t.type))destination='external';
  const settled=!!t.sourceMeta?.loanSettled;
  const label=id=>id==='external'?party:id==='unmapped'?`${party} · ${settled?'pinjaman lunas (arsip)':'belum dirinci'}`:byId.get(id)?.name||'—';
  const accountName=id=>byId.get(id)?.name||'rekening belum dipetakan';
- const accountLabel=t.type==='loan_disbursement'?`Pencairan ${accountName(source)} → ${accountName(destination)}`:t.type==='income'?`Masuk ke ${accountName(destination)}`:
+ const accountLabel=t.type==='loan_disbursement'?`Pencairan ${accountName(source)} → ${accountName(destination)}`:['income','expense_refund'].includes(t.type)?`Masuk ke ${accountName(destination)}`:
   t.type==='expense'?`Keluar dari ${accountName(source)}`:
   t.type==='credit_purchase'?`Dibebankan ke ${accountName(source)}`:
   source==='unmapped'?`Masuk ke ${accountName(destination)} · ${settled?'pinjaman lunas':'sumber belum dirinci'}`:
@@ -37,7 +37,7 @@ export function transactionPresentation(t,accounts=[],accountId='all'){
  let delta=0;
  if(!isAdjustment(t)){
   if(accountId&&accountId!=='all')delta=movement(t,accountId);
-  else if(['income','loan_disbursement'].includes(t.type))delta=Math.round(t.amount*100);
+  else if(['income','expense_refund','loan_disbursement','credit_cash_advance'].includes(t.type))delta=Math.round(t.amount*100);
   else if(['expense','credit_purchase','credit_payment'].includes(t.type))delta=-Math.round(t.amount*100);
   else if(source==='unmapped')delta=Math.round(t.amount*100);
   else if(destination==='unmapped')delta=-Math.round(t.amount*100);
@@ -50,7 +50,7 @@ export function transactionPresentation(t,accounts=[],accountId='all'){
  const sign=isAdjustment(t)?'':delta?(liability?(delta>0?'−':'+'):(delta>0?'+':'−')):['transfer','investment','investment_buy','investment_sell','investment_settlement'].includes(t.type)?'↔':'';
  return {source,destination,sourceLabel:label(source),destinationLabel:label(destination),accountLabel,pending,unmapped,settled,delta,cashDelta,sign,
   tone:delta>0?'positive':delta<0?'negative':'neutral',
-  directionLabel:isAdjustment(t)?'Di luar aktivitas':!liability&&t.type==='credit_purchase'?'Belanja kredit · non-tunai':delta?(liability?(delta>0?'Utang berkurang':'Utang bertambah'):(delta>0?'Uang masuk':'Uang keluar')):'Transfer antar akun'};
+  directionLabel:t.type==='credit_cash_advance'&&accountId==='all'?'Dana dari kartu (kewajiban)':t.type==='expense_refund'&&accountId==='all'?'Penggantian pengeluaran':isAdjustment(t)?'Di luar aktivitas':!liability&&t.type==='credit_purchase'?'Belanja kredit · non-tunai':delta?(liability?(delta>0?'Utang berkurang':'Utang bertambah'):(delta>0?'Uang masuk':'Uang keluar')):'Transfer antar akun'};
 }
 export function filterTransactions(transactions,filter={},accounts=[]){
  const names=new Map(accounts.map(a=>[a.id,a.name])),search=String(filter.search||'').trim().toLocaleLowerCase('id');

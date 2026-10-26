@@ -16,6 +16,8 @@ export function transactionTypeLabel(type) {
     balance_adjustment: "Penyesuaian Saldo",
     income: "Pemasukan",
     expense: "Pengeluaran",
+    expense_refund: "Penggantian Pengeluaran",
+    credit_cash_advance: "Pencairan Dana Kartu",
     transfer: "Transfer",
     credit_purchase: "Belanja Kredit / PayLater",
     credit_payment: "Bayar Kredit / PayLater",

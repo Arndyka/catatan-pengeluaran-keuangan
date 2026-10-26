@@ -202,10 +202,10 @@ function transactionList(items) {
 function renderChart(transactions,month) {
  const totalDays=new Date(Number(month.slice(0,4)),Number(month.slice(5)),0).getDate();
  const values=Array.from({length:totalDays},()=>0);
- transactions.filter(tx=>tx.date?.startsWith(month)&&tx.date<=formatDateLocal()&&transactionExpense(tx)>0).forEach(tx=>values[Number(tx.date.slice(8))-1]+=transactionExpense(tx));
+ transactions.filter(tx=>tx.date?.startsWith(month)&&tx.date<=formatDateLocal()&&transactionExpense(tx)!==0).forEach(tx=>values[Number(tx.date.slice(8))-1]+=transactionExpense(tx));
  if(state.hideBalances){$('spendingChart').innerHTML=empty('Angkamu tetap privat.','Tampilkan saldo untuk melihat grafik pengeluaran.');return;}
- const max=Math.max(...values,1);const total=values.reduce((a,b)=>a+b,0);
- $('spendingChart').innerHTML=`<div class="chart-total"><strong>${money(total)}</strong><span>pengeluaran tercatat</span></div><div class="bar-chart" role="group" aria-label="Pengeluaran per hari ${e(month)}. Total ${e(money(total))}">${values.map((value,i)=>`<div class="bar-column"><div role="img" class="chart-bar ${i+1===new Date().getDate()?'today':''}" style="height:${value?Math.max(5,value/max*100):2}%" tabindex="${value?0:-1}" aria-label="Tanggal ${i+1}: ${e(money(value))}"><span class="bar-tooltip">${i+1} · ${money(value)}</span></div>${[0,6,13,20,totalDays-1].includes(i)?`<span class="bar-label">${i+1}</span>`:''}</div>`).join('')}</div><div class="chart-legend"><span class="legend-dot"></span> Pengeluaran harian <span>Termasuk belanja kartu kredit</span></div>`;
+ const max=Math.max(...values.map(Math.abs),1);const total=values.reduce((a,b)=>a+b,0);
+ $('spendingChart').innerHTML=`<div class="chart-total"><strong>${money(total)}</strong><span>pengeluaran tercatat</span></div><div class="bar-chart" role="group" aria-label="Pengeluaran per hari ${e(month)}. Total ${e(money(total))}">${values.map((value,i)=>`<div class="bar-column"><div role="img" class="chart-bar ${value<0?'refund':''} ${i+1===new Date().getDate()?'today':''}" style="height:${value?Math.max(5,Math.abs(value)/max*100):2}%" tabindex="${value?0:-1}" aria-label="${value<0?'Penggantian pengeluaran. ':''}Tanggal ${i+1}: ${e(money(value))}"><span class="bar-tooltip">${i+1} · ${money(value)}</span></div>${[0,6,13,20,totalDays-1].includes(i)?`<span class="bar-label">${i+1}</span>`:''}</div>`).join('')}</div><div class="chart-legend"><span class="legend-dot"></span> Pengeluaran harian <span>Termasuk belanja kartu kredit; hijau = penggantian pengeluaran</span></div>`;
 }
 function walletBalanceEvidence(transactions){
  const issues=balanceEvidenceIssues(transactions,state.settings,state.scannerKnowledge?.balanceObservations);
