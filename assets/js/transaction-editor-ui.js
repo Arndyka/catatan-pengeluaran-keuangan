@@ -1,5 +1,6 @@
 import {investmentProtected} from './investment-ledger.js';
 import {$,escapeHtml as e,formatDateLocal} from './utils.js';
+import {parseMoneyInput} from './money-input.js';
 import {state} from './state.js';
 import {getSettings,updateTransaction} from './repository.js';
 import {transactionTypeLabel} from './transactions.js';
@@ -31,7 +32,7 @@ export async function openTransactionEditor(id){
   event.preventDefault();const button=form.querySelector('[type=submit]'),error=form.querySelector('[role=alert]');button.disabled=true;error.textContent='';
   try{
    if(state.user?.uid!==uid)throw new Error('Sesi berubah. Buka kembali transaksi.');
-   const patch=Object.fromEntries(['date','type','sourceAccountId','destinationAccountId','amount','category','merchant','description','adjustmentDirection'].filter(k=>!form.elements[k].disabled&&(k!=='adjustmentDirection'||form.elements.type.value==='balance_adjustment')).map(k=>[k,form.elements[k].value]));
+   const patch=Object.fromEntries(['date','type','sourceAccountId','destinationAccountId','amount','category','merchant','description','adjustmentDirection'].filter(k=>!form.elements[k].disabled&&(k!=='adjustmentDirection'||form.elements.type.value==='balance_adjustment')).map(k=>[k,k==='amount'?parseMoneyInput(form.elements[k].value):form.elements[k].value]));
    if(Object.hasOwn(patch,'amount'))patch.amount=Number(patch.amount);patch.reviewConfirmed=Boolean(form.elements.reviewConfirmed?.checked);
    await updateTransaction(uid,id,patch,old);
    $('spendlyDialog').close();

@@ -1,4 +1,5 @@
 import {investmentPortfolio} from './investment-ledger.js';
+import {parseMoneyInput,moneyFormData} from './money-input.js';
 import {setupInvestmentUI,investmentPortfolioHtml} from './investment-ui.js';
 import {setupPaylaterUI,renderPaylaterUI,resetPaylaterUI} from './paylater-ui.js';
 import {setupRecurringUI} from './recurring-ui.js';
@@ -70,7 +71,7 @@ function openingForm(accountId){
  dialog(`Saldo awal ${e(account.name)}`,`<form id="openingBalanceForm" class="form-stack"><p class="helper-note">Masukkan saldo sebelum transaksi pertama yang kamu catat, bukan saldo terkini setelah transaksi tersebut. Saldo awal tidak dihitung sebagai pemasukan atau belanja.</p><label class="field">Tanggal mulai<input name="date" type="date" max="${first||formatDateLocal()}" value="${first||formatDateLocal()}" required></label><label class="field">${account.type==='liability'?'Utang awal':'Saldo awal'} (Rp)<input name="amount" type="number" min="0.01" step="0.01" required></label><p role="alert" class="form-error"></p><button type="submit" class="btn btn-primary">Simpan saldo awal</button></form>`);
  $('openingBalanceForm').onsubmit=async event=>{
   event.preventDefault();const form=event.currentTarget,button=form.querySelector('button');button.disabled=true;
-  try{const input=openingBalanceInput({date:form.elements.date.value,amount:Number(form.elements.amount.value),sourceAccountId:accountId},state.transactions);const result=await saveTransaction(state.user.uid,input,state.settings);if(!result.created)throw new Error('Saldo awal sudah tersimpan. Tidak ditambahkan lagi.');$('spendlyDialog').close();toast('Saldo awal disimpan tanpa menambah pemasukan bulanan.');}catch(error){formFeedback(form,error);}finally{button.disabled=false;}
+  try{const input=openingBalanceInput({date:form.elements.date.value,amount:parseMoneyInput(form.elements.amount.value),sourceAccountId:accountId},state.transactions);const result=await saveTransaction(state.user.uid,input,state.settings);if(!result.created)throw new Error('Saldo awal sudah tersimpan. Tidak ditambahkan lagi.');$('spendlyDialog').close();toast('Saldo awal disimpan tanpa menambah pemasukan bulanan.');}catch(error){formFeedback(form,error);}finally{button.disabled=false;}
  };
 }
 function goalForm(id='') {
@@ -79,7 +80,7 @@ function goalForm(id='') {
  $('goalForm').addEventListener('submit',async event=>{
    event.preventDefault();const form=event.currentTarget;const submit=form.querySelector('[type="submit"]');submit.disabled=true;
    try {
-     const valid=validateGoal(Object.fromEntries(new FormData(form)));
+     const valid=validateGoal(moneyFormData(form));
      const next={...valid,id:id || crypto.randomUUID()};
      await savePlanning({...planning,goals:id?planning.goals.map(g=>g.id===id?next:g):[...planning.goals,next]});
      $('spendlyDialog').close();toast(id?'Goal diperbarui. Terus melangkah!':'Mimpi baru sudah punya rencana.');
@@ -93,7 +94,7 @@ function goalForm(id='') {
 }
 function limitForm() {
  dialog('Beri ruang untuk belanja.',`<p class="muted">Batas pengeluaran bulanan untuk menghitung sisa belanja harian. Terpisah dari alokasi per kategori.</p><form id="limitForm" class="form-stack"><label class="field">Batas belanja per bulan (Rp)<input name="limit" type="number" min="1" step="1" value="${planning.monthlyLimit || ''}" required placeholder="8000000"></label><p class="helper-note">Sisa budget dibagi jumlah hari tersisa, termasuk hari ini. Belanja kartu kredit ikut dihitung; transfer dan investasi tidak.</p><p role="alert" class="form-error"></p><button class="btn btn-primary" type="submit">Simpan batas belanja</button></form>`);
- $('limitForm').onsubmit=async event=>{event.preventDefault();const form=event.currentTarget;const button=form.querySelector('button');button.disabled=true;try{const limit=Number(new FormData(form).get('limit'));if(!Number.isFinite(limit)||limit<=0)throw new Error('Masukkan nominal lebih dari nol.');await savePlanning({...planning,monthlyLimit:limit});$('spendlyDialog').close();toast('Rencana belanja diperbarui.');}catch(error){formFeedback(form,error);}finally{button.disabled=false;}};
+ $('limitForm').onsubmit=async event=>{event.preventDefault();const form=event.currentTarget;const button=form.querySelector('button');button.disabled=true;try{const limit=parseMoneyInput(form.elements.limit.value);if(!Number.isFinite(limit)||limit<=0)throw new Error('Masukkan nominal lebih dari nol.');await savePlanning({...planning,monthlyLimit:limit});$('spendlyDialog').close();toast('Rencana belanja diperbarui.');}catch(error){formFeedback(form,error);}finally{button.disabled=false;}};
 }
 function toggleTheme() {const next=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=next;try{localStorage.setItem('spendly:theme',next);}catch{}$('themeButton').innerHTML=icon(next==='dark'?'sun':'moon');$('themeButton').setAttribute('aria-label',next==='dark'?'Aktifkan tema terang':'Aktifkan tema gelap');document.querySelector('meta[name="theme-color"]').content=next==='dark'?'#211e25':'#faf8f6';}
 async function install() {

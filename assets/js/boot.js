@@ -1,6 +1,8 @@
 import { hydrateIcons } from './icons.js';
+import {setupMoneyInputs} from './money-input.js';
 hydrateIcons();
-try { await import('./app.js?v=investment-orders-20261021'); }
+setupMoneyInputs();
+try { await import('./app.js?v=rupiah-input-20261027'); }
 catch(error) {
  console.error('Spendly startup failed',error);
  const notice=document.getElementById('authMessage');

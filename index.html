@@ -16,24 +16,27 @@
   <link rel="stylesheet" href="assets/experience.css?v=cash-movements-20261026">
   <script type="importmap">
     {"imports":{
+      "./assets/js/suggestions-ui.js":"./assets/js/suggestions-ui.js?v=rupiah-input-20261027",
+      "./assets/js/bank-ui.js":"./assets/js/bank-ui.js?v=rupiah-input-20261027",
+      "./assets/js/money-input.js":"./assets/js/money-input.js?v=rupiah-input-20261027",
       "./assets/js/budget.js":"./assets/js/budget.js?v=cash-movements-20261026",
       "./assets/js/transactions.js":"./assets/js/transactions.js?v=cash-movements-20261026",
       "./assets/js/investment-ledger.js":"./assets/js/investment-ledger.js?v=cash-movements-20261026",
-      "./assets/js/investment-ui.js":"./assets/js/investment-ui.js?v=cash-movements-20261026",
+      "./assets/js/investment-ui.js":"./assets/js/investment-ui.js?v=rupiah-input-20261027",
       "./assets/js/repository.js":"./assets/js/repository.js?v=cash-movements-20261026",
       "./assets/js/demo.js":"./assets/js/demo.js?v=cash-movements-20261026",
       "./assets/js/finance-insights.js":"./assets/js/finance-insights.js?v=cash-movements-20261026",
       "./assets/js/statement-opening.js":"./assets/js/statement-opening.js?v=transaction-editor-20261019",
       "./assets/js/transaction-edit.js":"./assets/js/transaction-edit.js?v=cash-movements-20261026",
-      "./assets/js/transaction-editor-ui.js":"./assets/js/transaction-editor-ui.js?v=cash-movements-20261026",
+      "./assets/js/transaction-editor-ui.js":"./assets/js/transaction-editor-ui.js?v=rupiah-input-20261027",
       "./assets/js/icons.js":"./assets/js/icons.js?v=sidebar-header-20261019",
       "./assets/js/credit-card.js":"./assets/js/credit-card.js?v=card-ebilling-20261019",
-      "./assets/js/experience.js":"./assets/js/experience.js?v=cash-movements-20261026",
+      "./assets/js/experience.js":"./assets/js/experience.js?v=rupiah-input-20261027",
       "./assets/js/transaction-filters.js":"./assets/js/transaction-filters.js?v=cash-movements-20261026",
       "./assets/js/financial-health.js":"./assets/js/financial-health.js?v=account-route-20261019-2",
       "./assets/js/accounting.js":"./assets/js/accounting.js?v=cash-movements-20261026",
       "./assets/js/recurring-logic.js":"./assets/js/recurring-logic.js?v=subscriptions-sidebar-20261019",
-      "./assets/js/recurring-ui.js":"./assets/js/recurring-ui.js?v=subscriptions-sidebar-20261019",
+      "./assets/js/recurring-ui.js":"./assets/js/recurring-ui.js?v=rupiah-input-20261027",
       "./assets/js/recurring.js":"./assets/js/recurring.js?v=subscriptions-sidebar-20261019",
       "./assets/js/repository-cloud.js":"./assets/js/repository-cloud.js?v=cash-movements-20261026",
       "./assets/js/transaction-quality.js":"./assets/js/transaction-quality.js?v=salary-weekday-20261019",
@@ -255,7 +258,7 @@
             </div>
 
             <div class="field">
-              <label for="transactionAmount">Nominal</label>
+              <label for="transactionAmount">Nominal (Rp)</label>
               <input id="transactionAmount" type="number" min="0.01" step="0.01" required>
             </div>
 
@@ -850,7 +853,7 @@
   <dialog id="spendlyDialog" class="spendly-dialog" aria-labelledby="dialogTitle"><button class="dialog-close icon-button" type="button" aria-label="Tutup"><span data-icon="close"></span></button><div id="dialogContent"></div></dialog>
   <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
   <noscript><div class="notice error">Aktifkan JavaScript untuk menggunakan Spendly.</div></noscript>
-  <script type="module" src="assets/js/boot.js?v=cash-movements-20261026"></script>
+  <script type="module" src="assets/js/boot.js?v=rupiah-input-20261027"></script>
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 

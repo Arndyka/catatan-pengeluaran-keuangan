@@ -1,3 +1,4 @@
+import {moneyFormData} from './money-input.js';
 import {state} from './state.js';
 import {changeInvestmentPortfolio,getSettings} from './repository.js';
 import {investmentPortfolio,investmentVersion,investmentSalePreview} from './investment-ledger.js';
@@ -50,13 +51,13 @@ export function setupInvestmentUI({dialog,toast,money,refresh}){
   }else return;
   dialog(title,`<form id="investmentForm" class="form-stack">${fields}<p role="alert" class="form-error"></p><button class="btn btn-primary" type="submit">${submit}</button></form>`);
   const form=document.getElementById('investmentForm'),actionId=crypto.randomUUID();
-  const preview=()=>{const out=form.querySelector('[data-sale-preview]');if(!out)return;try{const v=Object.fromEntries(new FormData(form));if(['quantity','price','fee'].some(k=>v[k]==='')){out.textContent='Lengkapi jumlah, harga, dan biaya untuk melihat perhitungan.';return;}if(kind==='sell'){const r=investmentSalePreview(position,Number(v.quantity),Number(v.price),Number(v.fee));out.innerHTML=`<p>Hasil jual bersih: <strong>${money(r.net)}</strong></p><p>Modal terjual: ${money(r.cost)}</p><p>Laba/rugi penjualan: ${pnl(r.profit,money)}</p>`;}else out.innerHTML=`<p>Total pembayaran: <strong>${money(Number(v.quantity)*Number(v.price)+Number(v.fee))}</strong></p>`;}catch(error){out.textContent=error.message;}};
+  const preview=()=>{const out=form.querySelector('[data-sale-preview]');if(!out)return;try{const v=moneyFormData(form);if(['quantity','price','fee'].some(k=>v[k]==='')){out.textContent='Lengkapi jumlah, harga, dan biaya untuk melihat perhitungan.';return;}if(kind==='sell'){const r=investmentSalePreview(position,Number(v.quantity),Number(v.price),Number(v.fee));out.innerHTML=`<p>Hasil jual bersih: <strong>${money(r.net)}</strong></p><p>Modal terjual: ${money(r.cost)}</p><p>Laba/rugi penjualan: ${pnl(r.profit,money)}</p>`;}else out.innerHTML=`<p>Total pembayaran: <strong>${money(Number(v.quantity)*Number(v.price)+Number(v.fee))}</strong></p>`;}catch(error){out.textContent=error.message;}};
   form.addEventListener('input',preview);preview();
   form.onsubmit=async event=>{
    event.preventDefault();const submitButton=form.querySelector('[type=submit]');submitButton.disabled=true;form.querySelector('[role=alert]').textContent='';
    try{
     if(state.user?.uid!==uid)throw new Error('Sesi berubah. Buka formulir kembali.');
-    const data=Object.fromEntries(new FormData(form));for(const key of ['quantity','price','fee','limitPrice','cost','bookValue'])if(Object.hasOwn(data,key))data[key]=Number(data[key]);
+    const data=moneyFormData(form);for(const key of ['quantity','price','fee','limitPrice','cost','bookValue'])if(Object.hasOwn(data,key))data[key]=Number(data[key]);
     const result=await changeInvestmentPortfolio(uid,{...data,kind,id:actionId,expectedVersion:version,...(kind==='settle'?{eventId:id}:['order','fill','cancel'].includes(kind)?{orderId:id}:{positionId:id})});
     if(state.user?.uid!==uid)return;state.settings=result.profile;refresh();document.getElementById('spendlyDialog').close();toast('Posisi dan order berhasil diperbarui.');
    }catch(error){

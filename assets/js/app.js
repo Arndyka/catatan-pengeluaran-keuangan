@@ -1,4 +1,5 @@
 import {knowledgeSummary} from './scanner-knowledge.js';
+import {parseMoneyInput,refreshMoneyInputs} from './money-input.js';
 import {openTransactionEditor} from './transaction-editor-ui.js';
 import {statementOpeningProposal} from './statement-opening.js';
 import {renderRecurringUI} from './recurring-ui.js';
@@ -122,6 +123,7 @@ function renderAll() {
   renderReports();
   renderSettings();
   renderExperience();
+  refreshMoneyInputs();
 }
 
 function renderAccountSelects() {
@@ -647,7 +649,7 @@ function setupEvents() {
       const input = {
           type,
           date: $("transactionDate").value,
-          amount: Number($("transactionAmount").value),
+          amount: parseMoneyInput($("transactionAmount").value),
           sourceAccountId: $("sourceAccount").value,
           destinationAccountId: ['transfer','investment','credit_payment'].includes(type) ? $("destinationAccount").value : '',
           category: $("transactionCategory").value,
@@ -754,7 +756,7 @@ function setupEvents() {
   $("creditReconcileForm").addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const next={...state.creditSettings,issuerSnapshot:null,previousIssuerSnapshot:state.creditSettings.issuerSnapshot||state.creditSettings.previousIssuerSnapshot||null,officialStatementAmount:Number($("officialStatementAmount").value||0),officialStatementDate:$("officialStatementDate").value,officialDueDate:$("officialDueDate").value,reconciliationNote:cleanText($("reconciliationNote").value)};
+    const next={...state.creditSettings,issuerSnapshot:null,previousIssuerSnapshot:state.creditSettings.issuerSnapshot||state.creditSettings.previousIssuerSnapshot||null,officialStatementAmount:parseMoneyInput($("officialStatementAmount").value||'0'),officialStatementDate:$("officialStatementDate").value,officialDueDate:$("officialDueDate").value,reconciliationNote:cleanText($("reconciliationNote").value)};
     const uid=state.user.uid,button=event.target.querySelector('button[type="submit"]');button.disabled=true;
     try{await saveCreditSettings(uid,next);if(state.user?.uid!==uid)return;state.creditSettings=next;setNotice($("creditReconcileMessage"),'success','Rekonsiliasi kartu kredit disimpan.');renderCreditCard();}catch(error){setNotice($("creditReconcileMessage"),'error',error.message);}finally{button.disabled=false;}
   });
@@ -769,7 +771,7 @@ function setupEvents() {
     const button=event.target.querySelector('button[type="submit"]');button.disabled=true;
     const uid=state.user.uid;
     try{
-      const item=validateBudgetItem({id:crypto.randomUUID(),name:cleanText($("budgetName").value),category:$("budgetCategory").value,method:$("budgetMethod").value,value:Number($("budgetValue").value)},state.budgetPlan.items);
+      const item=validateBudgetItem({id:crypto.randomUUID(),name:cleanText($("budgetName").value),category:$("budgetCategory").value,method:$("budgetMethod").value,value:$("budgetMethod").value==='nominal'?parseMoneyInput($("budgetValue").value):Number($("budgetValue").value)},state.budgetPlan.items);
       const next={...state.budgetPlan,items:[...state.budgetPlan.items,item]};
       await saveBudgetPlan(uid,next.month,next);
       if(state.user?.uid!==uid)return;
@@ -826,7 +828,7 @@ function setupEvents() {
   $("creditSettingsForm").addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const next={...state.creditSettings,limit:Number($("ccLimitInput").value),statementDay:Number($("ccStatementDayInput").value),dueDays:Number($("ccDueDaysInput").value),reminderDays:Number($("ccReminderDaysInput").value),minimumPaymentPercent:Number($("ccMinimumPercentInput").value),minimumPaymentFloor:Number($("ccMinimumFloorInput").value)};
+    const next={...state.creditSettings,limit:parseMoneyInput($("ccLimitInput").value),statementDay:Number($("ccStatementDayInput").value),dueDays:Number($("ccDueDaysInput").value),reminderDays:Number($("ccReminderDaysInput").value),minimumPaymentPercent:Number($("ccMinimumPercentInput").value),minimumPaymentFloor:parseMoneyInput($("ccMinimumFloorInput").value)};
     if(next.limit!==state.creditSettings.limit||next.limit>0)next.limitConfirmed=true;
     const uid=state.user.uid,button=event.target.querySelector('button[type="submit"]');button.disabled=true;
     try{await saveCreditSettings(uid,next);if(state.user?.uid!==uid)return;state.creditSettings=next;setNotice($("creditSettingsMessage"),'success','Pengaturan kartu kredit berhasil disimpan.');renderAll();}catch(error){setNotice($("creditSettingsMessage"),'error',error.message);}finally{button.disabled=false;}
@@ -1628,7 +1630,7 @@ function syncScanCandidates() {
       if (field === "selected") {
         item.selected = input.checked;
       } else if (field === "amount") {
-        item.amount = Number(input.value || 0);
+        item.amount = parseMoneyInput(input.value);
       } else {
         if(field==='category'&&item[field]!==input.value)item.categoryReviewed=true;
         item[field] = input.value;

@@ -3,6 +3,33 @@ import AxeBuilder from '@axe-core/playwright';
 const BASE='http://127.0.0.1:4173';
 const waitForDemo=page=>expect(page.locator('#syncStatus')).toHaveText(/Mode demo.*lokal/,{timeout:15000});
 
+test('rupiah fields group typing and preserve cents when saving and editing on mobile',async({page})=>{
+ await page.setViewportSize({width:390,height:844});await page.evaluate(()=>location.hash='transactions');
+ const amount=page.locator('#transactionAmount');await amount.pressSequentially('1000000');await expect(amount).toHaveValue('1.000.000');await amount.press('Backspace');await expect(amount).toHaveValue('100.000');await amount.fill('');await amount.pressSequentially('1.50');await expect(amount).toHaveValue('1,50');await amount.fill('4263445,96');await expect(amount).toHaveValue('4.263.445,96');
+ await page.locator('#transactionMerchant').fill('Currency regression');await page.locator('#transactionForm [type=submit]').click();await expect(page.locator('#transactionMessage')).toContainText('berhasil');
+ const row=page.locator('#transactionTableContainer tr').filter({hasText:'Currency regression'});await row.getByRole('button',{name:'Edit',exact:true}).click();
+ const edit=page.locator('#transactionEditForm [name=amount]');await expect(edit).toHaveValue('4.263.445,96');await edit.fill('1.234.567,89');await page.locator('#transactionEditForm [type=submit]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();
+ expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.find(t=>t.merchant==='Currency regression').amount)).toBe(1234567.89);
+ await amount.fill('abc100');
+ expect(await amount.evaluate(el=>el.checkValidity())).toBe(false);
+ await amount.fill('1000000');await amount.press('Home');await amount.press('ArrowRight');await amount.press('2');await expect(amount).toHaveValue('12.000.000');
+ await amount.fill('1000');await amount.evaluate(el=>{el.setSelectionRange(4,5);const data=new DataTransfer();el.dispatchEvent(new ClipboardEvent('cut',{clipboardData:data,bubbles:true,cancelable:true}));});await expect(amount).toHaveValue('100');
+ await amount.fill('1000');await amount.evaluate(el=>{el.setSelectionRange(el.value.length,el.value.length);const data=new DataTransfer();data.setData('text/plain','0');el.dispatchEvent(new ClipboardEvent('paste',{clipboardData:data,bubbles:true,cancelable:true}));});await expect(amount).toHaveValue('10.000');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+test('budget distinguishes rupiah from percentages and validates empty reset amounts',async({page})=>{
+ await page.evaluate(()=>location.hash='budget');await page.locator('#budgetMethod').selectOption('nominal');
+ const value=page.locator('#budgetValue');await value.pressSequentially('1250000,50');await expect(value).toHaveValue('1.250.000,50');
+ await page.locator('#budgetMethod').selectOption('percentage');await expect(value).toHaveValue('');await expect(value).toHaveAttribute('type','number');
+ await value.fill('25');await page.locator('#budgetMethod').selectOption('nominal');await expect(value).toHaveValue('');
+ expect(await value.evaluate(el=>el.checkValidity())).toBe(false);
+ await page.locator('#budgetName').fill('Currency budget');await page.locator('#budgetCategory').selectOption('Hiburan');await value.fill('1250000,50');await page.locator('#budgetForm [type=submit]').click();
+ await expect(page.locator('#budgetMessage')).toContainText('Pos budget ditambahkan.');
+ const saved=await page.evaluate(()=>Object.values(JSON.parse(localStorage.getItem('spendly:demo:v1')).budgets).flatMap(b=>b.items).find(b=>b.name==='Currency budget'));
+ expect(saved.value).toBe(1250000.50);
+});
+
 test('credit funding and expense reimbursements retain accounts and journals in mobile editing',async({page})=>{
  await page.evaluate(async()=>{const {buildTransaction}=await import('/assets/js/accounting.js'),d=JSON.parse(localStorage.getItem('spendly:demo:v1'));d.transactions=[];for(const input of [{type:'credit_cash_advance',amount:100000,sourceAccountId:'liability-mandiri-cc',destinationAccountId:'asset-blu',merchant:'Card funding',category:'Pencairan Kartu'},{type:'expense_refund',amount:30000,sourceAccountId:'asset-mandiri',merchant:'Meal reimbursement',category:'Makan'}])d.transactions.push(await buildTransaction({...input,date:'2026-10-20'},d.settings.profile));localStorage.setItem('spendly:demo:v1',JSON.stringify(d));});
  await page.reload();await waitForDemo(page);await expect(page.locator('#spendingChart .chart-bar.refund')).toHaveCount(1);await expect(page.locator('#spendingChart .chart-bar.refund')).toHaveAttribute('aria-label',/Penggantian pengeluaran/);await page.setViewportSize({width:390,height:844});await page.evaluate(()=>location.hash='transactions');
@@ -50,7 +77,7 @@ test('investment conflict refreshes the order before the editor is reopened',asy
   await changeInvestmentPortfolio(state.user.uid,{...o,orderId:o.id,id:crypto.randomUUID(),kind:'order',limitPrice:1500,expectedVersion:investmentVersion(state.settings)});
  });
  await page.locator('#investmentForm [type=submit]').click();await expect(page.locator('#investmentForm [role=alert]')).toContainText('Posisi atau order berubah');
- await page.locator('.dialog-close').click();await page.getByRole('button',{name:'Edit order',exact:true}).click();await expect(page.locator('#investmentForm [name=limitPrice]')).toHaveValue('1500');
+ await page.locator('.dialog-close').click();await page.getByRole('button',{name:'Edit order',exact:true}).click();await expect(page.locator('#investmentForm [name=limitPrice]')).toHaveValue('1.500');
  await page.locator('#investmentForm [name=limitPrice]').fill('1600');await page.locator('#investmentForm [type=submit]').click();await expect(page.locator('#spendlyDialog')).not.toBeVisible();await expect(page.locator('[data-investment-order]')).toContainText('1.600');
 });
 
@@ -464,7 +491,7 @@ test('native myBCA PDF uses local suggestions and preserves original financial f
  await expect(page.locator('#statementSummaryContainer')).toContainText('Rekonsiliasi sesuai');
  await page.locator('#optimizeWithNvidiaButton').click();await expect(page.locator('#scanMessage')).toContainText('Saran lokal');
  const row=page.locator('[data-scan-index="0"]');
- await expect(row.locator('[data-scan-field="amount"]')).toHaveValue('100.25');
+ await expect(row.locator('[data-scan-field="amount"]')).toHaveValue('100,25');
  await expect(row.locator('[data-scan-field="date"]')).toHaveValue('2026-08-14');expect(calls).toBe(0);
  await expect(page.locator('#scannerKnowledgeSummary')).toContainText('0 contoh referensi');
 });
@@ -482,7 +509,7 @@ test('native blu PDF keeps cent amounts editable and unknown transfer accounts b
  await page.locator('#scanInput').setInputFiles(upload);await page.locator('#scanButton').click();
  await expect(page.locator('[data-scan-index]')).toHaveCount(2);
  const interest=page.locator('[data-scan-index="0"]'),transfer=page.locator('[data-scan-index="1"]');
- await expect(interest.locator('[data-scan-field="amount"]')).toHaveValue('0.31');
+ await expect(interest.locator('[data-scan-field="amount"]')).toHaveValue('0,31');
  expect(await interest.locator('[data-scan-field="amount"]').evaluate(el=>el.checkValidity())).toBe(true);
  await expect(transfer.locator('[data-scan-field="sourceAccountId"]')).toHaveValue('');
  await expect(transfer.locator('[data-scan-field="destinationAccountId"]')).toHaveValue('asset-blu');
@@ -523,7 +550,7 @@ test('phone scan uses compact cards and keeps edits when switching to desktop',a
  await row.locator('[data-toggle-scan]').click();await expect(row.locator('.scan-mobile-summary')).toContainText('54.321');
  await expect(row.locator('.scan-mobile-summary')).toContainText('Mobile edit');
  await page.setViewportSize({width:1440,height:950});await expect(page.locator('.compact-review-table thead')).toBeVisible();
- await expect(row.locator('[data-scan-field="amount"]')).toHaveValue('54321');await expect(row.locator('[data-scan-field="merchant"]')).toHaveValue('Mobile edit');
+ await expect(row.locator('[data-scan-field="amount"]')).toHaveValue('54.321');await expect(row.locator('[data-scan-field="merchant"]')).toHaveValue('Mobile edit');
  await expect(page.locator('[data-scan-field="amount"]')).toHaveCount(2);
  await page.setViewportSize({width:390,height:844});await page.locator('[data-scan-index="1"] [data-scan-field="selected"]').uncheck();await row.locator('[data-scan-field="selected"]').check();
  await page.locator('#saveScanCandidates').click();await expect(page.locator('#scanMessage')).toContainText('1 transaksi disimpan');
@@ -762,12 +789,12 @@ test('shared savings and bank rules persist, respect privacy, and do not post le
  await expect(page.locator('.savings-total')).toContainText('••');
  await page.evaluate(()=>location.hash='wallets');
  await page.locator('[data-bank-action="bank-rule"][data-account="asset-mandiri"]').click();
- await expect(page.locator('#bankRuleForm [name="card"]')).toHaveValue('6000');
+ await expect(page.locator('#bankRuleForm [name="card"]')).toHaveValue('6.000');
  await page.locator('#bankRuleForm [name="minimum"]').fill('200000');
  await page.locator('#bankRuleForm button').click();
  await page.reload();
  await page.locator('[data-bank-action="bank-rule"][data-account="asset-mandiri"]').click();
- await expect(page.locator('#bankRuleForm [name="minimum"]')).toHaveValue('200000');
+ await expect(page.locator('#bankRuleForm [name="minimum"]')).toHaveValue('200.000');
  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('spendly:demo:v1')).transactions.length)).toBe(before);
 });
 
@@ -906,7 +933,7 @@ test('local OCR excludes summaries and pending payments',async({page})=>{
  await page.locator('#scanInput').setInputFiles('assets/icon-192.png');await page.locator('#scanButton').click();
  await expect(page.locator('[data-scan-index]')).toHaveCount(1);
  await page.locator('#optimizeWithNvidiaButton').click();await expect(page.locator('#scanMessage')).toContainText('Saran lokal');
- await expect(page.locator('[data-scan-field="amount"]')).toHaveValue('55555');
+ await expect(page.locator('[data-scan-field="amount"]')).toHaveValue('55.555');
 });
 
 test('manual salary entry warns about a confirmed salary and can cancel the duplicate',async({page})=>{

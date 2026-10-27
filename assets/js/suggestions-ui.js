@@ -1,3 +1,4 @@
+import {parseMoneyInput} from './money-input.js';
 import {$,escapeHtml as e,setNotice,formatDateLocal} from './utils.js';
 import {state} from './state.js';
 import {suggestTransaction,suggestionKey} from './transaction-quality.js';
@@ -22,7 +23,7 @@ export function suggestionsHtml(items,scanIndex=null){
 }
 export function setupManualSuggestions(updateMode){
  let ai=[],dismissed=[],requestVersion=0;
- const read=()=>Object.fromEntries(Object.entries(INPUTS).map(([key,id])=>[key,key==='amount'?Number($(id).value):$(id).value]));
+ const read=()=>Object.fromEntries(Object.entries(INPUTS).map(([key,id])=>[key,key==='amount'?parseMoneyInput($(id).value):$(id).value]));
  const render=()=>{const tx={...read(),aiSuggestions:ai,dismissedSuggestions:dismissed};$('manualSuggestions').innerHTML=suggestionsHtml(suggestionsFor(tx));};
  $('transactionForm').addEventListener('input',event=>{if(!Object.values(INPUTS).includes(event.target.id))return;requestVersion++;ai=[];render();});
  $('transactionForm').addEventListener('change',event=>{if(Object.values(INPUTS).includes(event.target.id)){requestVersion++;ai=[];render();}});
